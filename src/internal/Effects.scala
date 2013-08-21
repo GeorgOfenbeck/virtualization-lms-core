@@ -514,8 +514,10 @@ trait Effects extends Expressions with Blocks with Utils {
 
       // TODO: write-on-read deps should be weak
       // TODO: optimize!!
-      val allDeps = canonic(readDeps ++ softWriteDeps ++ writeDeps ++ canonicLinear(simpleDeps) ++ canonicLinear(controlDeps) ++ canonicLinear(globalDeps))
-      scope filter (allDeps contains _)
+      val allDeps = canonic(readDeps ++ softWriteDeps ++ writeDeps ++ canonicLinear(simpleDeps) ++ canonicLinear(controlDeps) ++ canonicLinear(globalDeps)).toSet
+      val transDeps = allDeps.flatMap { case Def(e) => syms(e):List[Exp[Any]] }
+      scope filter (z => (allDeps contains z) && !(transDeps contains z))
+      // scope filter (allDeps contains _)
     }
   }
 

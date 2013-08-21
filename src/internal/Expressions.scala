@@ -20,14 +20,17 @@ trait Expressions extends Utils {
     def pos: List[SourceContext] = Nil
   }
 
-  case class Const[+T:Manifest](x: T) extends Exp[T]
+  case class Const[+T:Manifest](x: T) extends Exp[T] {
+    override final lazy val hashCode = x.hashCode()
+  }
 
   case class Sym[+T:Manifest](val id: Int) extends Exp[T] {
     //var sourceInfo = Thread.currentThread.getStackTrace // will go away
-    var sourceInfo = null
-    var sourceContexts: List[SourceContext] = Nil
-    override def pos = sourceContexts
-    def withPos(pos: List[SourceContext]) = { sourceContexts :::= pos; this }
+    // var sourceInfo = null
+    // var sourceContexts: List[SourceContext] = Nil
+    // override def pos = sourceContexts
+    // def withPos(pos: List[SourceContext]) = { sourceContexts :::= pos; this }
+    override final lazy val hashCode = id
   }
 
   case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
@@ -35,16 +38,19 @@ trait Expressions extends Utils {
   var nVars = 0
   def fresh[T:Manifest]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
 
-  def fresh[T:Manifest](pos: List[SourceContext]): Sym[T] = fresh[T].withPos(pos)
+  def fresh[T:Manifest](pos: List[SourceContext]): Sym[T] = fresh[T] // .withPos(pos)
 
-  def quotePos(e: Exp[Any]): String = e.pos match {
-    case Nil => "<unknown>"
-    case cs => 
-      def all(cs: SourceContext): List[SourceContext] = cs.parent match {
-        case None => List(cs)
-        case Some(p) => cs::all(p)
-      }
-    cs.map(c => all(c).reverse.map(c => c.fileName.split("/").last + ":" + c.line).mkString("//")).mkString(";")
+  def quotePos(e: Exp[Any]): String = {
+//    e.pos match {
+//      case Nil => "<unknown>"
+//      case cs =>
+//        def all(cs: SourceContext): List[SourceContext] = cs.parent match {
+//          case None => List(cs)
+//          case Some(p) => cs::all(p)
+//        }
+//        cs.map(c => all(c).reverse.map(c => c.fileName.split("/").last + ":" + c.line).mkString("//")).mkString(";")
+//    }
+    "<unknown>"
   }
 
 /*
@@ -122,16 +128,20 @@ trait Expressions extends Utils {
   var localDefs: List[Stm] = Nil
   var globalDefsCache: Map[Sym[Any],Stm] = Map.empty
 
+  var inverseDefCache: Map[Def[Any],Stm] = Map.empty
+
   def reifySubGraph[T](b: =>T): (T, List[Stm]) = {
     val saveLocal = localDefs
     val saveGlobal = globalDefs
     val saveGlobalCache = globalDefsCache
+    val saveInverseDefCache = inverseDefCache
     localDefs = Nil
     val r = b
     val defs = localDefs
     localDefs = saveLocal
     globalDefs = saveGlobal
     globalDefsCache = saveGlobalCache
+    inverseDefCache = saveInverseDefCache
     (r, defs)
   }
 
@@ -144,6 +154,7 @@ trait Expressions extends Utils {
     globalDefs = globalDefs ::: ds
     for (stm <- ds; s <- stm.lhs) {      
       globalDefsCache += (s->stm)
+      inverseDefCache += (stm.rhs.asInstanceOf[Def[Any]]->stm)
     }
   }
 
@@ -151,11 +162,14 @@ trait Expressions extends Utils {
     globalDefsCache.get(s)
     //globalDefs.find(x => x.defines(s).nonEmpty)
 
-  def findDefinition[T](d: Def[T]): Option[Stm] =
-    globalDefs.find(x => x.defines(d).nonEmpty)
+  def findDefinition[T](d: Def[T]): Option[Stm] = {
+    inverseDefCache.get(d)
+    // globalDefs.find(x => x.defines(d).nonEmpty)
+  }
+
 
   def findOrCreateDefinition[T:Manifest](d: Def[T], pos: List[SourceContext]): Stm =
-    findDefinition[T](d) map { x => x.defines(d).foreach(_.withPos(pos)); x } getOrElse {
+    findDefinition[T](d) map { x => x.defines(d)/*.foreach(_.withPos(pos))*/; x } getOrElse {
       createDefinition(fresh[T](pos), d)
     }
 
@@ -283,6 +297,7 @@ trait Expressions extends Utils {
     globalDefs = Nil
     localDefs = Nil
     globalDefsCache = Map.empty
+    inverseDefCache = Map.empty
   }
 
 }
