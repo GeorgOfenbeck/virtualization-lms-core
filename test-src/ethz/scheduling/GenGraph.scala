@@ -51,24 +51,41 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
   case class Instructions(
                            val syms: Vector[Exp[Int]],
                            val arrays: Vector[Exp[Array[Int]]],
-                           val initialized: Set[inipos]
+                           val initialized: Set[inipos],
+                           val nests: Int
                            )
 
+  case class CodeStyle(
+                        val nrinstructions: Int,
+                        val nestdepth: Int,
+                        val nestperlevel: Int
+                        ) {
+    def decinstr(): CodeStyle = this.copy(nrinstructions = this.nrinstructions-1)
+    def decnest(): CodeStyle = this.copy(nestdepth = this.nestdepth-1)
+  }
 
-  def GenRandomInstruction(n: Int, prev: Gen[Instructions]): Gen[Instructions] = lzy {
-    if (n > 0)
+
+
+  def GenRandomInstruction(codestyle: CodeStyle, prev: Gen[Instructions]): Gen[Instructions] = lzy {
+    if (codestyle.nrinstructions > 0)
     for {
-      sofar <- GenRandomInstruction(n-1,prev)
+      sofar <- GenRandomInstruction(codestyle.decinstr(),prev)
       arith <- GenArith(sofar)
       newarr <- GenNewArr(sofar)
-      store <- GenStoreArr(sofar)
+      store <- if(sofar.arrays.isEmpty) GenRandomInstruction(codestyle.decinstr(),prev) else GenStoreArr(sofar) //GO: FIXME - calling recursion just because I cannot get something like a None
+      load <- if(sofar.initialized.isEmpty) GenRandomInstruction(codestyle.decinstr(),prev) else GenLoadArr(sofar)
+      block <- if (false) ??? else GenRandomInstruction(codestyle.decinstr(),prev)
+     // block <- if (codestyle.nestdepth > 0 && sofar.nests < codestyle.nestperlevel) GenNestBlock(codestyle.decnest(), sofar) else GenRandomInstruction(codestyle.decinstr(),prev)
+      //block <- if (false) GenNestBlock(codestyle.decnest(), sofar) else GenRandomInstruction(codestyle.decinstr(),prev)
       //store <- if (sofar.arrays.isEmpty) List() else List(GenStoreArr(sofar))
       //load <- if (sofar.arrays.isEmpty) List() else List(GenLoadArr(sofar))
 /*      choice <- if (sofar.arrays.isEmpty)
                   Gen.oneOf(arith,newarr)//,store,load))
                 else
                   Gen.oneOf(arith,newarr)        */
-      choice <- Gen.oneOf(arith,newarr)
+      //choice <- lzy { Gen.oneOf(arith,newarr,store, load)}
+      choice <- arith
+      //choice <- Gen.oneOf(arith,newarr,store, load,block)
 
       //choice <- Gen.oneOf(List(arith,newarr) ::: store ::: load)
     } yield {
@@ -85,7 +102,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     }
   }
 
-  def GenNewArr(sofar: Instructions): Gen[Instructions] = {
+  def GenNewArr(sofar: Instructions): Gen[Instructions] = lzy {
     for {
       arrsize <- Gen.choose(1,3)
     } yield {
@@ -94,7 +111,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     }
   }
 
-  def GenLoadArr(sofar: Instructions): Gen[Instructions] = {
+  def GenLoadArr(sofar: Instructions): Gen[Instructions] = lzy {
     for {
       chosenarr <- Gen.oneOf(sofar.initialized.toList)
     } yield {
@@ -103,7 +120,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     }
   }
 
-  def GenStoreArr(sofar: Instructions): Gen[Instructions] = {
+  def GenStoreArr(sofar: Instructions): Gen[Instructions] = lzy {
     for {
       chosenarr <- Gen.oneOf(sofar.arrays)
       sym <- Gen.oneOf(sofar.syms)
@@ -112,12 +129,23 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
       val ini = inipos(chosenarr,0)
       sofar.copy(initialized = sofar.initialized + ini)
     }
-
   }
 
 
+  def GenNestBlock(style: CodeStyle, sofar: Instructions): Gen[Instructions] = lzy {
+    val range: Rep[Range] = range_until(Const(0), Const(1))
+    val block: Rep[Int] => Rep[Unit] = (i: Rep[Int])=> {
+      val withiter = sofar.copy(syms = sofar.syms :+ i)
+      val nest = GenRandomInstruction(style.decnest(), withiter)
+      val unit: Rep[Unit] = null //this is annoying
+      unit
+    }
+    range_foreach(range,block)
+    sofar.copy(nests = sofar.nests + 1)
+  }
 
-  def GenArith(sofar: Instructions): Gen[Instructions] = {
+
+  def GenArith(sofar: Instructions): Gen[Instructions] = lzy {
     for {
       //const <- Gen.const(Const(1))
       const <- Gen.oneOf(sofar.syms)
@@ -130,7 +158,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     }
   }
 
-  def GenFresh(prev: Gen[Instructions]): Gen[Instructions] = {
+  def GenFresh(prev: Gen[Instructions]): Gen[Instructions] = lzy {
     for {
       sofar <- prev
       sym <- Gen.const(fresh[Int])
@@ -138,7 +166,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
   }
 
   def GenEmpty(): Gen[Instructions] = {
-    Gen.const(Instructions(Vector.empty, Vector.empty, Set.empty))
+    Gen.const(Instructions(Vector.empty, Vector.empty, Set.empty,0))
   }
 }
 
@@ -148,16 +176,18 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
   class GenTest extends FunSpec{
 
     describe("check gen") {
+      println("starting")
       val dsl = new GenGraph()
+      val style = dsl.CodeStyle(20,2,0)
       val empty = dsl.GenEmpty()
       val inigen = dsl.GenFresh(empty)
-      val newint = dsl.GenRandomInstruction(20,inigen)
+      val newint = dsl.GenRandomInstruction(style,inigen)
       val bla = (unit: dsl.Rep[Int]) => {
         newint.sample.get
         dsl.Const(1)
       }
       dsl.codegen.emitSource(bla,"Test", new PrintWriter(System.out))
-      println(dsl.globalDefs)
+    //  println(dsl.globalDefs)
     }
   }
 
