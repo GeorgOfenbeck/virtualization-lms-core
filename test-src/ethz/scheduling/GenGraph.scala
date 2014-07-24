@@ -65,42 +65,47 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
   }
 
 
+  def OneOfFix[T]( gn: Gen[T]*): Gen[T] = {
+    val first: Gen[T] = gn(0)
+    val sec: Gen[T] = gn(1)
+    val rest: Seq[Gen[T]] = gn.tail.tail
+    Gen.oneOf(first,sec,rest: _*)
+
+  }
 
   def GenRandomInstruction(codestyle: CodeStyle, prev: Gen[Instructions]): Gen[Instructions] = lzy {
-    if (codestyle.nrinstructions > 0)
-    for {
-      sofar <- GenRandomInstruction(codestyle.decinstr(),prev)
-      arith <- GenArith(sofar)
-      newarr <- GenNewArr(sofar)
-      store <- if(sofar.arrays.isEmpty) GenRandomInstruction(codestyle.decinstr(),prev) else GenStoreArr(sofar) //GO: FIXME - calling recursion just because I cannot get something like a None
-      load <- if(sofar.initialized.isEmpty) GenRandomInstruction(codestyle.decinstr(),prev) else GenLoadArr(sofar)
-      block <- if (false) ??? else GenRandomInstruction(codestyle.decinstr(),prev)
-     // block <- if (codestyle.nestdepth > 0 && sofar.nests < codestyle.nestperlevel) GenNestBlock(codestyle.decnest(), sofar) else GenRandomInstruction(codestyle.decinstr(),prev)
-      //block <- if (false) GenNestBlock(codestyle.decnest(), sofar) else GenRandomInstruction(codestyle.decinstr(),prev)
-      //store <- if (sofar.arrays.isEmpty) List() else List(GenStoreArr(sofar))
-      //load <- if (sofar.arrays.isEmpty) List() else List(GenLoadArr(sofar))
-/*      choice <- if (sofar.arrays.isEmpty)
-                  Gen.oneOf(arith,newarr)//,store,load))
-                else
-                  Gen.oneOf(arith,newarr)        */
-      //choice <- lzy { Gen.oneOf(arith,newarr,store, load)}
-      choice <- arith
-      //choice <- Gen.oneOf(arith,newarr,store, load,block)
+    if (codestyle.nrinstructions > 0) {
+      val bla1 = GenRandomInstruction(codestyle.decinstr(), prev).flatMap(
+        sofar => {
+          val seq = Seq(GenArith(sofar),GenNewArr(sofar))
+          val seq2 = if (sofar.arrays.isEmpty) seq else seq :+ GenStoreArr(sofar)
+          val seq3 = if (sofar.initialized.isEmpty) seq2 else seq2 :+ GenLoadArr(sofar)
+          val seq4 = if (codestyle.nestdepth > 0 && sofar.nests < codestyle.nestperlevel) seq3 :+ GenNestBlock(codestyle.decnest(), sofar) else seq3
+          val seq5 = seq4 :+ GenPrint(sofar)
+          OneOfFix(seq5: _*)
 
-      //choice <- Gen.oneOf(List(arith,newarr) ::: store ::: load)
-    } yield {
-      if (sofar.syms.isEmpty && sofar.arrays.isEmpty) {
-        assert(false, "we dont have any inital seed for our random instructions")
-        ???
-      }
-      else {
-        choice
-      }
+          //In the current version of scalacheck a call with a container would call the wrong overload
+          /*/** Picks a random value from a list */
+            def oneOf[T](xs: Seq[T]): Gen[T] =
+
+            instead of:
+
+             /** Picks a random generator from a list */
+            def oneOf[T](g0: Gen[T], g1: Gen[T], gn: Gen[T]*): Gen[T] = {
+            */
+        }
+      )
     }
     else {
       prev
     }
   }
+
+  def GenPrint(sofar: Instructions): Gen[Instructions] = lzy {
+      this.print("bla")
+      sofar
+  }
+
 
   def GenNewArr(sofar: Instructions): Gen[Instructions] = lzy {
     for {
@@ -136,7 +141,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     val range: Rep[Range] = range_until(Const(0), Const(1))
     val block: Rep[Int] => Rep[Unit] = (i: Rep[Int])=> {
       val withiter = sofar.copy(syms = sofar.syms :+ i)
-      val nest = GenRandomInstruction(style.decnest(), withiter)
+      val nest = GenRandomInstruction(style.decnest(), withiter).sample
       val unit: Rep[Unit] = null //this is annoying
       unit
     }
@@ -178,7 +183,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     describe("check gen") {
       println("starting")
       val dsl = new GenGraph()
-      val style = dsl.CodeStyle(20,2,0)
+      val style = dsl.CodeStyle(20,2,4)
       val empty = dsl.GenEmpty()
       val inigen = dsl.GenFresh(empty)
       val newint = dsl.GenRandomInstruction(style,inigen)
@@ -190,96 +195,5 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     //  println(dsl.globalDefs)
     }
   }
-
-/*
-  def GenRandomInstructions() : Gen[List[Exp[Any]]] = {
-    val x : List[Exp[Any]] = List(Const(1))
-    val bla = for {
-      ini <- Gen.const(x)
-    }  yield ini
-    bla
-  }
-
-
-  def GenRandomInt(n: Int) : Gen[List[Exp[Int]]] = {
-    val ini = Gen.const(List(Const(1)))
-    GenRandomInt(n-1,ini)
-  }
-
-
-
-
-  def GenRandomInt(n: Int, sofar : Gen[List[Exp[Int]]]) : Gen[List[Exp[Int]]] = {
-    if (n == 0)
-      sofar
-    else {
-      val res = for {
-        const <- Gen.const(Const(1))
-        prev <- sofar
-        newint <- if (!prev.isEmpty) {
-          val whatisit = GenArith(sofar)
-          val hm = Gen.oneOf(Gen.const(Const(1)), whatisit)
-          hm
-        }
-        else
-          Gen.const(Const(1))
-      } yield newint :: prev
-      GenRandomInt(n-1,res)
-    }
-  }
-
-  def GenNewArray(): Gen[Exp[Any]] = {
-    val x =  for {
-      s <- Gen.choose(1, 2)
-      i <- Gen.const(array_obj_new[Int](Const(s)))
-    } yield i
-    x
-  }
-
-  def GenArith(sofar: Gen[List[Exp[Int]]]): Gen[Exp[Int]] = {
-    val x = for {
-      prev <- sofar
-      prevsize <- prev.size
-      n1 <- Gen.choose(0,prevsize-1)
-      n2 <- Gen.choose(0,prevsize-1)
-    } yield{
-      val lhs = prev(n1)
-      val rhs = prev(n2)
-      val newint = int_plus(lhs,rhs)
-      newint
-    }
-    x
-  }
-
-
-
-/*
-  def GenRec(full: Int, remain: Int, sofar: Gen[List[Exp[Any]]]): Gen[List[Exp[Any]]] = {
-    if (remain > 0)
-    {
-      val outer_res =   for {
-        num <- Gen.choose(1,2)
-        pos <- Gen.choose(0,full-remain)
-        prev <- sofar
-      } yield {
-        val res= if (num == 1)
-        {
-          num :: prev
-        }
-        else
-        {
-          (prev(pos) * 2) :: prev
-        }
-        res
-      }
-      GenRec(full,remain-1,outer_res)
-    }
-    else
-    {
-      sofar
-    }
-  }
-*/
-  */
 
 
