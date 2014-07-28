@@ -77,6 +77,7 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     if (codestyle.nrinstructions > 0) {
       val bla1 = GenRandomInstruction(codestyle.decinstr(), prev).flatMap(
         sofar => {
+
           val seq = Seq(GenArith(sofar),GenNewArr(sofar))
           val seq2 = if (sofar.arrays.isEmpty) seq else seq :+ GenStoreArr(sofar)
           val seq3 = if (sofar.initialized.isEmpty) seq2 else seq2 :+ GenLoadArr(sofar)
@@ -95,6 +96,49 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
             */
         }
       )
+
+      /*
+      val bla2 = for {
+        sofar <- GenRandomInstruction(codestyle.decinstr(), prev)
+        arith <- GenArith(sofar)
+      } yield arith*/
+
+      bla1
+
+      /*
+      for {
+        sofar <- GenRandomInstruction(codestyle.decinstr(), prev)
+        arith <- GenArith(sofar)
+        newarr <- GenNewArr(sofar)
+        store <- if (sofar.arrays.isEmpty) GenRandomInstruction(codestyle.decinstr(), prev) else GenStoreArr(sofar) //GO: FIXME - calling recursion just because I cannot get something like a None
+        load <- if (sofar.initialized.isEmpty) GenRandomInstruction(codestyle.decinstr(), prev) else GenLoadArr(sofar)
+        block <- if (false) ??? else GenRandomInstruction(codestyle.decinstr(), prev)
+        // block <- if (codestyle.nestdepth > 0 && sofar.nests < codestyle.nestperlevel) GenNestBlock(codestyle.decnest(), sofar) else GenRandomInstruction(codestyle.decinstr(),prev)
+        //block <- if (false) GenNestBlock(codestyle.decnest(), sofar) else GenRandomInstruction(codestyle.decinstr(),prev)
+        //store <- if (sofar.arrays.isEmpty) List() else List(GenStoreArr(sofar))
+        //load <- if (sofar.arrays.isEmpty) List() else List(GenLoadArr(sofar))
+        /*      choice <- if (sofar.arrays.isEmpty)
+                  Gen.oneOf(arith,newarr)//,store,load))
+                else
+                  Gen.oneOf(arith,newarr)        */
+        //choice <- lzy { Gen.oneOf(arith,newarr,store, load)}
+        choice <- arith
+      //choice <- Gen.oneOf(arith,newarr,store, load,block)
+
+      //choice <- Gen.oneOf(List(arith,newarr) ::: store ::: load)
+      } yield {
+        if (sofar.syms.isEmpty && sofar.arrays.isEmpty) {
+          assert(false, "we dont have any inital seed for our random instructions")
+          ???
+        }
+
+        else {
+          choice
+        }
+
+
+      }
+      */
     }
     else {
       prev
@@ -187,6 +231,9 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
       val empty = dsl.GenEmpty()
       val inigen = dsl.GenFresh(empty)
       val newint = dsl.GenRandomInstruction(style,inigen)
+
+
+
       val bla = (unit: dsl.Rep[Int]) => {
         newint.sample.get
         dsl.Const(1)
