@@ -1,5 +1,6 @@
-
 package ethz.scheduling
+
+
 
 import java.io.PrintWriter
 
@@ -9,14 +10,50 @@ import Gen._
 import scala.reflect.SourceContext
 import scala.virtualization.lms.common._
 
+trait Print extends Base {
+  implicit def unit(s: String): Rep[String]
+  def print(s: Rep[Any]): Rep[Unit]
+}
+
+trait PrintExp extends Print with EffectExp {
+  implicit def unit(s: String): Rep[String] = Const(s)
+  case class Print(s: Rep[Any]) extends Def[Unit]
+  def print(s: Rep[Any]) = reflectEffect(Print(s))
+  override def mirrorDef[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Def[A] = (e match {
+    case Print(s) => Print(f(s))
+    case _ => super.mirrorDef(e,f)
+  }).asInstanceOf[Def[A]] // why??
+  override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = (e match {
+      case Reflect(Print(s), u, es) => reflectMirrored(Reflect(Print(f(s)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case _ => super.mirror(e,f)
+    }).asInstanceOf[Exp[A]] // why??
+}
+
+trait ScalaGenPrint extends ScalaGenEffect {
+  val IR: PrintExp
+  import IR._
+
+  override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
+    case Print(s) =>  emitValDef(sym, "println(" + quote(s) + ")")
+    case _ => super.emitNode(sym, rhs)
+  }
+}
 
 
-class GenRandomCode extends PrimitiveOpsExp with OrderingOpsExp with VariablesExp
- with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala { self =>
+class GenRCode extends PrimitiveOpsExp with OrderingOpsExp with VariablesExp
+with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala {
+  self =>
 
   val codegen = new ScalaGenPrimitiveOps with ScalaGenOrderingOps
     with ScalaGenVariables with ScalaGenWhile with ScalaGenRangeOps with ScalaGenArrayOps
-    with ScalaGenPrint { val IR: self.type = self }
+    with ScalaGenPrint {
+    val IR: self.type = self
+  }
+
+
+  var instructions: Option[Instructions] = None
+
+  var randomf: Option[Exp[Int] => Exp[Int]] = None
 
   case class inipos(val arr: Exp[Array[Int]], val pos: Int)
 
@@ -27,7 +64,7 @@ class GenRandomCode extends PrimitiveOpsExp with OrderingOpsExp with VariablesEx
                            val arrays: Vector[Exp[Array[Int]]],
                            val farrays: Vector[Unit => Array[Int]],
 
-                           val freshs: Vector[Exp[Int]],
+                           val freshs: Vector[Sym[Int]],
 
                            val initialized: Set[inipos],
                            val nests: Int,
@@ -40,317 +77,260 @@ class GenRandomCode extends PrimitiveOpsExp with OrderingOpsExp with VariablesEx
                         val nestdepth: Int,
                         val nestperlevel: Int
                         ) {
-    def decinstr(): CodeStyle = this.copy(nrinstructions = this.nrinstructions-1)
-    def decnest(): CodeStyle = this.copy(nestdepth = this.nestdepth-1)
+    def decinstr(): CodeStyle = this.copy(nrinstructions = this.nrinstructions - 1)
+
+    def decnest(): CodeStyle = this.copy(nestdepth = this.nestdepth - 1)
   }
 
-  def GenFresh(freshsyms: Vector[Exp[Int]], prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = lzy {
-    for {
-      sofarf <- prev
-      nrparams <- Gen.choose(1,5)
-    //sym <- Gen.const(fresh[Int])
-    } yield {
 
-      val f: Unit => Instructions = (u: Unit) => {
-        lazy val instr = {
-          val sofar = sofarf()
-          val newsyms: Vector[Exp[Int]] = {
-            val l = for (i <- 0 until nrparams) yield freshsyms(i)
-            l.toVector
-          }
-          sofar.copy(syms = sofar.syms ++ newsyms, freshs = sofar.syms ++ newsyms)
-        }
-        instr
-      }
-      f
-    }
-  }
-
-  /*
-  def GenRandomInstruction(codestyle: CodeStyle, root: Gen[Exp[Int] => Instructions]): Gen[Exp[Int] => Instructions] = lzy {
-    if (codestyle.nrinstructions > 0) {
-      val bla1 = GenRandomInstruction(codestyle.decinstr(), root).flatMap(
-        sofar => GenArith(sofar)
-      )
-      bla1
-    }
-    else {
-      root
-    }
-  } */
-
-  def emitSource[T : Manifest, R : Manifest](freshsyms: Vector[codegen.IR.Sym[Int]], f: Unit => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
+  def emitSource[T: Manifest, R: Manifest](freshsyms: Vector[codegen.IR.Sym[Int]], f: Unit => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val body = codegen.reifyBlock(f())
     codegen.emitSource(freshsyms.toList, body, className, stream)
   }
 
-  def GenF(prev: Gen[Unit => Instructions]): (Gen[ (Unit => Exp[Int] )]) = {
+
+
+  def GenFan(): Gen[Exp[Int] => Vector[Exp[Int]]] = {
     for {
-      sofarf <- prev
+      number <- Gen.choose(1,100)
     } yield {
-      val f: Unit => Exp[Int] = (u: Unit) => {
-        lazy val instr = {
-          val sofar = sofarf()
-          sofar.result.get
-        }
-        instr
+      val f: Exp[Int] => Vector[Exp[Int]] = (in: Exp[Int]) => {
+        (for (i <- 0 until number) yield int_plus(in,Const(number))).toVector
       }
-      //(f,sofar.freshs)
+      f
+    }
+  }
+
+  def GenRandomStore(): Gen[ Instructions => Instructions] = lzy {
+    for {
+      choice <- Gen.choose(1,1000)
+      symchoice <- Gen.choose(1,1000)
+    } yield{
+      val f: (Instructions => Instructions) = (instr: Instructions) => {
+        if (instr.arrays.size > 0) {
+          val choiceidx = choice % instr.arrays.size
+          val symchoiceidx = symchoice % instr.syms.size
+          val chosenarray = instr.arrays(choiceidx)
+          array_update(chosenarray, Const(0), instr.syms(symchoiceidx))
+          val ini = inipos(chosenarray, 0)
+          val newinst = instr.copy(initialized = instr.initialized + ini)
+          newinst
+        }
+        else
+          instr
+      }
+      f
+    }
+  }
+
+  def GenRandomLoad(): Gen[ Instructions => Instructions] = lzy {
+    for {
+      choice <- Gen.choose(1,1000)
+    } yield{
+      val f: (Instructions => Instructions) = (instr: Instructions) => {
+        if (instr.initialized.size > 0) {
+          val choiceidx = choice % instr.initialized.size
+          val pos = instr.initialized.toVector(choiceidx)
+
+          val chosenarray = pos.arr
+          val newsym = array_apply(pos.arr,Const(pos.pos))
+          val newinst = instr.copy(syms = instr.syms :+ newsym)
+          newinst
+        }
+        else
+          instr
+      }
       f
     }
   }
 
 
-  def GenReduce(prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = {
-
-    val ret = for {
-      sofarf <- prev
+  def GenRandomNewArrays(): Gen[Instructions => Instructions] = lzy {
+    for {
+      arrsize <- Gen.choose(1,2)
     } yield {
+      val f: (Instructions => Instructions) = (instr: Instructions) => {
+        val newarr = array_obj_new[Int](Const(arrsize))
+        val newinst = instr.copy(arrays = instr.arrays :+ newarr)
+        newinst
+      }
+      f
+    }
+  }
 
-      val f: Unit => Instructions = (u: Unit) => {
-        lazy val instr = {
-          val sofar = sofarf()
-          val accumulator = array_obj_new[Int](Const(1))
-          val newsym = array_update(accumulator, Const(0), Const(0))
-          sofar.syms.foreach(
-            ele => {
-              val sum = array_apply(accumulator, Const(0))
-              val newsym = int_plus(sum, ele)
-              val res = array_update(accumulator, Const(0), newsym)
-            })
+  def GenRandomAdds(): Gen[Instructions => Instructions] = lzy {
+    for {
+      lhs <- Gen.choose(1, 1000)
+      rhs <- Gen.choose(1, 1000)
+    } yield {
+      val f: (Instructions => Instructions) = (instr: Instructions) => {
+        val in = instr.syms
+        val lhsidx: Int = lhs % in.size
+        val rhsidx: Int = rhs % in.size
+        val newele = int_minus(in(lhsidx), in(rhsidx))
+        val newinst = instr.copy(syms = instr.syms :+ newele)
+        newinst
+      }
+      f
+    }
+  }
 
-          val sum = array_apply(accumulator, Const(0))
-          val copy = sofar.copy(result = Some(sum))
-          copy
-        }
+  def GenPrint(): Gen[Instructions => Instructions] = lzy {
+    for {
+      number <- Gen.choose(1, 1000)
+    } yield {
+      val f: (Instructions => Instructions) = (instr: Instructions) => {
+        this.print(Const(number))
         instr
       }
       f
     }
-    ret
+  }
+
+  def GenRandomBlock(codestyle: CodeStyle): Gen[Instructions => Instructions] = lzy {
+    for {
+      repeats <- Gen.choose(1, 2)
+      body <- GenRandomInstr(codestyle,0)
+    } yield {
+      val f: (Instructions => Instructions) = (sofar: Instructions) => {
+        val range: Rep[Range] = range_until(Const(0), Const(1))
+        val block: Rep[Int] => Rep[Unit] = (i: Rep[Int])=> {
+          val withiter = sofar.copy(syms = sofar.syms :+ i)
+          val res = body(withiter)
+          Reduce(res)
+          Const(())
+        }
+        range_foreach(range,block)
+        sofar
+      }
+      f
+    }
   }
 
 
-  def OneOfFix[T]( gn: Gen[T]*): Gen[T] = {
-    val first: Gen[T] = gn(0)
-    val sec: Gen[T] = gn(1)
-    val rest: Seq[Gen[T]] = gn.tail.tail
-    Gen.oneOf(first,sec,rest: _*)
-
-  }
 
 
-  def bla (codestyle: CodeStyle, sofar: Unit => Instructions) = {
-    val seq = Seq(GenArith(sofar),GenNewArr(sofar))
-    val seq2 = if (sofar().arrays.isEmpty) seq else seq :+ GenStoreArr(sofar)
-    val seq3 = if (sofar().initialized.isEmpty) seq2 else seq2 :+ GenLoadArr(sofar)
-    //val seq4 = if (codestyle.nestdepth > 0 && sofar.nests < codestyle.nestperlevel) seq3 :+ GenNestBlock(codestyle.decnest(), sofar) else seq3
-    //val seq5 = seq4 :+ GenPrint(sofar)
-    seq3
-    //Seq(GenArith(sofar),GenArith(sofar))
-  }
 
-  def GenRandomInstruction(codestyle: CodeStyle, prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = lzy {
+  def GenRandomInstr(codestyle: CodeStyle, blocks: Int): Gen[Instructions => Instructions] = lzy{
     if (codestyle.nrinstructions > 0) {
-      for {
-        sofar <- prev
-        recurse <- GenRandomInstruction(codestyle.decinstr(),sofar)
-        res <- OneOfFix(bla(codestyle,recurse) :_*)
-      } yield {
-        res
+      if (codestyle.nestdepth > 0 && blocks < codestyle.nestperlevel) {
+        for {
+          workaround <- Gen.choose(0,5)
+          randominstr <- if (workaround == 0) GenRandomBlock(codestyle.decnest()) else Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(), GenPrint())
+          recurse <- if (workaround == 0 ) GenRandomInstr(codestyle, blocks + 1) else GenRandomInstr(codestyle, blocks)
+        } yield {
+          val f: (Instructions => Instructions) = (instr: Instructions) => {
+            recurse(randominstr(instr))
+          }
+          f
+        }
       }
-
+      else
+      {
+        for {
+          randominstr <- Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(), GenPrint())
+          recurse <- GenRandomInstr(codestyle.decinstr(), blocks)
+        } yield {
+          val f: (Instructions => Instructions) = (instr: Instructions) => {
+            recurse(randominstr(instr))
+          }
+          f
+        }
+      }
     }
     else
-      prev
-  }
-
-
-  def GenArith(prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = {
-
-    val ret = for {
-      sofarf <- prev
-      lhs <- Gen.oneOf(sofarf().syms)
-      rhs <- Gen.oneOf(sofarf().syms)
-    } yield {
-      val f: Unit => Instructions = (u: Unit) => {
-        lazy val instr = {
-          val sofar = sofarf()
-          val newsym = int_plus(lhs, rhs)
-          val copy = sofar.copy(syms = sofar.syms :+ newsym)
-          copy
-        }
-        instr
-      }
-      f
-    }
-    ret
-   }
-
-
-  def GenNewArr(prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = lzy {
-    for {
-      sofarf <- prev
-      arrsize <- Gen.choose(1,3)
-    } yield {
-      val f: Unit => Instructions = (u: Unit) => {
-          val sofar = sofarf()
-          val newsym = array_obj_new[Int](Const(arrsize)) //GO: maybe also check dynamic sizes?
-          val copy = sofar.copy(arrays = sofar.arrays :+ newsym)
-          copy
-        }
-      f
+    {
+      val f: (Instructions => Instructions) = (instr: Instructions) => instr
+      Gen.const(f)
     }
   }
 
 
-
-
-  def GenLoadArr(prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = lzy {
+  //def GenF(): ( (Gen[ (Exp[Int] => Exp[Int], Int => Int )])) = {
+  def GenF(): ( (Gen[ (Exp[Int] => Exp[Int])])) = {
     for {
-      sofarf <- prev
-      chosenarr <- Gen.oneOf(sofarf().initialized.toList)
-    } yield {
-      val f: Unit => Instructions = (u: Unit) => {
-        lazy val instr = {
-          val sofar = sofarf()
-          val newsym = array_apply(chosenarr.arr, Const(0)) //GO: access other elements
-          val copy = sofar.copy(syms = sofar.syms :+ newsym)
-          copy
-        }
-        instr
+      number <- Gen.choose(1, 1000)
+      nrinstr <- Gen.choose(30,40)
+      deepth <- Gen.choose(0,1)
+      perlevel <- Gen.choose(1,2)
+      fan <- GenFan()
+      randoinstr <- GenRandomInstr(CodeStyle(nrinstr,deepth,perlevel),0)
+    }
+    yield {
+      val empty = Instructions(Vector.empty, Vector.empty, Vector.empty, Vector.empty, Vector.empty, Set.empty, 0, None)
+      val f: Exp[Int] => Exp[Int] = (in: Exp[Int]) => {
+        val fanout = fan(in) //create a bit of diversity at the start
+        val ini = empty.copy(syms = fanout)
+        val randombody = randoinstr(ini)
+        val res = Reduce(randombody)
+        res
       }
       f
     }
   }
 
 
-  def GenStoreArr(prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = {
-    prev.flatMap(
-      sofarf => {
-          val sofar = sofarf()
-          val ret1 = Gen.oneOf(sofar.arrays).flatMap {
-            choosenarr => {
-              val ret2 = Gen.oneOf(sofar.syms).flatMap {
-                sym => {
-                  val f: Unit => Instructions = (u: Unit) => {
-                    val newsym = array_update(choosenarr, Const(0), sym) //GO: access other elements
-                    val ini = inipos(choosenarr, 0)
-                    val copy = sofar.copy(initialized = sofar.initialized + ini)
-                    copy
-                  }
-                  f
-                }
-              }
-              ret2
-              }
-          }
-          ret1
-      }
-    )
-  }
-
-/*
-  def GenStoreArr1(prev: Gen[Unit => Instructions]): Gen[Unit => Instructions] = lzy {
-    for {
-      sofarf <- prev
-      //chosenarr <- Gen.oneOf(sofarf().arrays)
-      //sym <- Gen.oneOf(sofarf().syms)
-    } yield {
-      val f: Unit => Instructions = (u: Unit) => {
-        val sofar = sofarf()
-         val random = for {
-           chosenarr <- Gen.oneOf(sofar.arrays)
-           sym <- Gen.oneOf(sofar.syms)
-         } yield {
-           val newsym = array_update(chosenarr, Const(0), sym) //GO: access other elements
-           val ini = inipos(chosenarr, 0)
-           val copy = sofar.copy(initialized = sofar.initialized + ini)
-           copy
-         }
-        random
-      }
-      f
-    }
-  }
-*/
-
-
-
-  def GenBlock(style: CodeStyle): Gen[Rep[Int] => Instructions] = {
-    for {
-      empty <- GenEmpty()
-      first <- GenFirst(style,empty)
-    } yield {
-      val f: (Rep[Int] => Instructions) = (input: Rep[Int]) => {
-        val x = first(input)
-        x
-      }
-      f
+  def ReduceF(in: Instructions): Int = {
+    in.fsyms.foldLeft(0){
+      (acc,ele) => acc + ele()
     }
   }
 
-
-  def GenEmpty(): Gen[Unit => Instructions] = {
-    for {
-      g <- Gen.const(Instructions(Vector.empty, Vector.empty, Vector.empty, Vector.empty, Vector.empty, Set.empty, 0, None))
-    } yield {
-      val f: Unit => Instructions = (u: Unit) => g
-      f
-    }
+  def Reduce(in: Instructions): Exp[Int] = {
+        val accumulator = array_obj_new[Int](Const(1))
+        val newsym = array_update(accumulator, Const(0), Const(0))
+        in.syms.foreach(
+          ele => {
+            val sum = array_apply(accumulator, Const(0))
+            val newsym = int_plus(sum, ele)
+            val res = array_update(accumulator, Const(0), newsym)
+          })
+        val sum = array_apply(accumulator, Const(0))
+        sum
   }
 
+}
 
 
-  def GenFirst(codestyle: CodeStyle, prev: Gen[Unit => Instructions]): Gen[Exp[Int] => Instructions] = {
-    for {
-      sofarf <- prev
 
-    } yield {
-      val f: (Exp[Int] => Instructions) = (in: Exp[Int]) =>
+
+
+
+import org.scalacheck.Prop._
+import org.scalacheck._
+class RandomDSLTest extends Properties("bitstuff") {
+
+
+  println("hm?")
+
+    def GenNewDSL(): Gen[GenRCode] = {
+      for {
+        number <- Gen.choose(1,100000)
+      } yield
       {
-        val sofar = sofarf()
-        sofar.copy(syms = sofar.syms :+ in)
+        new GenRCode()
       }
-      f
+    }
+
+
+    def GenDSL(): Gen[GenRCode] = lzy{
+     for {
+      dsl <- GenNewDSL()
+      randomf <- dsl.GenF()
+    } yield {
+      dsl.randomf = Some(randomf)
+      dsl
     }
   }
 
 
-}
-
-
-import org.scalatest.FunSpec
-
-class GenBla extends FunSpec{
-
-  describe("check gen") {
-    println("starting")
-    val dsl = new GenRandomCode()
-    val style = dsl.CodeStyle(50,2,4)
-    val empty = dsl.GenEmpty()
-
-    val freshsyms: Vector[dsl.codegen.IR.Sym[Int]] = (for (i <- 0 until 5) yield dsl.codegen.IR.fresh[Int]).toVector
-    val inigen = dsl.GenFresh(freshsyms,empty)
-    //val code = dsl.GenRandomInstruction(style,inigen)
-    val code1 = dsl.GenNewArr(inigen)
-
-
-    val code = dsl.GenStoreArr(code1)
-    //val onearith = dsl.GenArith(inigen)
-    val reduce = dsl.GenReduce(code)
-    val genf = dsl.GenF(reduce)
-
-
-    genf.flatMap(x => x)
-    val sample = genf.sample
-
-//    dsl.emitSource(freshsyms,sample,"Test", new PrintWriter(System.out))
-    //val newint = dsl.GenRandomInstruction(style,inigen)
-    //dsl.codegen.emitSource(bla,"Test", new PrintWriter(System.out))
-    //  println(dsl.globalDefs)
+  property("mult") = forAll(GenDSL) {
+    gen => {
+        val f = gen.randomf.get
+        val compiled = gen.compile(f)
+        compiled(10)
+        //gen.codegen.emitSource(f, "Test", new PrintWriter(System.out))
+     true
+    }
   }
 }
-
-
-
