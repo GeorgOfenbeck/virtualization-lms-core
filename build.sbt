@@ -23,7 +23,7 @@ libraryDependencies += "org.scala-lang.virtualized" % "scala-library" % virtScal
 
 libraryDependencies += "org.scala-lang.virtualized" % "scala-compiler" % virtScala
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.4"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.5"
 
 libraryDependencies += scalaTest
 

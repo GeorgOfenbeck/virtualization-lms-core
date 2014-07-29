@@ -52,7 +52,9 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
                            val syms: Vector[Exp[Int]],
                            val arrays: Vector[Exp[Array[Int]]],
                            val initialized: Set[inipos],
-                           val nests: Int
+                           val nests: Int,
+                           val freshs: Vector[Exp[Int]]
+
                            )
 
   case class CodeStyle(
@@ -72,6 +74,9 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     Gen.oneOf(first,sec,rest: _*)
 
   }
+
+
+
 
   def GenRandomInstruction(codestyle: CodeStyle, prev: Gen[Instructions]): Gen[Instructions] = lzy {
     if (codestyle.nrinstructions > 0) {
@@ -211,11 +216,11 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     for {
       sofar <- prev
       sym <- Gen.const(fresh[Int])
-    } yield sofar.copy(syms = sofar.syms :+ sym)
+    } yield sofar.copy(syms = sofar.syms :+ sym, freshs = sofar.freshs :+ sym)
   }
 
   def GenEmpty(): Gen[Instructions] = {
-    Gen.const(Instructions(Vector.empty, Vector.empty, Set.empty,0))
+    Gen.const(Instructions(Vector.empty, Vector.empty, Set.empty,0,Vector.empty))
   }
 }
 
@@ -223,6 +228,9 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
   import org.scalatest.FunSpec
 
   class GenTest extends FunSpec{
+
+
+
 
     describe("check gen") {
       println("starting")
@@ -232,7 +240,10 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
       val inigen = dsl.GenFresh(empty)
       val newint = dsl.GenRandomInstruction(style,inigen)
 
-
+      /*
+      newint.flatMap(x =>
+      dsl.codegen.emitSource(() => x))
+      */
 
       val bla = (unit: dsl.Rep[Int]) => {
         newint.sample.get
@@ -242,5 +253,21 @@ with IfThenElseExp with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp
     //  println(dsl.globalDefs)
     }
   }
+
+import org.scalacheck.Prop._
+import org.scalacheck._
+
+class BitCSRMatrixTests extends Properties("bitstuff") {
+  val dsl = new GenGraph()
+  val style = dsl.CodeStyle(20,2,4)
+  val empty = dsl.GenEmpty()
+  val inigen = dsl.GenFresh(empty)
+  val newint = dsl.GenRandomInstruction(style,inigen)
+
+/*  property("round trip") = forAll(newint) {
+    randomcode => randomcode.
+  }*/
+
+}
 
 

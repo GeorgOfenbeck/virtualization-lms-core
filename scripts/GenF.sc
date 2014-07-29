@@ -3,6 +3,86 @@ import org.scalacheck._
 import Gen._
 
 
+def GenRandomArray(): Gen[Array[Int]] = {
+  for {
+    size <- Gen.choose(1,3)
+  } yield
+  {
+      val x = new Array[Int](size)
+      x
+
+  }
+}
+
+
+def GenRandomAccess(random: Gen[Array[Int]]): Gen[Int] = {
+  for {
+    arr <- GenRandomArray()
+    choice <- Gen.choose(1,10)
+  } yield{
+    arr(choice)
+  }
+}
+
+
+/*
+def GenRandomAccess2(randomarr: Gen[Unit => Array[Int]]): Gen[Unit => Int] = {
+
+  val res = randomarr.flatMap(
+    arrf => {
+        val result = Gen.const( () ).flatMap {
+          unit => {
+            val arr = arrf()
+            val f : Unit => Int = (u : Unit ) => {
+
+              val appy = Gen.choose(0, arr.size).map(
+                index => {
+                  val re = arr(index)
+                  re
+                }
+              )
+              appy
+            }
+          }
+      }
+      result
+    }
+  )
+  res
+}
+
+
+def GenRandomAccess1(randomarr: Gen[Unit => Array[Int]]): Gen[Unit => Int] = {
+
+  val res = randomarr.flatMap(
+    arrf => {
+      val arr = arrf() //give me one array
+      val appy = Gen.choose(0,arr.size).map(
+        index => {
+          val f: Unit => Int = (u: Unit ) =>  arr(index)
+          f
+        }
+      )
+      appy
+    }
+  )
+  res
+}
+*/
+
+/*def GenRandomAccess(randomarr: Gen[Unit => Array[Int]]): Gen[Int] = {
+  for {
+    arrf <- randomarr
+  } yield {
+    val arr = arrf()
+    val res = for {
+     index <- Gen.choose(0,arr.length-1)
+    } yield {
+      arr(index)
+    }
+    res
+  }
+}*/
 
 
 
