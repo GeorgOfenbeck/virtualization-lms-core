@@ -10,6 +10,45 @@ import Gen._
 import scala.reflect.SourceContext
 import scala.virtualization.lms.common._
 
+
+
+trait myIfThenElse extends Base {
+  def myifThenElse[T:Manifest](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext): Rep[T]
+
+}
+
+// TODO: it would be nice if IfThenElseExp would extend IfThenElsePureExp
+// but then we would need to use different names.
+
+
+trait myIfThenElseExp extends myIfThenElse with IfThenElseExp {
+  override def myifThenElse[T: Manifest](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = {
+    val a = reifyEffectsHere(thenp)
+    val b = reifyEffectsHere(elsep)
+    ifThenElse(cond, a, b)
+  }
+}
+
+trait myIfThenElseExpOpt extends myIfThenElse with IfThenElseExp { this: BooleanOpsExp with EqualExpBridge =>
+
+  //TODO: eliminate conditional if both branches return same value!
+
+  // it would be nice to handle rewrites in method ifThenElse but we'll need to
+  // 'de-reify' blocks in case we rewrite if(true) to thenp.
+  // TODO: make reflect(Reify(..)) do the right thing
+
+  override def myifThenElse[T:Manifest](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = cond match {
+    case Const(true) => thenp
+    case Const(false) => elsep
+    case Def(BooleanNegate(a)) => __ifThenElse(a, elsep, thenp)
+    case Def(NotEqual(a,b)) => __ifThenElse(equals(a,b), elsep, thenp)
+    case _ =>
+      super.__ifThenElse(cond, thenp, elsep)
+  }
+}
+
+
+
 trait Print extends Base {
   implicit def unit(s: String): Rep[String]
   def print(s: Rep[Any]): Rep[Unit]
@@ -40,13 +79,18 @@ trait ScalaGenPrint extends ScalaGenEffect {
 }
 
 
-class GenRCode extends PrimitiveOpsExp with OrderingOpsExp with VariablesExp
-with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala {
+/*class GenRCode extends PrimitiveOpsExp with BooleanOpsExp with ArrayOpsExpOpt with OrderingOpsExp
+with EqualExpOpt with VariablesExpOpt
+with myIfThenElseExpOpt with WhileExpOptSpeculative with SplitEffectsExpFat with RangeOpsExp with PrintExp*/
+class GenRCode extends PrimitiveOpsExp with BooleanOpsExp with ArrayOpsExp with OrderingOpsExp
+with EqualExp with VariablesExp
+with myIfThenElseExp with WhileExp with RangeOpsExp with PrintExp
+with CompileScala {
   self =>
 
   val codegen = new ScalaGenPrimitiveOps with ScalaGenOrderingOps
     with ScalaGenVariables with ScalaGenWhile with ScalaGenRangeOps with ScalaGenArrayOps
-    with ScalaGenPrint {
+    with ScalaGenPrint with ScalaGenIfThenElse{
     val IR: self.type = self
   }
 
@@ -243,6 +287,52 @@ with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala 
     }
   }
 
+  def GenRandomConditional(codestyle: CodeStyle): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
+    for {
+      depend1 <- Gen.choose(1,1000)
+      depend2 <- Gen.choose(1,1000)
+      body1 <- GenRandomInstr(codestyle,0)
+      body2 <- GenRandomInstr(codestyle,0)
+    } yield {
+      val f: (Instructions => Instructions) = (sofar: Instructions) => {
+        val in = sofar.syms
+        val idx1: Int = depend1 % in.size
+        val idx2: Int = depend2 % in.size
+        val cond: Exp[Boolean] = (in(idx1) < in(idx2))
+
+//        __ifThenElse(cond,() => body1._1(sofar), () => body2._1(sofar))
+        val f1: (Rep[Unit] => Rep[Unit]) = (u: Rep[Unit]) => {
+          body1._1(sofar)
+          u
+         }
+        val f2: (Rep[Unit] => Rep[Unit]) = (u: Rep[Unit]) => {
+          body2._1(sofar)
+          u
+        }
+        myifThenElse[Unit](cond,f1(),f2())
+        /*if (cond) {
+          body1._1(sofar)
+        }
+        else {
+          body2._1(sofar)
+        }*/
+        sofar
+      }
+      val g: (uInstructions => uInstructions) = (sofar: uInstructions) => {
+        val in = sofar.usyms
+        val idx1: Int = depend1 % in.size
+        val idx2: Int = depend2 % in.size
+        if (in(idx1) < in(idx2))
+          body1._2(sofar)
+        else
+          body2._2(sofar)
+        sofar
+      }
+      (f,g)
+
+    }
+  }
+
 
   def GenRandomBlock(codestyle: CodeStyle): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
     for {
@@ -279,9 +369,21 @@ with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala 
     if (codestyle.nrinstructions > 0) {
       if (codestyle.nestdepth > 0 && blocks < codestyle.nestperlevel) {
         for {
-          workaround <- Gen.choose(0,5)
-          randominstr <- if (workaround == 0) GenRandomBlock(codestyle.decnest()) else Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(),GenPrint())
-          recurse <- if (workaround == 0 ) GenRandomInstr(codestyle.decinstr(), blocks + 1) else GenRandomInstr(codestyle.decinstr(), blocks)
+          workaround <- Gen.choose(0,6)
+          randominstr <- if (workaround == 0)
+                            GenRandomBlock(codestyle.decnest())
+                         else
+                          if (workaround == 1)
+                            GenRandomConditional(codestyle.decnest())
+                          else
+                            Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(),GenPrint())
+          recurse <- if (workaround == 0 )
+            GenRandomInstr(codestyle.decinstr(), blocks + 1)
+            else
+                if (workaround == 1)
+                  GenRandomInstr(codestyle.decinstr(), blocks + 1)
+                else
+                  GenRandomInstr(codestyle.decinstr(), blocks)
         } yield {
           val f: (Instructions => Instructions) = (instr: Instructions) => {
             recurse._1(randominstr._1(instr))
@@ -321,9 +423,9 @@ with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala 
   //def GenF(): ( (Gen[ (Exp[Int] => Exp[Int])])) = {
     for {
       number <- Gen.choose(1, 1000)
-      nrinstr <- Gen.choose(30,40)
-      deepth <- Gen.choose(0,1)
-      perlevel <- Gen.choose(1,2)
+      nrinstr <- Gen.choose(10,15)
+      deepth <- Gen.choose(3,6)
+      perlevel <- Gen.choose(1,1)
       fan <- GenFan()
       randoinstr <- GenRandomInstr(CodeStyle(nrinstr,deepth,perlevel),0)
     }
@@ -407,6 +509,7 @@ class RandomDSLTest extends Properties("bitstuff") {
   property("mult") = forAll(GenDSL) {
     gen => {
         val f = gen.randomf.get
+        //gen.codegen.emitSource(f, "Test", new PrintWriter(System.out))
         val compiled = gen.compile(f)
         val fcompose = gen.randomuf.get
 
