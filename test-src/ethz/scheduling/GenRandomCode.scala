@@ -2,7 +2,7 @@ package ethz.scheduling
 
 
 
-import java.io.PrintWriter
+import java.io.{ByteArrayOutputStream, PrintStream, PrintWriter}
 
 import org.scalacheck._
 import Gen._
@@ -225,15 +225,21 @@ with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala 
     }
   }
 
-  def GenPrint(): Gen[Instructions => Instructions] = lzy {
+  def GenPrint(): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
     for {
       number <- Gen.choose(1, 1000)
     } yield {
       val f: (Instructions => Instructions) = (instr: Instructions) => {
-        this.print(Const(number))
+        val choice = number % instr.syms.size
+        this.print(instr.syms(choice))
         instr
       }
-      f
+      val g: (uInstructions => uInstructions) = (instr: uInstructions) => {
+        val choice = number % instr.usyms.size
+        Console.out.println(instr.usyms(choice))
+        instr
+      }
+      (f,g)
     }
   }
 
@@ -269,51 +275,12 @@ with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala 
     }
   }
 
-
-
-
-
-/*
-  def GenRandomInstr(codestyle: CodeStyle, blocks: Int): Gen[Instructions => Instructions] = lzy{
-    if (codestyle.nrinstructions > 0) {
-      if (codestyle.nestdepth > 0 && blocks < codestyle.nestperlevel) {
-        for {
-          workaround <- Gen.choose(0,5)
-          randominstr <- if (workaround == 0) GenRandomBlock(codestyle.decnest()) else Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(), GenPrint())
-          recurse <- if (workaround == 0 ) GenRandomInstr(codestyle, blocks + 1) else GenRandomInstr(codestyle, blocks)
-        } yield {
-          val f: (Instructions => Instructions) = (instr: Instructions) => {
-            recurse(randominstr(instr))
-          }
-          f
-        }
-      }
-      else
-      {
-        for {
-          randominstr <- Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(), GenPrint())
-          recurse <- GenRandomInstr(codestyle.decinstr(), blocks)
-        } yield {
-          val f: (Instructions => Instructions) = (instr: Instructions) => {
-            recurse(randominstr(instr))
-          }
-          f
-        }
-      }
-    }
-    else
-    {
-      val f: (Instructions => Instructions) = (instr: Instructions) => instr
-      Gen.const(f)
-    }
-  }
- */
   def GenRandomInstr(codestyle: CodeStyle, blocks: Int): Gen[ ( (Instructions => Instructions ), (uInstructions => uInstructions) )] = lzy{
     if (codestyle.nrinstructions > 0) {
       if (codestyle.nestdepth > 0 && blocks < codestyle.nestperlevel) {
         for {
           workaround <- Gen.choose(0,5)
-          randominstr <- if (workaround == 0) GenRandomBlock(codestyle.decnest()) else Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad())
+          randominstr <- if (workaround == 0) GenRandomBlock(codestyle.decnest()) else Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(),GenPrint())
           recurse <- if (workaround == 0 ) GenRandomInstr(codestyle.decinstr(), blocks + 1) else GenRandomInstr(codestyle.decinstr(), blocks)
         } yield {
           val f: (Instructions => Instructions) = (instr: Instructions) => {
@@ -327,7 +294,7 @@ with WhileExp with RangeOpsExp with ArrayOpsExp with PrintExp with CompileScala 
       }
       else {
         for {
-          randominstr <- Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad()) //, , , GenPrint())
+          randominstr <- Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(), GenPrint()) //, , , GenPrint())
           recurse <- GenRandomInstr(codestyle.decinstr(), blocks)
         } yield {
           val f: (Instructions => Instructions) = (instr: Instructions) => {
@@ -443,10 +410,38 @@ class RandomDSLTest extends Properties("bitstuff") {
         val compiled = gen.compile(f)
         val fcompose = gen.randomuf.get
 
-        val cres = compiled(1)
-        val fres = fcompose(1)
-        println(cres, fres)
-        cres == fres
+
+
+
+        val boas = new ByteArrayOutputStream()
+        val ps = new PrintStream(boas)
+        val backup = Console.out
+        //Console.setOut(ps)
+        var cres = 0
+        Console.withOut(ps) {
+          cres = compiled(1)
+        }
+
+        val cout = boas.toString
+
+        val boas1 = new ByteArrayOutputStream()
+        val ps1 = new PrintStream(boas1)
+
+        //Console.setOut(ps1)
+        var fres = 0
+        Console.withOut(ps1) {
+          fres = fcompose(1)
+        }
+      val fout = boas1.toString
+
+        //Console.setOut(backup)
+
+        //println(fout, cout)
+        //println(cres,fres)
+        all (
+         "output equal" |: cres == fres,
+        "side effects equal" |: cout == fout
+      )
         //gen.codegen.emitSource(f, "Test", new PrintWriter(System.out))
 
     }
