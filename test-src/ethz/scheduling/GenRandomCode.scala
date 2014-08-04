@@ -79,12 +79,12 @@ trait ScalaGenPrint extends ScalaGenEffect {
 }
 
 
-/*class GenRCode extends PrimitiveOpsExp with BooleanOpsExp with ArrayOpsExpOpt with OrderingOpsExp
+class GenRCode extends PrimitiveOpsExp with BooleanOpsExp with ArrayOpsExpOpt with OrderingOpsExp
 with EqualExpOpt with VariablesExpOpt
-with myIfThenElseExpOpt with WhileExpOptSpeculative with SplitEffectsExpFat with RangeOpsExp with PrintExp*/
-class GenRCode extends PrimitiveOpsExp with BooleanOpsExp with ArrayOpsExp with OrderingOpsExp
+with IfThenElseExpOpt with WhileExp with SplitEffectsExpFat with RangeOpsExp with PrintExp
+/*class GenRCode extends PrimitiveOpsExp with BooleanOpsExp with ArrayOpsExp with OrderingOpsExp
 with EqualExp with VariablesExp
-with myIfThenElseExp with WhileExp with RangeOpsExp with PrintExp
+with myIfThenElseExp with WhileExp with RangeOpsExp with PrintExp*/
 with CompileScala {
   self =>
 
@@ -95,8 +95,10 @@ with CompileScala {
   }
 
 
+  def unapply(dsl: GenRCode): Option[dsl.FNestRoot] = Some(dsl.root)
 
 
+  var root: FNestRoot = null
   var randomf: Option[Exp[Int] => Exp[Int]] = None
   var randomuf: Option[Int => Int] = None
 
@@ -128,6 +130,36 @@ with CompileScala {
     def decnest(): CodeStyle = this.copy(nestdepth = this.nestdepth - 1)
   }
 
+  object FNest{
+    def defcf(in: (Instructions => Instructions)): (Option[FNest] => (Instructions => Instructions)) = {
+      val f: (Option[FNest] => (Instructions => Instructions)) = (ignore: Option[FNest]) => in
+      f
+    }
+    def defrf(in: (uInstructions => uInstructions)): (Option[FNest] => (uInstructions => uInstructions)) = {
+      val f: (Option[FNest] => (uInstructions => uInstructions)) = (ignore: Option[FNest]) => in
+      f
+    }
+  }
+  
+  case class FNest(
+    val next: Option[FNest],
+    val cstaged: Option[FNest] => Instructions => Instructions,
+    val cregular: Option[FNest] => uInstructions => uInstructions
+  ) {    
+    val stagedf: (Instructions => Instructions) = cstaged(next)
+    val regularf: (uInstructions => uInstructions) = cregular(next)
+  }
+
+  case class FNestRoot(
+                    val body: FNest,
+                    val cstaged: FNest => (Exp[Int] => Exp[Int]),
+                    val cregular: FNest => (Int => Int)
+                        ) {
+  val stagedf: Exp[Int] => Exp[Int] = cstaged(body)
+  val regularf: Int => Int = cregular(body)
+  }
+
+
 
   def emitSource[T: Manifest, R: Manifest](freshsyms: Vector[codegen.IR.Sym[Int]], f: Unit => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val body = codegen.reifyBlock(f())
@@ -136,25 +168,47 @@ with CompileScala {
 
 
 
-  def GenFan(): (Gen[ ((Exp[Int] => Vector[Exp[Int]]), (Int => Vector[Int]) ) ]) = {
+  def GenFan(next: FNest): (Gen[ FNest]) = {
     for {
       number <- Gen.choose(1,100)
+      symchoice <- Gen.choose(1,1000)
     } yield {
-      val fstaged: Exp[Int] => Vector[Exp[Int]] = (in: Exp[Int]) => {
-        (for (i <- 0 until number) yield int_plus(in,Const(number))).toVector
+
+      val cfstaged: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
+        val fstaged: Instructions => Instructions = (in: Instructions) => {
+          val newsyms = (for (i <- 0 until number) yield {
+            val symchoiceidx = symchoice % in.syms.size
+            int_plus(in.syms(symchoiceidx), Const(number))
+          }).toVector
+          val upd = in.copy(syms = in.syms ++ newsyms)
+          body.get.stagedf(upd) //should check
+        }
+        fstaged
       }
-      val f: Int => Vector[Int] = (in: Int) => {
-        (for (i <- 0 until number) yield (in + number)).toVector
+      val cf: (Option[FNest] => (uInstructions => uInstructions)) = (body: Option[FNest]) => {
+        val f: uInstructions => uInstructions = (in: uInstructions) => {
+          val newsyms = (for (i <- 0 until number) yield {
+            val symchoiceidx = symchoice % in.usyms.size
+            (in.usyms(symchoiceidx) + number)
+          }
+
+            ).toVector
+          val upd = in.copy(usyms = in.usyms ++ newsyms)
+          body.get.regularf(upd) //should check
+        }
+        f
       }
-      (fstaged,f)
+      FNest(Some(next),cfstaged,cf)
+      //(fstaged,f)
     }
   }
 
-  def GenRandomStore(): Gen[ ((Instructions => Instructions), (uInstructions => uInstructions) )] = lzy {
+
+  def GenRandomStore(): Gen[ FNest ] = lzy {
     for {
       choice <- Gen.choose(1,1000)
       symchoice <- Gen.choose(1,1000)
-    } yield{
+    } yield{            
       val f: (Instructions => Instructions) = (instr: Instructions) => {
         if (instr.arrays.size > 0) {
           val choiceidx = choice % instr.arrays.size
@@ -181,11 +235,14 @@ with CompileScala {
         else
           instr
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
     }
   }
 
-  def GenRandomLoad(): Gen[ ((Instructions => Instructions), (uInstructions => uInstructions) )] = lzy {
+
+
+
+  def GenRandomLoad(): Gen[ FNest ] = lzy {
     for {
       choice <- Gen.choose(1,1000)
     } yield{
@@ -215,12 +272,12 @@ with CompileScala {
         else
           instr
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
     }
   }
 
 
-  def GenRandomNewArrays(): Gen[ ((Instructions => Instructions), (uInstructions => uInstructions) )] = lzy {
+  def GenRandomNewArrays(): Gen[FNest] = lzy {
     for {
       arrsize <- Gen.choose(1,2)
     } yield {
@@ -238,11 +295,11 @@ with CompileScala {
         val newinst = instr.copy(farrays = instr.farrays :+ farray)
         newinst
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
     }
   }
 
-  def GenRandomAdds(): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
+  def GenRandomAdds(): Gen[ FNest ] = lzy {
     for {
       lhs <- Gen.choose(1, 1000)
       rhs <- Gen.choose(1, 1000)
@@ -265,11 +322,11 @@ with CompileScala {
         val newinst = instr.copy(usyms = instr.usyms :+ newint)
         newinst
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
     }
   }
 
-  def GenPrint(): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
+  def GenPrint(): Gen[ FNest ] = lzy {
     for {
       number <- Gen.choose(1, 1000)
     } yield {
@@ -283,11 +340,11 @@ with CompileScala {
         Console.out.println(instr.usyms(choice))
         instr
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
     }
   }
 
-  def GenRandomConditional(codestyle: CodeStyle): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
+  def GenRandomConditional(codestyle: CodeStyle): Gen[ FNest ] = lzy {
     for {
       depend1 <- Gen.choose(1,1000)
       depend2 <- Gen.choose(1,1000)
@@ -302,20 +359,23 @@ with CompileScala {
 
 //        __ifThenElse(cond,() => body1._1(sofar), () => body2._1(sofar))
         val f1: (Rep[Unit] => Rep[Unit]) = (u: Rep[Unit]) => {
-          body1._1(sofar)
+          body1.stagedf(sofar)
           u
          }
         val f2: (Rep[Unit] => Rep[Unit]) = (u: Rep[Unit]) => {
-          body2._1(sofar)
+          body2.stagedf(sofar)
           u
         }
-        myifThenElse[Unit](cond,f1(),f2())
-        /*if (cond) {
-          body1._1(sofar)
+        //myifThenElse[Unit](cond,f1(),f2())
+        //__ifThenElse()
+        if (cond) {
+          f1()
+          //body1._1(sofar)
         }
         else {
-          body2._1(sofar)
-        }*/
+          f2()
+          //body2._1(sofar)
+        }
         sofar
       }
       val g: (uInstructions => uInstructions) = (sofar: uInstructions) => {
@@ -323,18 +383,18 @@ with CompileScala {
         val idx1: Int = depend1 % in.size
         val idx2: Int = depend2 % in.size
         if (in(idx1) < in(idx2))
-          body1._2(sofar)
+          body1.regularf(sofar)
         else
-          body2._2(sofar)
+          body2.regularf(sofar)
         sofar
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
 
     }
   }
 
 
-  def GenRandomBlock(codestyle: CodeStyle): Gen[ ( (Instructions => Instructions), (uInstructions => uInstructions) ) ] = lzy {
+  def GenRandomBlock(codestyle: CodeStyle): Gen[ FNest ] = lzy {
     for {
       repeats <- Gen.choose(1, 2)
       body <- GenRandomInstr(codestyle,0)
@@ -343,7 +403,7 @@ with CompileScala {
         val range: Rep[Range] = range_until(Const(0), Const(1))
         val block: Rep[Int] => Rep[Unit] = (i: Rep[Int])=> {
           val withiter = sofar.copy(syms = sofar.syms :+ i)
-          val res = body._1(withiter)
+          val res = body.stagedf(withiter)
           Reduce(res)
           Const(())
         }
@@ -355,17 +415,17 @@ with CompileScala {
         for (i <- 0 until 1)
         {
           val withiter = sofar.copy(usyms = sofar.usyms :+ i)
-          val res = body._2(withiter)
+          val res = body.regularf(withiter)
           ReduceF(res)
         }
         sofar
       }
-      (f,g)
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
 
     }
   }
 
-  def GenRandomInstr(codestyle: CodeStyle, blocks: Int): Gen[ ( (Instructions => Instructions ), (uInstructions => uInstructions) )] = lzy{
+  def GenRandomInstr(codestyle: CodeStyle, blocks: Int): Gen[ FNest ] = lzy{
     if (codestyle.nrinstructions > 0) {
       if (codestyle.nestdepth > 0 && blocks < codestyle.nestperlevel) {
         for {
@@ -377,6 +437,7 @@ with CompileScala {
                             GenRandomConditional(codestyle.decnest())
                           else
                             Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(),GenPrint())
+                            //Gen.oneOf(GenRandomAdds(), GenRandomAdds())
           recurse <- if (workaround == 0 )
             GenRandomInstr(codestyle.decinstr(), blocks + 1)
             else
@@ -385,27 +446,40 @@ with CompileScala {
                 else
                   GenRandomInstr(codestyle.decinstr(), blocks)
         } yield {
-          val f: (Instructions => Instructions) = (instr: Instructions) => {
-            recurse._1(randominstr._1(instr))
+          val cfstaged: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
+            val f: (Instructions => Instructions) = (instr: Instructions) => {
+              body.get.stagedf(randominstr.stagedf(instr))
+            }
+            f
           }
-          val g: (uInstructions => uInstructions) = (uinstr: uInstructions) => {
-            recurse._2(randominstr._2(uinstr))
+          val cg: (Option[FNest] => (uInstructions => uInstructions)) = (body: Option[FNest]) => {
+            val g: (uInstructions => uInstructions) = (uinstr: uInstructions) => {
+              body.get.regularf(randominstr.regularf(uinstr)) //should check
+            }
+            g
           }
-          (f, g)
+          FNest(Some(recurse),cfstaged,cg)
         }
       }
       else {
         for {
           randominstr <- Gen.oneOf(GenRandomAdds(), GenRandomNewArrays(), GenRandomStore(), GenRandomLoad(), GenPrint()) //, , , GenPrint())
+          //randominstr <- Gen.oneOf(GenRandomAdds(), GenRandomAdds())
           recurse <- GenRandomInstr(codestyle.decinstr(), blocks)
         } yield {
-          val f: (Instructions => Instructions) = (instr: Instructions) => {
-            recurse._1(randominstr._1(instr))
+          val cfstaged: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
+            val f: (Instructions => Instructions) = (instr: Instructions) => {
+              body.get.stagedf(randominstr.stagedf(instr))
+            }
+            f
           }
-          val g: (uInstructions => uInstructions) = (uinstr: uInstructions) => {
-            recurse._2(randominstr._2(uinstr))
+          val cg: (Option[FNest] => (uInstructions => uInstructions)) = (body: Option[FNest]) => {
+            val g: (uInstructions => uInstructions) = (uinstr: uInstructions) => {
+              body.get.regularf(randominstr.regularf(uinstr)) //should check
+            }
+            g
           }
-          (f, g)
+          FNest(Some(recurse),cfstaged,cg)
         }
       }
     }
@@ -413,40 +487,49 @@ with CompileScala {
     {
       val f: (Instructions => Instructions) = (instr: Instructions) => instr
       val g: (uInstructions => uInstructions) = (uinstr: uInstructions) => uinstr
-      Gen.const((f,g))
+      FNest(None,FNest.defcf(f),FNest.defrf(g))
     }
   }
 
 
 
-  def GenF(): ( (Gen[ (Exp[Int] => Exp[Int], Int => Int )])) = {
+  def GenF(): ( (Gen[ FNestRoot])) = {
   //def GenF(): ( (Gen[ (Exp[Int] => Exp[Int])])) = {
     for {
       number <- Gen.choose(1, 1000)
       nrinstr <- Gen.choose(10,15)
       deepth <- Gen.choose(3,6)
       perlevel <- Gen.choose(1,1)
-      fan <- GenFan()
       randoinstr <- GenRandomInstr(CodeStyle(nrinstr,deepth,perlevel),0)
+      fan <- GenFan(randoinstr)
     }
     yield {
       val empty = Instructions(Vector.empty,Vector.empty, Set.empty)
       val uempty = uInstructions(Vector.empty,Vector.empty, Set.empty)
-      val fstaged: Exp[Int] => Exp[Int] = (in: Exp[Int]) => {
-        val fanout = fan._1(in) //create a bit of diversity at the start
-        val ini = empty.copy(syms = fanout)
-        val randombody = randoinstr._1(ini)
-        val res = Reduce(ini)
-        res
+
+
+
+      val cfstaged: (FNest => (Exp[Int] => Exp[Int])) = (body : FNest) => {
+        val fstaged: Exp[Int] => Exp[Int] = (in: Exp[Int]) => {
+          val ini = empty.copy(syms = Vector(in))
+          val body = fan.stagedf(ini)
+          val res = Reduce(body)
+          res
+        }
+        fstaged
       }
-      val f: Int => Int = (in: Int) => {
-        val fanout = fan._2(in) //create a bit of diversity at the start
-        val ini = uempty.copy(usyms = fanout)
-        val randombody = randoinstr._2(ini)
-        val res = ReduceF(ini)
-        res
+
+      val cregular : (FNest => (Int => Int)) = (body : FNest) => {
+        val f: Int => Int = (in: Int) => {
+          //val fanout = fan._2(in) //create a bit of diversity at the start
+          val ini = uempty.copy(usyms = Vector(in))
+          val body = fan.regularf(ini)
+          val res = ReduceF(body)
+          res
+        }
+        f
       }
-      (fstaged,f)
+      FNestRoot(fan,cfstaged,cregular)
     }
   }
 
@@ -470,6 +553,27 @@ with CompileScala {
         sum
   }
 
+  import org.scalacheck.Shrink.shrink
+
+  implicit val shrinkFNestRoot: Shrink[FNestRoot] = Shrink({
+    case FNestRoot(next,staged, regular) => Stream.concat(
+      shrink(next) map (smaller => (FNestRoot(smaller, staged,regular)))
+      //without current element
+    )
+  })
+
+  implicit val shrinkFNest: Shrink[FNest] = Shrink({
+    case FNest(Some(next),staged, regular) => Stream.concat(
+      shrink(next) map (smaller => (FNest(Some(smaller), staged,regular))),
+      Stream(next)
+      //without current element
+    )
+    case FNest(None,f,g) => Stream()
+  })
+
+
+
+
 }
 
 
@@ -480,6 +584,7 @@ with CompileScala {
 import org.scalacheck.Prop._
 import org.scalacheck._
 class RandomDSLTest extends Properties("bitstuff") {
+
 
 
   println("hm?")
@@ -499,15 +604,31 @@ class RandomDSLTest extends Properties("bitstuff") {
       dsl <- GenNewDSL()
       randomf <- dsl.GenF()
     } yield {
-      dsl.randomf = Some(randomf._1)
-      dsl.randomuf = Some(randomf._2)
+      dsl.root = randomf
+      dsl.randomf = Some(randomf.stagedf)
+      dsl.randomuf = Some(randomf.regularf)
       dsl
     }
   }
 
 
+  import org.scalacheck.Shrink.shrink
+
+  implicit val shrinkDSL: Shrink[GenRCode] = Shrink({
+    case GenRCode(root) => Stream.concat(
+      shrink(root) map (smaller => (FNestRoot(smaller, staged,regular)))
+      //without current element
+    )
+  })
+
+
+
+  implicit def getdslshrink(dsl: GenRCode): Shrink[dsl.FNest] = dsl.shrinkFNest
+  implicit def getdslshrinkroot(dsl: GenRCode): Shrink[dsl.FNestRoot] = dsl.shrinkFNestRoot
+
   property("mult") = forAll(GenDSL) {
     gen => {
+
         val f = gen.randomf.get
         //gen.codegen.emitSource(f, "Test", new PrintWriter(System.out))
         val compiled = gen.compile(f)
@@ -535,7 +656,7 @@ class RandomDSLTest extends Properties("bitstuff") {
         Console.withOut(ps1) {
           fres = fcompose(1)
         }
-      val fout = boas1.toString
+        val fout = boas1.toString
 
         //Console.setOut(backup)
 
