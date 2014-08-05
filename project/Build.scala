@@ -2,7 +2,7 @@ import sbt._
 import java.io.File
 
 object LMSBuild extends Build {
-  System.setProperty("showSuppressedErrors", "false")
+  System.setProperty("showSuppressedErrors", "true")
 
   val scalaTest = "org.scalatest" % "scalatest_2.10" % "2.1.2"
   
