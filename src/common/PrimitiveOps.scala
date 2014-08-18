@@ -5,6 +5,7 @@ import java.io.PrintWriter
 
 import scala.virtualization.lms.util.OverloadHack
 import scala.reflect.SourceContext
+import internal._
 
 trait LiftPrimitives {
   this: PrimitiveOps =>
@@ -25,7 +26,7 @@ trait LiftPrimitives {
  * Scala's type hierarchy to reduce the amount of IR nodes or code generation require.
  * It is in semi-desperate need of a refactor.
  */
-trait PrimitiveOps extends Variables with OverloadHack { 
+trait PrimitiveOps extends ImplicitOps/*Variables*/  with OverloadHack  {
   this: ImplicitOps =>
 
   /**
@@ -157,7 +158,7 @@ trait PrimitiveOps extends Variables with OverloadHack {
    */
   implicit def doubleToDoubleOps(n: Double): DoubleOpsCls = new DoubleOpsCls(unit(n))
   implicit def repDoubleToDoubleOps(n: Rep[Double]): DoubleOpsCls = new DoubleOpsCls(n)
-  implicit def varDoubleToDoubleOps(n: Var[Double]): DoubleOpsCls = new DoubleOpsCls(readVar(n))
+  //implicit def varDoubleToDoubleOps(n: Var[Double]): DoubleOpsCls = new DoubleOpsCls(readVar(n)) //RF
   
   object Double {
     def parseDouble(s: Rep[String])(implicit pos: SourceContext) = obj_double_parse_double(s)
@@ -218,7 +219,7 @@ trait PrimitiveOps extends Variables with OverloadHack {
 
   implicit def intToIntOps(n: Int): IntOpsCls = new IntOpsCls(unit(n))
   implicit def repIntToIntOps(n: Rep[Int]): IntOpsCls = new IntOpsCls(n)
-  implicit def varIntToIntOps(n: Var[Int]): IntOpsCls = new IntOpsCls(readVar(n))
+  //implicit def varIntToIntOps(n: Var[Int]): IntOpsCls = new IntOpsCls(readVar(n)) //RF
     
   class IntOpsCls(lhs: Rep[Int]){
     // TODO (tiark): either of these cause scalac to crash        
@@ -286,7 +287,7 @@ trait PrimitiveOps extends Variables with OverloadHack {
   def long_toint(lhs: Rep[Long])(implicit pos: SourceContext): Rep[Int]
 }
 
-trait PrimitiveOpsExp extends PrimitiveOps with EffectExp {
+trait PrimitiveOpsExp extends PrimitiveOps with ImplicitOpsExp with BaseExp {
   this: ImplicitOps =>
   
   /**
@@ -362,7 +363,7 @@ trait PrimitiveOpsExp extends PrimitiveOps with EffectExp {
   case class IntToFloat(lhs: Exp[Int]) extends Def[Float]
   case class IntToDouble(lhs: Exp[Int]) extends Def[Double]
 
-  def obj_integer_parse_int(s: Rep[String])(implicit pos: SourceContext) = ObjIntegerParseInt(s)
+  def obj_integer_parse_int(s: Exp[String])(implicit pos: SourceContext) = ObjIntegerParseInt(s)
   def obj_int_max_value(implicit pos: SourceContext) = ObjIntMaxValue()
   def obj_int_min_value(implicit pos: SourceContext) = ObjIntMinValue()
   def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs, rhs) match {
@@ -417,7 +418,9 @@ trait PrimitiveOpsExp extends PrimitiveOps with EffectExp {
   def long_shiftleft(lhs: Exp[Long], rhs: Exp[Int])(implicit pos: SourceContext) = LongShiftLeft(lhs,rhs)
   def long_shiftright_unsigned(lhs: Exp[Long], rhs: Exp[Int])(implicit pos: SourceContext) = LongShiftRightUnsigned(lhs,rhs)
   def long_toint(lhs: Exp[Long])(implicit pos: SourceContext) = LongToInt(lhs)
-    
+
+
+  /*
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = ({
     implicit var a: Numeric[A] = null // hack!! need to store it in Def instances??
     e match {
@@ -512,8 +515,9 @@ trait PrimitiveOpsExp extends PrimitiveOps with EffectExp {
       case Reflect(LongToInt(x), u, es) => reflectMirrored(Reflect(LongToInt(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
       case _ => super.mirror(e,f)
     }
-  }).asInstanceOf[Exp[A]]
+  }).asInstanceOf[Exp[A]] */
 }
+
 
 trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
   override def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs,rhs) match {
@@ -559,9 +563,12 @@ trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
   }
 }
 
+/*
+
 trait ScalaGenPrimitiveOps extends ScalaGenBase {
-  val IR: PrimitiveOpsExp
-  import IR._
+  val IR:
+  //val IR: PrimitiveOpsExp
+  import cminfo.reifiedIR.IR._
   
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
     case ObjDoubleParseDouble(s) => emitValDef(sym, src"java.lang.Double.parseDouble($s)")
@@ -612,8 +619,8 @@ trait ScalaGenPrimitiveOps extends ScalaGenBase {
     case LongToInt(lhs) => emitValDef(sym, quote(lhs) + ".toInt")
     case _ => super.emitNode(sym, rhs)
   }
-}
-
+}  */
+/*
 trait CLikeGenPrimitiveOps extends CLikeGenBase {
   val IR: PrimitiveOpsExp
   import IR._
@@ -696,4 +703,4 @@ trait CGenPrimitiveOps extends CGenBase with CLikeGenPrimitiveOps {
     }
   }
 }
-
+  */

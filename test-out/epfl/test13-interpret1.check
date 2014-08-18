@@ -1,3 +1,0 @@
-spec-add-int: AddN(LookupN(n),ConstN(-1))
-spec-add-int: AddN(LookupN(x),AppN(LookupN(a),LookupN(n)))
-65280

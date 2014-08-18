@@ -4,28 +4,28 @@ import scala.collection.mutable
 case class Bla[T](val x: T)
 
 trait immutablething {
-  val locallist: Vector[something#Exp]
+  val IR: something
+  val locallist: Vector[IR.Exp]
 }
-
 
 trait something {
   self =>
   val IR: something = self
-  protected implicit def InttoBla(x: something#Exp): Bla[Int] = ???
+  protected implicit def InttoBla(x: IR.Exp): Bla[Int] = ???
 
   case class Exp(x: Int)
 
-  val locallist: Option[scala.collection.mutable.ArrayBuffer[something#Exp]] = None
+  val locallist: Option[scala.collection.mutable.ArrayBuffer[IR.Exp]] = None
 
-  def returnExp(in: Int) = Exp(in)
+  def returnExp(in: Int) = IR.Exp(in)
 
-  def reconstruct(in: Exp) = Exp(in.x)
+  def reconstruct(in: Exp) = IR.Exp(in.x)
 
-  def givemeBla(x: something#Exp): immutablething = {
+  def givemeBla(x: IR.Exp): immutablething = {
     val withdiffimplicit = new something {
-      //override val IR: self.type = self
-      override val locallist = Some(mutable.ArrayBuffer.empty[something#Exp])
-      override protected implicit def InttoBla(exp: something#Exp): Bla[Int] = {
+      override val IR: self.type = self
+      override val locallist = Some(mutable.ArrayBuffer.empty[IR.Exp])
+      override protected implicit def InttoBla(exp: IR.Exp): Bla[Int] = {
         val x = exp.x
         locallist.get += exp
         println("inner view of the list: " + locallist.get)
@@ -37,11 +37,14 @@ trait something {
     withdiffimplicit.f(x)
 
     val ret = new immutablething {
-      override val locallist: Vector[something#Exp] = withdiffimplicit.locallist.get.toVector
+      override val IR: something = self.IR
+      override val locallist: Vector[IR.Exp] = withdiffimplicit.locallist.get.toVector
+
     }
+
     ret
   }
-  def f(x: something#Exp): Bla[Int] = {
+  def f(x: IR.Exp): Bla[Int] = {
     x
   }
 }

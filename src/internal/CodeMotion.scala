@@ -1,152 +1,264 @@
 package scala.virtualization.lms
 package internal
 
-import util.GraphUtil
-import java.io.{File, PrintWriter}
+import scala.collection.immutable._
+import scala.virtualization.lms.common.Reification
+
+trait CodeMotion{
+  val reifiedIR: Reification
+  //val block: IR.BlockInfo
+  case class BlockInfo(children: IntMap[EnrichedGraphNode], child_schedule: Stack[Int], uplinks: Set[Int])
+  case class EnrichedGraphNode( irdef: Option[Int], out: Set[Int], in: Set[Int], bounds: Set[Int], blocks: Set[Int] )
+
+  import reifiedIR.IR._
 
 
-trait CodeMotion extends Scheduling {
-  val IR: Expressions with Effects /* effects just for sanity check */
-  import IR._
+  lazy val enriched_graph = enhanceDAG()
 
-  def getExactScope[A](currentScope: List[Stm])(result: List[Exp[Any]]): List[Stm] = {
-    // currentScope must be tight for result and strongly sorted
-    val e1 = currentScope
 
-    // shallow is 'must outside + should outside' <--- currently shallow == deep for lambdas, meaning everything 'should outside'
-    // bound is 'must inside'
+  protected var schedule_cache = IntMap.empty[BlockInfo] //used to build block cache
+  lazy val block_cache: IntMap[BlockInfo] = {
+    getBlockInfo(reifiedIR.result)
+    schedule_cache
+  }
 
-    // find transitive dependencies on bound syms, including their defs (in case of effects)
-    val bound = e1.flatMap(z => boundSyms(z.rhs))
-    val g1 = getFatDependentStuff(currentScope)(bound)
 
-    // e1 = reachable
-    val h1 = e1 filterNot (g1 contains _) // 'may outside'
-    val f1 = g1.flatMap { t => syms(t.rhs) } flatMap { s => h1 filter (_.lhs contains s) } // fringe: 1 step from g1
+  protected def DeftoDagEntry(defentry: Stm, odep: Option[List[Exp[Any]]]): (Int,EnrichedGraphNode) = {
+    defentry match {
+      /*case TP(sym: Sym[Any], Reflect(rdef,u,es)) => {
+        val id = sym.id
+        val x = TP(sym,rdef)
+        val node: Def[Any] with Product = rdef
+        val out = node.productIterator.toSet
+        //val outsyms = out.map( x =>syms(x) )
+        val int_out = out.collect { case ele: Sym[Any] => ele.id }
+        val int_blocks = out.collect { case Block(res: Sym[Any] ) => res.id}
+        val in = Set.empty[Int]
+        (id,EnrichedGraphNode(Some(x),int_out,in,Set.empty[Int],int_blocks))
+      } */
+      case TP(sym: Sym[Any], node: Def[Any] with Product) => {
 
-    val e2 = getScheduleM(e1)(result, false, true)       // (shallow|hot)*  no cold ref on path
+        val out = node match {
 
-    val e3 = getScheduleM(e1)(result, true, false)       // (shallow|cold)* no hot ref on path
+          /*
+          case Reflect(u,summary,deps) => {
+            val x = TP(sym,u)
+            DeftoDagEntry(x,Some(deps))
 
-    val f2 = f1 filterNot (e3 contains _)                   // fringe restricted to: any* hot any*
+          }
+          case Reify(u,summary,deps) => {
+            //val out = node.productIterator.toSet
+            val out: Set[Exp[Any]] = deps.toSet
+            val x = TP(sym,node)
+            val id = sym.id
+            //val outsyms = out.map( x =>syms(x) )
+            val int_out = out.collect { case ele: Sym[Any] => ele.id } ++ odep.collect{ case ele: Sym[Any] => ele.id }
+            val int_blocks = Set.empty[Int]
+            val in = Set.empty[Int]
+            (id,EnrichedGraphNode(Some(x),int_out,in,Set.empty[Int],int_blocks))
+          }
+          */ //RF - move this to effectful variant
 
-    val h2 = getScheduleM(e1)(f2.flatMap(_.lhs), false, true)    // anything that depends non-cold on it...
-
-    // things that should live on this level:
-    // - not within conditional: no cold ref on path (shallow|hot)*
-    // - on the fringe but outside of mustInside, if on a hot path any* hot any*
-    
-    // TODO: use (shallow|hot)* hot any* instead
-    
-    // ---- begin FIXME ----
-    
-    // AKS: temporarily reverted to old code here to patch a bug in OptiML's MiniMSMBuilder application
-    // then/else branches were being unsafely hoisted out of a conditional 
-    //val shouldOutside = e1 filter (z => (e2 contains z) || (h2 contains z))
-
-    //* 
-    //TODO: uncomment after resolving the issue above
-    
-    val loopsNotInIfs = e2 filterNot (e3 contains _)    // (shallow|hot)* hot (shallow|hot)*   <---- a hot ref on all paths!
-    val reachFromTopLoops = getSchedule(e1)(loopsNotInIfs,false)
-
-    val f3 = f1 filter (reachFromTopLoops contains _)    // fringe restricted to: (shallow|hot)* hot any*
-    val h3 = getScheduleM(e1)(f3.flatMap(_.lhs), false, true)    // anything that depends non-cold on it...
-    
-    val shouldOutside = e1 filter (z => (e2 contains z) || (h3 contains z))
-    
-    //val shouldOutside = e1 filter (z => (e2 contains z) || (h2 contains z))
-    //*/
-
-    val levelScope = e1.filter(z => (shouldOutside contains z) && !(g1 contains z)) // shallow (but with the ordering of deep!!) and minus bound
-    
-    // ---- end FIXME ----
-
-    // sym->sym->hot->sym->cold->sym  hot --> hoist **** iff the cold is actually inside the loop ****
-    // sym->sym->cold->sym->hot->sym  cold here, hot later --> push down, then hoist
-
-/*
-
-    loop { i =>                z = *if (x) bla
-      if (i > 0)               loop { i =>
-        *if (x)                  if (i > 0)
-          bla                      z
-    }                          }
-
-    loop { i =>                z = *bla
-      if (x)                   loop { i =>
-        if (i > 0)               if (x)
-          *bla                     if (i > 0)
-    }                                z
-                               }
-*/
-
-    
-    // TODO: recursion!!!  identify recursive up-pointers
-    
-    
-    
-    
-    
-    
-
-    object LocalDef {
-      def unapply[A](x: Exp[A]): Option[Stm] = { // fusion may have rewritten Reify contents so we look at local scope
-        currentScope.find(_.lhs contains x)
-      }
-    }    
-
-    // sanity check to make sure all effects are accounted for
-    result foreach {
-      case LocalDef(TP(_, Reify(x, u, effects))) =>        
-        val observable = if (addControlDeps) effects.filterNot(controlDep) else effects
-        val acteffects = levelScope.flatMap(_.lhs) filter (observable contains _)
-        if (observable.toSet != acteffects.toSet) {
-          val actual = levelScope.filter(_.lhs exists (observable contains _))
-          val expected = observable.map(d=>/*fatten*/(findDefinition(d.asInstanceOf[Sym[Any]]).get)) 
-          val missing = expected filterNot (actual contains _)
-          val printfn = if (missing.isEmpty) printlog _ else printerr _
-          printfn("error: violated ordering of effects")
-          printfn("  expected:")
-          expected.foreach(d => printfn("    "+d))
-          printfn("  actual:")
-          actual.foreach(d => printfn("    "+d))
-          // stuff going missing because of stray dependencies is the most likely cause 
-          // so let's print some debugging hints
-          printfn("  missing:")
-          if (missing.isEmpty)
-            printfn("  note: there is nothing missing so the different order might in fact be ok (artifact of new effect handling? TODO)")
-          missing.foreach { d => 
-            val inDeep = e1 contains d
-            val inShallow = e2 contains d
-            val inDep = g1 contains d
-            printfn("    "+d+" <-- inDeep: "+inDeep+", inShallow: "+inShallow+", inDep: "+inDep)
-            if (inDep) e1 foreach { z =>
-              val b = boundSyms(z.rhs)
-              if (b.isEmpty) "" else {
-                val g2 = getFatDependentStuff(currentScope)(b)
-                if (g2 contains d) {
-                  printfn("    depends on " + z + " (bound: "+b+")")
-                  val path = getSchedule(g2)(d)
-                  for (p <- path) printfn("      "+p)
-                }
-              }
-            }
+          case _ => {
+            val out = node.productIterator.toSet
+            val x = TP(sym,node)
+            val id = sym.id
+            //val outsyms = out.map( x =>syms(x) )
+            val int_out = out.collect { case ele: Sym[Any] => ele.id } ++ odep.collect{ case ele: Sym[Any] => ele.id }
+            val int_blocks = out.collect { case Block(res: Sym[Any] ) => res.id}
+            val in = Set.empty[Int]
+            (id,EnrichedGraphNode(Some(x.sym.id),int_out,in,Set.empty[Int],int_blocks))
           }
         }
-      case _ =>
+        out
+      }
+      case _ => {
+        println("seems this case can happen for " + defentry)
+        ???
+      }
     }
-/*
-    // sanity check to make sure all effects are accounted for
-    result match {
-      case Def(Reify(x, u, effects)) =>
-        val actual = levelScope.filter(effects contains _.sym)
-        assert(effects == actual.map(_.sym), "violated ordering of effects: expected \n    "+effects+"\nbut got\n    " + actual)
-      case _ =>
-    }
-*/
-
-
-    levelScope
   }
+
+  protected def enhanceDAG(): IntMap[EnrichedGraphNode] = {
+    //this gives us the dag without the reverse lookup
+    val dagmap = globalDefs.foldLeft(IntMap.empty[EnrichedGraphNode]){
+      (acc,ele) => acc + DeftoDagEntry(ele,None)
+    }
+    //creates a hashmap of the reverse edges (one hashmap per origin node)
+    val reverse_dag = dagmap map {
+      entry => {
+        val outedges = entry._2.out ++ entry._2.blocks
+        val hmap = outedges.foldLeft(IntMap.empty[Set[Int]]){
+          (acc,ele) => acc + (ele -> Set(entry._1))
+        }
+        hmap
+      }
+    }
+    //merges those hashmaps
+    val merged = reverse_dag.foldLeft(IntMap.empty[Set[Int]]){
+      (acc,ele) => acc.unionWith(ele, (index,a,b: Set[Int]) => a ++ b )
+    }
+
+
+    //create nodes for the edges that are not a def
+    val withpuresyms = merged.foldLeft(dagmap){
+      (acc,ele) => {
+        if (dagmap.contains(ele._1)) acc
+        else { //its a pure sym
+          acc + (ele._1,EnrichedGraphNode(None,Set.empty[Int],Set.empty[Int],Set.empty[Int],Set.empty[Int]))
+        }
+      }
+    }
+
+    //finally fuse with dag to incorporate reverse info
+    //val full = dagmap.foldLeft(HashMap.empty[Int,(IR.Def[Any],Set[Int],Set[Int])]){
+    val full = withpuresyms.foldLeft(IntMap.empty[EnrichedGraphNode]){
+      (acc,ele) => {
+        val key = ele._1
+        val content = ele._2
+        val rhs = content.irdef
+        val out = content.out
+        val in = merged.get(key).getOrElse(Set.empty[Int])
+        val bound = boundSyms(rhs).map( x => x.id).toSet
+        val blocks = content.blocks
+        val entry : (Int,EnrichedGraphNode) = (key,EnrichedGraphNode(rhs,out,in,bound,blocks))
+        acc + entry
+      }
+    }
+    full
+  }
+
+
+
+
+
+
+
+
+  protected def depGraph(root: Int, backtrack: Set[Int], currentmap: IntMap[EnrichedGraphNode], full: IntMap[EnrichedGraphNode]): (IntMap[EnrichedGraphNode])  = {
+    if (backtrack.isEmpty)
+      (currentmap)
+    else {
+      val track: Int = backtrack.head //backtrack is a stack of nodes we still not to go through
+      val tracknode: EnrichedGraphNode = full(track) //get the head and traverse from there
+      val newtrack = tracknode.in filter ( e => !(currentmap.contains(e)) && e != root) //make sure we didnt visit that path already and that we are not at the origin of the subgraph
+      //val local_uplink = tracknode.out.filter( x => !full.contains(x))
+      //val newuplink = uplink ++ local_uplink
+      val newbacktrack = backtrack.tail ++ newtrack //add the alternative paths to the stack
+      val entry : (Int,EnrichedGraphNode) = (track,tracknode)
+      val newcurrent = currentmap + entry //add the new node of the path to the result
+      depGraph(root,newbacktrack,newcurrent,full) //recurse on this path
+    }
+  }
+
+
+  protected def update_nest(blocksym: Int, curr: IntMap[EnrichedGraphNode], full: IntMap[EnrichedGraphNode]): (IntMap[EnrichedGraphNode], IntMap[EnrichedGraphNode])  = {
+    val focused = curr(blocksym)
+    val blockhead = focused.blocks.head
+    if (!focused.blocks.tail.isEmpty) assert(false, "we are not handling this yet (multiple blocks in one symbol")
+    val children = depGraph(blocksym,focused.bounds,IntMap.empty[EnrichedGraphNode],full) //get the subgraph that depends on that bounds
+    //val centry: (Int, EnrichedGraphNode)  = (blockhead,focused)
+    //val children = children_dep + centry //depgraph doesnt include the root
+    val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks) =
+      visit_nested(blockhead,Set.empty[Int],Set.empty[Int],Stack.empty[Int],children, full,Set.empty[Int])
+    val binfo = BlockInfo(children,stack,uplinks)
+    val cache_entry: (Int, BlockInfo) = (blockhead,binfo)
+    schedule_cache = schedule_cache + cache_entry
+    //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
+    val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
+    (curr + entry,rfullscope + entry)
+  }
+
+  protected def visit_nested (n: Int, tmark: Set[Int], pmark: Set[Int], sort: Stack[Int], curr_scope: IntMap[EnrichedGraphNode], full_scope: IntMap[EnrichedGraphNode], uplinks: Set[Int]): (Set[Int], Set[Int], Stack[Int], IntMap[EnrichedGraphNode],IntMap[EnrichedGraphNode], Set[Int])  = {
+    if (!curr_scope.contains(n)) {
+      return (tmark,pmark,sort, curr_scope, full_scope, uplinks + n) //add n to uplinks
+    }
+    if (tmark.contains(n))  //if n has a temporary mark then stop (not a DAG)
+      assert(false,"not a dag")
+    val newtmark = tmark + n //mark n temporarily
+    if (pmark.contains(n)){
+      return (tmark,pmark,sort, curr_scope, full_scope, uplinks)
+    }
+    else {
+      val focused = curr_scope(n)
+      val next = focused.out //.filter(x => full_scope(x).irdef.isDefined) //all nexts
+
+      val (allnext, curr_nscope, full_nscope) =  if (!focused.blocks.isEmpty) {//we have a block
+      val (curr_uscope, full_uscope): (IntMap[EnrichedGraphNode],IntMap[EnrichedGraphNode]) =
+
+        if (!schedule_cache.contains(focused.blocks.head))
+          update_nest(n,curr_scope, full_scope)
+        else
+          (curr_scope, full_scope) //we update the scope to have the blockinfo
+      val nfocused = focused //curr_uscope(n) //refresh the focused
+        if (!schedule_cache.contains(focused.blocks.head)) assert(false, "this should just not happen")
+        val binfo = schedule_cache(focused.blocks.head)
+        (binfo.uplinks ++ next, curr_uscope, full_uscope)
+      }
+      else {
+        (next,curr_scope, full_scope)
+      }
+
+      val (rtmark,rpmark,rsort,rcurrscope,rfullscope,ruplinks) =
+        allnext.foldLeft((newtmark,pmark,sort,curr_nscope, full_nscope,uplinks)){
+          (acc,ele) => visit_nested(ele,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele) }
+
+      val newpmark = if (full_scope(n).irdef.isEmpty) rpmark else rpmark + n
+      val newstack = if (full_scope(n).irdef.isEmpty) rsort else rsort :+ n
+      (tmark,newpmark,newstack,rcurrscope,rfullscope,ruplinks)
+    }
+  }
+
+
+  protected def getBlockInfo[A](block: Block[A]): BlockInfo = {
+    val res = getBlockResult(block)
+    val resid: Int = block match {
+      case Block(Sym(id)) => id
+      case Block(Const(x)) => {
+        println(block)
+        println(res)
+        ??? //we never have this in our code - //TODO - fix for common case
+      }
+    }
+    // in case we didnt schedule yet - do it now
+    if (!schedule_cache.contains(resid)) {
+      val  (mark,pmark,stack,rscope,rfullscope,uplinks) =
+        visit_nested(resid,Set.empty[Int],Set.empty[Int],Stack.empty[Int],enriched_graph,enriched_graph,Set.empty[Int])
+      val binfo = BlockInfo(rfullscope,stack,uplinks)
+      val cache_entry: (Int, BlockInfo) = (resid,binfo)
+      schedule_cache = schedule_cache + cache_entry
+    }
+    assert(schedule_cache.contains(resid),"sanity check fails?")
+    val binfo = schedule_cache(resid)
+    binfo
+  }
+
+}
+
+object CodeMotion {
+
+
+
+
+  /** Takes a reified Program as an input. It then follows the dependencies of the the result of the reified program
+   * and also stores the reverse edges (for each node - which nodes depend on it).
+   * For CodeMotion purpose it also stores for each Block the following information:
+    *  Statements that have to be part of the Block (e.g. dependent on Loop iterator)
+    *  Statements that are "free" in the block (no dependencies) - this should only happen in the top most block
+    *  Uplinks of the current Block (Dependencies of Statements within the block on Statements outside the Bock)
+    *
+   * @param preifiedIR
+   * @author Georg Ofenbeck
+   * @return
+   */
+  def apply(preifiedIR : Reification): CodeMotion = {
+    val cm = new CodeMotion {
+      override val reifiedIR: Reification = preifiedIR
+    }
+    cm
+  }
+
+
+
+
 }

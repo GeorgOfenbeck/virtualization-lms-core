@@ -4,12 +4,13 @@ package common
 import java.io.PrintWriter
 import scala.virtualization.lms.util.OverloadHack
 import scala.reflect.SourceContext
+import internal._
 
-trait OrderingOps extends Base with Variables with OverloadHack {
+trait OrderingOps extends Base with ImplicitOps/*with Variables*/ with OverloadHack {
   // workaround for infix not working with implicits in PrimitiveOps
   implicit def orderingToOrderingOps[T:Ordering:Manifest](n: T) = new OrderingOpsCls(unit(n))
   implicit def repOrderingToOrderingOps[T:Ordering:Manifest](n: Rep[T]) = new OrderingOpsCls(n)
-  implicit def varOrderingToOrderingOps[T:Ordering:Manifest](n: Var[T]) = new OrderingOpsCls(readVar(n))
+  //implicit def varOrderingToOrderingOps[T:Ordering:Manifest](n: Var[T]) = new OrderingOpsCls(readVar(n)) //RF!
 
   class OrderingOpsCls[T:Ordering:Manifest](lhs: Rep[T]){
     def <(rhs: Rep[T])(implicit pos: SourceContext) = ordering_lt(lhs, rhs)
@@ -50,7 +51,7 @@ trait OrderingOps extends Base with Variables with OverloadHack {
 }
 
 
-trait OrderingOpsExp extends OrderingOps with VariablesExp {
+trait OrderingOpsExp extends OrderingOps with ImplicitOpsExp/*with VariablesExp */ {
   abstract class DefMN[T:Ordering:Manifest,A] extends Def[A] {
     def mev = manifest[T]
     def aev = implicitly[Ordering[T]]
@@ -64,15 +65,16 @@ trait OrderingOpsExp extends OrderingOps with VariablesExp {
   case class OrderingMin[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T]) extends DefMN[T,T]
   case class OrderingCompare[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T]) extends DefMN[T,Int]
 
-  def ordering_lt[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[Boolean] = OrderingLT(lhs,rhs)
-  def ordering_lteq[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[Boolean] = OrderingLTEQ(lhs,rhs)
-  def ordering_gt[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[Boolean] = OrderingGT(lhs,rhs)
-  def ordering_gteq[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[Boolean] = OrderingGTEQ(lhs,rhs)
-  def ordering_equiv[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[Boolean] = OrderingEquiv(lhs,rhs)
-  def ordering_max[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[T] = OrderingMax(lhs,rhs)
-  def ordering_min[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[T] = OrderingMin(lhs,rhs)
-  def ordering_compare[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Rep[Int] = OrderingCompare(lhs,rhs)
+  def ordering_lt[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[Boolean] = OrderingLT(lhs,rhs)
+  def ordering_lteq[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[Boolean] = OrderingLTEQ(lhs,rhs)
+  def ordering_gt[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[Boolean] = OrderingGT(lhs,rhs)
+  def ordering_gteq[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[Boolean] = OrderingGTEQ(lhs,rhs)
+  def ordering_equiv[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[Boolean] = OrderingEquiv(lhs,rhs)
+  def ordering_max[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = OrderingMax(lhs,rhs)
+  def ordering_min[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = OrderingMin(lhs,rhs)
+  def ordering_compare[T:Ordering:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[Int] = OrderingCompare(lhs,rhs)
 
+  /*
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = {
     (e match {
     case e@OrderingLT(a,b) => ordering_lt(f(a),f(b))(e.aev,e.mev,pos)
@@ -93,9 +95,10 @@ trait OrderingOpsExp extends OrderingOps with VariablesExp {
     case Reflect(e@OrderingCompare(a,b), u, es) => reflectMirrored(Reflect(OrderingCompare(f(a),f(b))(e.aev,e.mev), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case _ => super.mirror(e, f)
     }).asInstanceOf[Exp[A]]
-  }
+  } */
 }
-
+//RF
+/*
 trait ScalaGenOrderingOps extends ScalaGenBase {
   val IR: OrderingOpsExp
   import IR._
@@ -154,4 +157,4 @@ trait CLikeGenOrderingOps extends CLikeGenBase {
 trait CudaGenOrderingOps extends CudaGenBase with CLikeGenOrderingOps
 trait OpenCLGenOrderingOps extends OpenCLGenBase with CLikeGenOrderingOps
 trait CGenOrderingOps extends CGenBase with CLikeGenOrderingOps
-
+*/

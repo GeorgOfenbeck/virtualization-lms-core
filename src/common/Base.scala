@@ -34,7 +34,7 @@ trait Base extends EmbeddedControls {
  *
  * @since 0.1
  */
-trait BaseExp extends Base with Expressions with Blocks with Transforming {
+trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
   type Rep[+T] = Exp[T]
 
   protected def unit[T:Manifest](x: T) = Const(x)
@@ -52,7 +52,10 @@ trait BlockExp extends BaseExp with Blocks {
 }
 */
 
+
+/*
 trait EffectExp extends BaseExp with Effects {
+
 
   def mapOver(t: Transformer, u: Summary) = { // TODO: move to effects class?
     u.copy(mayRead = t.onlySyms(u.mayRead), mstRead = t.onlySyms(u.mstRead),
@@ -84,12 +87,14 @@ trait EffectExp extends BaseExp with Effects {
 
 trait BaseFatExp extends BaseExp with FatExpressions with FatTransforming
 
+*/
+
 
 // The traits below provide an interface to codegen so that client do
 // not need to depend on internal._
 
 trait ScalaGenBase extends ScalaCodegen
-
+/*
 trait ScalaGenEffect extends ScalaNestedCodegen with ScalaGenBase
 
 trait ScalaGenFat extends ScalaFatCodegen with ScalaGenBase
@@ -114,3 +119,5 @@ trait OpenCLGenFat extends OpenCLFatCodegen with OpenCLGenBase
 trait CGenBase extends CCodegen
 trait CGenEffect extends CNestedCodegen with CGenBase
 trait CGenFat extends CFatCodegen with CGenBase
+
+*/
