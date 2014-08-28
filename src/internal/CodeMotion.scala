@@ -21,6 +21,9 @@ trait CodeMotion{
    */
   case class BlockInfo(children: IntMap[EnrichedGraphNode], child_schedule: Stack[Int], uplinks: Set[Int], roots: Set[Int])
 
+  case class IRBlockInfo(val head: Int, val blockinfo: IntMap[BlockInfo]){
+    def getHead(): BlockInfo = blockinfo(head)
+  }
 
   /**
    * @param irdef Some(Int) = an index into globaldefs to the according IR Definition
@@ -47,11 +50,13 @@ trait CodeMotion{
   protected var bcache = IntMap.empty[BlockInfo]
 
 
-  lazy val block_cache: IntMap[BlockInfo] = {
+
+
+  lazy val block_cache: IRBlockInfo = {
     bcache = IntMap.empty[BlockInfo] //just in case someone initialized that by accident before
     getBlockInfo(reifiedIR.result)
-    bcache
   }
+
 
 
   protected def DeftoDagEntry(defentry: Stm, odep: Option[List[Exp[Any]]]): (Int,EnrichedGraphNode) = {
@@ -299,7 +304,7 @@ trait CodeMotion{
    * @param block The block on which code motion should be performed - should always be the result block of the reified DAG
    * @tparam A
    */
-  protected def getBlockInfo[A](block: Block[A]): Unit = {
+  protected def getBlockInfo[A](block: Block[A]): IRBlockInfo = {
     val res = getBlockResult(block)
     //RF! just not nice
     val resid: Int = block match {
@@ -325,6 +330,7 @@ trait CodeMotion{
         "never end up here!")
     }
     assert(bcache.contains(resid),"sanity check fails?")
+    IRBlockInfo(resid,bcache)
   }
 
 }

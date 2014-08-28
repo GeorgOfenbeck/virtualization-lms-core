@@ -2,7 +2,98 @@ package scala.virtualization.lms
 package internal
 
 
-trait BlockTraversal {
+
+
+trait Traverser {
+  self =>
+  val cminfo: CodeMotion
+  val explored: Vector[Int]
+  val scheduleoptions: Vector[(cminfo.reifiedIR.IR.Stm , Unit => Traverser)]
+
+  protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Set[Int] = {
+    val nexts = block.children(root).out //get all successors
+    val withoutprev = nexts flatMap (
+        next => { //for each successors
+        val allprev = block.children(next).in //get its predecessors
+        val withoutroot = allprev - root
+          val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
+          if (onlyfromblock.isEmpty) Some(next) else None
+        }
+        )
+    val newroots = current_roots - root ++ withoutprev
+    newroots
+  }
+
+  def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Traverser = {
+    val newfront = getNewFront(block,current_roots,root).toVector
+    val newfs: Vector[(cminfo.reifiedIR.IR.Stm , Unit => Traverser)] = newfront map (
+      node => {
+        val f: (Unit => Traverser) = (u: Unit) => getNewTraverser(block,newfront.toSet,node)
+        (cminfo.reifiedIR.globalDefs(node),f)
+      }
+      )
+
+    val newtrav = new Traverser {
+      val cminfo: self.cminfo.type = self.cminfo
+      val scheduleoptions = newfs
+      val explored: Vector[Int] = Vector()
+    }
+    newtrav
+  }
+}
+
+trait Traversal {
+  self =>
+  val cminfo: CodeMotion
+
+  //this returns an iterator to traverse all free symbols (e.g. global variables)
+  //symbols that are not bound on the arguments of the Block
+  def getFreeSymsIterator() =  ???
+
+  //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
+  def getForwardIterator(): Traverser = {
+    val args = cminfo.reifiedIR.args map (x => x.id)
+
+
+    val initalblock = cminfo.block_cache.getHead()
+    val roots = initalblock.roots
+
+    val t = new Traverser {
+      val cminfo: self.cminfo.type = self.cminfo
+      val scheduleoptions = Vector()
+      val explored: Vector[Int] = Vector()
+    }
+
+
+    val newfs: Vector[(cminfo.reifiedIR.IR.Stm , Unit => Traverser)] = roots.toVector map (
+      node => {
+        val block = t.cminfo.block_cache.getHead()
+        val f: (Unit => Traverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
+        (cminfo.reifiedIR.globalDefs(node),f)
+      }
+      )
+
+    val newtrav = new Traverser {
+      val cminfo: self.cminfo.type = self.cminfo
+      val scheduleoptions = newfs
+      val explored: Vector[Int] = Vector()
+    }
+    newtrav
+  }
+
+  //returns a traversal iterator which traverses the DAG in Results -> Arguments direction
+  def getBackwardIterator() = ???
+
+
+
+
+
+}
+
+
+
+
+trait BlockTraversalx {
   val cminfo: CodeMotion
 
   import cminfo.reifiedIR.IR._
@@ -19,7 +110,7 @@ trait BlockTraversal {
         ??? //we never have this in our code - //TODO - fix for common case
       }
     }
-    val binfo = cminfo.block_cache(resid)
+    val binfo = cminfo.block_cache.getHead()
     traverseStmsinBlock(binfo)
   }
 
@@ -54,8 +145,3 @@ trait BlockTraversal {
 }
 
 
-
-object BlockTraversal{
-
-
-}
