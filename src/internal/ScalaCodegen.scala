@@ -3,7 +3,7 @@ package internal
 
 import java.io.{File, FileWriter, PrintWriter}
 
-import scala.reflect.SourceContext
+
 
 
 
@@ -24,7 +24,7 @@ trait ScalaCodegen extends GenericCodegen with Config {
 
   def emitSource[A : Manifest](className: String, out: PrintWriter) = {
 
-    val sA = remap(manifest[A])
+    //val sA = remap(manifest[A]) //RF!
 
     //val staticData = getFreeDataBlock(body) //RF - not used?
     val staticData: List[(Sym[Any],Any)] = Nil
@@ -36,8 +36,8 @@ trait ScalaCodegen extends GenericCodegen with Config {
       emitFileHeader()
 
       // TODO: separate concerns, should not hard code "pxX" name scheme for static data here
-      stream.println("class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tp).mkString(",")+")")+" extends (("+args.map(a => remap(a.tp)).mkString(", ")+")=>("+sA+")) {")
-      stream.println("def apply("+args.map(a => quote(a) + ":" + remap(a.tp)).mkString(", ")+"): "+sA+" = {")
+      //stream.println("class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tp).mkString(",")+")")+" extends (("+args.map(a => remap(a.tp)).mkString(", ")+")=>("+sA+")) {") //RF!!!
+      //stream.println("def apply("+args.map(a => quote(a) + ":" + remap(a.tp)).mkString(", ")+"): "+sA+" = {") //RF!!!
 
       //cminfo.block_cache(cminfo.reifiedIR.result.res.)
       //emitBlock(body)
@@ -60,10 +60,12 @@ trait ScalaCodegen extends GenericCodegen with Config {
   }
 
   override def emitKernelHeader(syms: List[Sym[Any]], vals: List[Sym[Any]], vars: List[Sym[Any]], resultType: String, resultIsVar: Boolean, external: Boolean): Unit = {
+    //RF
+    /*
     val kernelName = syms.map(quote).mkString("")
     stream.println("object kernel_" + kernelName + " {")
     stream.print("def apply(")
-    stream.print(vals.map(p => quote(p) + ":" + remap(p.tp)).mkString(","))
+    //stream.print(vals.map(p => quote(p) + ":" + remap(p.tp)).mkString(",")) //RF!
 
     // variable name mangling
     if (vals.length > 0 && vars.length > 0){
@@ -80,7 +82,7 @@ trait ScalaCodegen extends GenericCodegen with Config {
       stream.print("): " + resultType + " = {")
     }
 
-    stream.println("")
+    stream.println("") */
   }
 
   override def emitKernelFooter(syms: List[Sym[Any]], vals: List[Sym[Any]], vars: List[Sym[Any]], resultType: String, resultIsVar: Boolean, external: Boolean): Unit = {
@@ -95,10 +97,14 @@ trait ScalaCodegen extends GenericCodegen with Config {
   }
 
   def emitValDef(sym: Sym[Any], rhs: String): Unit = {
+
+    val extra = ""
+    /* RF!!
     val extra = if ((sourceinfo < 2) || sym.pos.isEmpty) "" else {
       val context = sym.pos(0)
       "      // " + relativePath(context.fileName) + ":" + context.line
-    }
+    } */
+
     stream.println("val " + quote(sym) + " = " + rhs + extra)
   }
   

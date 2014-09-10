@@ -5,6 +5,7 @@ package internal
 
 
 trait Traverser {
+
   self =>
   val cminfo: CodeMotion
   val explored: Vector[Int]
@@ -88,6 +89,16 @@ trait Traversal {
 
 
 
+}
+
+
+object Traversal {
+  def apply(cm : CodeMotion): Traversal = {
+    val traversal = new Traversal{
+      override val cminfo = cm
+    }
+    traversal
+  }
 }
 
 

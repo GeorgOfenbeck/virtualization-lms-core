@@ -1,7 +1,7 @@
 package scala.virtualization.lms
 package common
 
-import scala.reflect.SourceContext
+
 
 
 
@@ -12,15 +12,15 @@ trait VectorwoSizeOps extends ImplicitOps{
   implicit def varToVectorwoSizeOps[T:Manifest](x: Rep[VectorwoSize[T]]) = new VectorwoSizeOpsCls(x)
 
   class VectorwoSizeOpsCls[T:Manifest](a: Rep[VectorwoSize[T]]) {
-    def apply(n: Rep[Int])(implicit pos: SourceContext) = vector_apply(a, n)
+    def apply(n: Rep[Int]) = vector_apply(a, n)
   }
-  def vector_apply[T:Manifest](x: Rep[VectorwoSize[T]], n: Rep[Int])(implicit pos: SourceContext): Rep[T]
+  def vector_apply[T:Manifest](x: Rep[VectorwoSize[T]], n: Rep[Int]): Rep[T]
 }
 
 trait VectorwoSizeOpsExp extends VectorwoSizeOps with ImplicitOpsExp{
 
   case class VectorApply[T:Manifest](a: Exp[VectorwoSize[T]], n: Exp[Int]) extends Def[T]
-  def vector_apply[T:Manifest](x: Exp[VectorwoSize[T]], n: Exp[Int])(implicit pos: SourceContext): Exp[T] = VectorApply(x, n)
+  def vector_apply[T:Manifest](x: Exp[VectorwoSize[T]], n: Exp[Int]): Exp[T] = VectorApply(x, n)
 }
 
 

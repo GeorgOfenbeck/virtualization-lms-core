@@ -1,6 +1,9 @@
 import scala.collection.mutable
 
 
+val bla = Vector(3,1)
+val y = bla(4)
+
 case class Bla[T](val x: T)
 
 trait immutablething {

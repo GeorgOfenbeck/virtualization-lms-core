@@ -3,9 +3,9 @@ package internal
 
 import util.GraphUtil
 import java.io.{File, PrintWriter}
-import scala.reflect.RefinedManifest
 
-trait GenericCodegen extends BlockTraversal {
+
+trait GenericCodegen extends BlockTraversalx {
 
   import cminfo.reifiedIR.IR._
 
@@ -61,6 +61,9 @@ trait GenericCodegen extends BlockTraversal {
   def remap(s: String): String = s
   def remap[A](s: String, method: String, t: Manifest[A]) : String = remap(s, method, t.toString)
   def remap(s: String, method: String, t: String) : String = s + method + "[" + remap(t) + "]"
+
+  def remap[A](m: Manifest[A]): String = ???
+  /* RF!!
   def remap[A](m: Manifest[A]): String = m match {
     case rm: RefinedManifest[A] =>  "AnyRef{" + rm.fields.foldLeft(""){(acc, f) => {val (n,mnf) = f; acc + "val " + n + ": " + remap(mnf) + ";"}} + "}"
     case _ if m.erasure == classOf[Variable[Any]] =>
@@ -73,11 +76,15 @@ trait GenericCodegen extends BlockTraversal {
         ms.take(ms.indexOf("[")+1) + targs.map(tp => remap(tp)).mkString(", ") + "]"
       }
       else m.toString
-  }
-  def remapImpl[A](m: Manifest[A]): String = remap(m)
+  } */
+
+
+  //RF !!!
+  //def remapImpl[A](m: Manifest[A]): String = remap(m)
   //def remapVar[A](m: Manifest[Variable[A]]) : String = remap(m.typeArguments.head)
 
-  def remapHost[A](m: Manifest[A]): String = remap(m).replaceAll(deviceTarget.toString,hostTarget.toString)
+  //RF !!!
+  //def remapHost[A](m: Manifest[A]): String = remap(m).replaceAll(deviceTarget.toString,hostTarget.toString)
 
   def hasMetaData: Boolean = false
   def getMetaData: String = null
@@ -202,7 +209,7 @@ trait GenericCodegen extends BlockTraversal {
     def quoteOrRemap(arg: Any): String = arg match {
       case xs: Seq[_] => xs.map(quoteOrRemap).mkString(",")
       case e: Exp[_] => quote(e)
-      case m: Manifest[_] => remap(m)
+      //case m: Manifest[_] => remap(m) //RF!!
       case s: String => s
       case _ => throw new RuntimeException(s"Could not quote or remap $arg")
     }

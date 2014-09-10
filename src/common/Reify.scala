@@ -20,7 +20,13 @@ trait Reify {
   import IR._
 
 
+  def reifyProgram[T : Manifest, R : Manifest](f: T => Exp[R], builder: => (T, Vector[IR.Sym[Any]])): Reification = {
+    IR.reset
+    val (s, args) = builder
+    reifyProgram(f(s),args)
+  }
 
+  def reifyProgramX[T : Manifest, R : Manifest](f: Exp[T] => Exp[R]): Reification = reifyProgram(f)
 
   def reifyProgram[T : Manifest, R : Manifest](f: Exp[T] => Exp[R]): Reification = {
     IR.reset
@@ -83,7 +89,7 @@ package scala.virtualization.lms
 package common
 
 
-import scala.reflect.SourceContext
+
 import scala.virtualization.lms.internal._
 
 trait ReifiedProgram {
@@ -99,7 +105,7 @@ trait ReifyProgram extends Expressions{
     println("hae?")
 
     val mutablecopy = new ReifyProgram {
-      override implicit def toAtom[T:Manifest](d: Def[T])(implicit pos: SourceContext): Exp[T] =
+      override implicit def toAtom[T:Manifest](d: Def[T]): Exp[T] =
       {
 
         findOrCreateDefinitionExp(d, List(pos)) // TBD: return Const(()) if type is Unit??

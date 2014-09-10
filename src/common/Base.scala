@@ -2,7 +2,6 @@ package scala.virtualization.lms
 package common
 
 import internal._
-import scala.reflect.SourceContext
 
 /**
  * This trait automatically lifts any concrete instance to a representation.
@@ -17,7 +16,7 @@ trait LiftAll extends Base {
  *
  * @since 0.1 
  */
-trait Base extends EmbeddedControls {
+trait Base  {
   type API <: Base
 
   type Rep[+T]
@@ -62,13 +61,13 @@ trait EffectExp extends BaseExp with Effects {
       mayWrite = t.onlySyms(u.mayWrite), mstWrite = t.onlySyms(u.mstWrite))
   }
 
-  override def mirrorDef[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Def[A] = e match {
+  override def mirrorDef[A:Manifest](e: Def[A], f: Transformer): Def[A] = e match {
     case Reflect(x, u, es) => Reflect(mirrorDef(x,f), mapOver(f,u), f(es))
     case Reify(x, u, es) => Reify(f(x), mapOver(f,u), f(es))
     case _ => super.mirrorDef(e,f)
   }
 
-  override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = e match {
+  override def mirror[A:Manifest](e: Def[A], f: Transformer): Exp[A] = e match {
 /*
     case Reflect(x, u, es) =>
       reifyEffects {

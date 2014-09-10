@@ -96,12 +96,16 @@ trait CodeMotion{
           */ //RF - move this to effectful variant
 
           case _ => {
-            val out = node.productIterator.toSet
+            //val out = node.productIterator.toSet
+            val out = syms(node)
+
             val x = TP(sym,node)
             val id = sym.id
             //val outsyms = out.map( x =>syms(x) )
-            val int_out = out.collect { case ele: Sym[Any] => ele.id } ++ odep.collect{ case ele: Sym[Any] => ele.id }
-            val int_blocks = out.collect { case Block(res: Sym[Any] ) => res.id} //FatRF!
+            //val int_out = out.collect { case ele: Sym[Any] => ele.id } ++ odep.collect{ case ele: Sym[Any] => ele.id }
+            val int_out = ( out.map( x => x.id) ++  odep.collect{ case ele: Sym[Any] => ele.id } ).toSet
+            //            val int_blocks = out.collect { case IR.Block(res: IR.Sym[Any] ) => res.id}
+            val int_blocks = blocks(node).collect { case Block(res: Sym[Any] ) => res.id}.toSet
             val in = Set.empty[Int]
             (id,EnrichedGraphNode(Some(x.sym.id),int_out,in,Set.empty[Int],int_blocks))
           }

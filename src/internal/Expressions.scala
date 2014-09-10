@@ -1,7 +1,7 @@
 package scala.virtualization.lms
 package internal
 
-import scala.reflect.SourceContext
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.IntMap
@@ -19,16 +19,11 @@ trait Expressions extends Utils {
 
   abstract class Exp[+T:Manifest] { // constants/symbols (atomic)
   def tp: Manifest[T @uncheckedVariance] = manifest[T] //invariant position! but hey...
-  def pos: List[SourceContext] = Nil
   }
 
   case class Const[+T:Manifest](x: T) extends Exp[T]
 
-  case class Sym[+T:Manifest](val id: Int) extends Exp[T] {
-    var sourceContexts: List[SourceContext] = Nil
-    override def pos = sourceContexts
-    def withPos(pos: List[SourceContext]) = { sourceContexts :::= pos; this }
-  }
+  case class Sym[+T:Manifest](val id: Int) extends Exp[T]
 
   case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
 
@@ -62,16 +57,8 @@ trait Expressions extends Utils {
 
   var nVars = 0
   def fresh[T:Manifest]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
-  def fresh[T:Manifest](pos: List[SourceContext]): Sym[T] = fresh[T].withPos(pos)
-  def quotePos(e: Exp[Any]): String = e.pos match {
-    case Nil => "<unknown>"
-    case cs => 
-      def all(cs: SourceContext): List[SourceContext] = cs.parent match {
-        case None => List(cs)
-        case Some(p) => cs::all(p)
-      }
-    cs.map(c => all(c).reverse.map(c => c.fileName.split("/").last + ":" + c.line).mkString("//")).mkString(";")
-  }
+  //def fresh[T:Manifest]: Sym[T] = fresh[T]
+
 
   var globalDefs: Vector[Stm] = Vector()
   var localDefs: Vector[Stm] = Vector()
@@ -112,13 +99,13 @@ trait Expressions extends Utils {
   def findDefinition[T](d: Def[T]): Option[Stm] =
     globalDefs.find(x => x.defines(d).nonEmpty)
 
-  def findOrCreateDefinition[T:Manifest](d: Def[T], pos: List[SourceContext]): Stm =
-    findDefinition[T](d) map { x => x.defines(d).foreach(_.withPos(pos)); x } getOrElse {
-      createDefinition(fresh[T](pos), d)
+  def findOrCreateDefinition[T:Manifest](d: Def[T]): Stm =
+    findDefinition[T](d) map { x => x.defines(d); x } getOrElse {
+      createDefinition(fresh[T], d)
     }
 
-  def findOrCreateDefinitionExp[T:Manifest](d: Def[T], pos: List[SourceContext]): Exp[T] =
-    findOrCreateDefinition(d, pos).defines(d).get
+  def findOrCreateDefinitionExp[T:Manifest](d: Def[T]): Exp[T] =
+    findOrCreateDefinition(d).defines(d).get
 
   def createDefinition[T](s: Sym[T], d: Def[T]): Stm = {
     val f = TP(s, d)
@@ -128,19 +115,19 @@ trait Expressions extends Utils {
 
 
 
-  protected implicit def toAtom[T:Manifest](d: Def[T])(implicit pos: SourceContext): Exp[T] = {
-    findOrCreateDefinitionExp(d, List(pos)) // TBD: return Const(()) if type is Unit??
+  protected implicit def toAtom[T:Manifest](d: Def[T]): Exp[T] = {
+    findOrCreateDefinitionExp(d) // TBD: return Const(()) if type is Unit??
   }
 
 
   // dependencies
 
   // regular data (and effect) dependencies
-  def syms(e: Any): List[Sym[Any]] = e match {
-    case s: Sym[Any] => List(s)
-    case ss: Iterable[Any] => ss.toList.flatMap(syms(_))
+  def syms(e: Any): Vector[Sym[Any]] = e match {
+    case s: Sym[Any] => Vector(s)
+    case ss: Iterable[Any] => ss.toVector.flatMap(syms(_))
     // All case classes extend Product!
-    case p: Product => 
+    case p: Product =>
       //return p.productIterator.toList.flatMap(syms(_))
       /* performance hotspot */
       val iter = p.productIterator
@@ -149,57 +136,57 @@ trait Expressions extends Utils {
         val e = iter.next()
         out ++= syms(e)
       }
-      out.result
-    case _ => Nil
+      out.result().toVector
+    case _ => Vector()
   }
 
   // symbols which are bound in a definition
-  def boundSyms(e: Any): List[Sym[Any]] = e match {
-    case ss: Iterable[Any] => ss.toList.flatMap(boundSyms(_))
-    case p: Product => p.productIterator.toList.flatMap(boundSyms(_))
-    case _ => Nil
+  def boundSyms(e: Any): Vector[Sym[Any]] = e match {
+    case ss: Iterable[Any] => ss.toVector.flatMap(boundSyms(_))
+    case p: Product => p.productIterator.toVector.flatMap(boundSyms(_))
+    case _ => Vector()
   }
 
   // symbols which are bound in a definition, but also defined elsewhere
-  def tunnelSyms(e: Any): List[Sym[Any]] = e match {
-    case ss: Iterable[Any] => ss.toList.flatMap(tunnelSyms(_))
-    case p: Product => p.productIterator.toList.flatMap(tunnelSyms(_))
-    case _ => Nil
+  def tunnelSyms(e: Any): Vector[Sym[Any]] = e match {
+    case ss: Iterable[Any] => ss.toVector.flatMap(tunnelSyms(_))
+    case p: Product => p.productIterator.toVector.flatMap(tunnelSyms(_))
+    case _ => Vector()
   }
 
   // symbols of effectful components of a definition
-  def effectSyms(x: Any): List[Sym[Any]] = x match {
-    case ss: Iterable[Any] => ss.toList.flatMap(effectSyms(_))
-    case p: Product => p.productIterator.toList.flatMap(effectSyms(_))
-    case _ => Nil
+  def effectSyms(x: Any): Vector[Sym[Any]] = x match {
+    case ss: Iterable[Any] => ss.toVector.flatMap(effectSyms(_))
+    case p: Product => p.productIterator.toVector.flatMap(effectSyms(_))
+    case _ => Vector()
   }
 
   // soft dependencies: they are not required but if they occur, 
   // they must be scheduled before
-  def softSyms(e: Any): List[Sym[Any]] = e match {
+  def softSyms(e: Any): Vector[Sym[Any]] = e match {
     // empty by default
     //case s: Sym[Any] => List(s)
-    case ss: Iterable[Any] => ss.toList.flatMap(softSyms(_))
-    case p: Product => p.productIterator.toList.flatMap(softSyms(_))
-    case _ => Nil
+    case ss: Iterable[Any] => ss.toVector.flatMap(softSyms(_))
+    case p: Product => p.productIterator.toVector.flatMap(softSyms(_))
+    case _ => Vector()
   }
 
 
-  def rsyms[T](e: Any)(f: Any=>List[T]): List[T] = e match {
+  def rsyms[T](e: Any)(f: Any=>Vector[T]): Vector[T] = e match {
     case s: Sym[Any] => f(s)
-    case ss: Iterable[Any] => ss.toList.flatMap(f)
-    case p: Product => p.productIterator.toList.flatMap(f)
-    case _ => Nil
+    case ss: Iterable[Any] => ss.toVector.flatMap(f)
+    case p: Product => p.productIterator.toVector.flatMap(f)
+    case _ => Vector()
   }
 
   // frequency information for dependencies: used/computed
   // often (hot) or not often (cold). used to drive code motion.
-  def symsFreq(e: Any): List[(Sym[Any], Double)] = e match {
-    case s: Sym[Any] => List((s,1.0))
-    case ss: Iterable[Any] => ss.toList.flatMap(symsFreq(_))
-    case p: Product => p.productIterator.toList.flatMap(symsFreq(_))
+  def symsFreq(e: Any): Vector[(Sym[Any], Double)] = e match {
+    case s: Sym[Any] => Vector((s,1.0))
+    case ss: Iterable[Any] => ss.toVector.flatMap(symsFreq(_))
+    case p: Product => p.productIterator.toVector.flatMap(symsFreq(_))
     //case _ => rsyms(e)(symsFreq)
-    case _ => Nil
+    case _ => Vector()
   }
 
   def freqNormal(e: Any) = symsFreq(e)
