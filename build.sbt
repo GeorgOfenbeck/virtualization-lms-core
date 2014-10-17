@@ -31,6 +31,8 @@ parallelExecution in Test := false
 publishArtifact in (Compile, packageDoc) := false
 
 
+//libraryDependencies += "org.neo4j" % "neo4j" % "2.1.4"
+
 // continuations
 //autoCompilerPlugins := true
 

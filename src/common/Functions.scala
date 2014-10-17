@@ -25,7 +25,7 @@ trait PureFunctions extends ImplicitOps {
 
 
 trait PureFunctionsExp extends PureFunctions with ImplicitOpsExp{
-  case class Lambda[A:Manifest,B:Manifest](f: Exp[A] => Exp[B], x: Exp[A], y: Block[B]) extends Def[A => B] { val mA = manifest[A]; val mB = manifest[B] }
+  case class Lambda[A:Manifest,B:Manifest](f: Exp[A] => Exp[B], x: Sym[A], y: Block[B]) extends Def[A => B] { val mA = manifest[A]; val mB = manifest[B] }
   case class Apply[A:Manifest,B:Manifest](f: Exp[A => B], arg: Exp[A]) extends Def[B] { val mA = manifest[A]; val mB = manifest[B] }
 
   // unboxedFresh and unbox are hooks that can be overridden to

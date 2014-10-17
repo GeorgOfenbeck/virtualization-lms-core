@@ -130,7 +130,7 @@ class TestFFT extends FunSpec{
 
       val dsl = new FooBar
 
-      val lamdait = dsl.fft_wrapper()
+      val lamdait = dsl.fun(dsl.fft_wrapper(2))
 
       val reified = dsl.reifyProgramX(dsl.fft_wrapper(2))
       val cm = CodeMotion(reified)

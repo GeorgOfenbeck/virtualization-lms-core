@@ -1,6 +1,7 @@
 package scala.virtualization.lms
 package common
 
+
 import scala.virtualization.lms.internal._
 import scala.collection.immutable.IntMap
 
@@ -16,7 +17,7 @@ trait Reification {
 
 trait Reify {
   self =>
-  val IR: Blocks
+  val IR: Blocks with PureFunctionsExp
   import IR._
 
 
@@ -67,6 +68,22 @@ trait Reify {
     val s5 = fresh[T5]
     reifyProgram(f(s1,s2,s3,s4,s5), Vector(s1,s2,s3,s4,s5))
   }
+
+
+  def reifyProgram[A: Manifest, B: Manifest](f: Lambda[A,B] ): Reification = {
+    val (progresult, defs) = reifySubGraph(f.f(f.x))
+    reflectSubGraph(defs)
+    val immutable_out = new Reification {
+      val IR: self.IR.type = self.IR
+      val globalDefs: Vector[IR.Stm] = self.IR.globalDefs
+      val localDefs: Vector[IR.Stm] = self.IR.localDefs
+      val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
+      val result = Block(progresult)
+      val args = Vector(f.x)
+    }
+    immutable_out
+  }
+
 
   protected def reifyProgram[T: Manifest](x: => Exp[T], pargs: Vector[Sym[Any]]): Reification = {
     val (progresult, defs) = reifySubGraph(x)
