@@ -79,7 +79,7 @@ trait Reify {
       val localDefs: Vector[IR.Stm] = self.IR.localDefs
       val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
       val result = Block(progresult)
-      val args = Vector(f.x)
+      val args:Vector[IR.Sym[Any]] = Vector() //FIX ME!!!!!!!
     }
     immutable_out
   }
