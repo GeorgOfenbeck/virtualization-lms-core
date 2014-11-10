@@ -78,7 +78,7 @@ trait Reify {
       val globalDefs: Vector[IR.Stm] = self.IR.globalDefs
       val localDefs: Vector[IR.Stm] = self.IR.localDefs
       val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
-      val result = Block(progresult)
+      val result = ??? //Block(progresult)
       val args:Vector[IR.Sym[Any]] = Vector() //FIX ME!!!!!!!
     }
     immutable_out
@@ -93,7 +93,7 @@ trait Reify {
       val globalDefs: Vector[IR.Stm] = self.IR.globalDefs
       val localDefs: Vector[IR.Stm] = self.IR.localDefs
       val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
-      val result = Block(progresult)
+      val result = ??? //Block(progresult)
       val args = pargs
     }
     immutable_out

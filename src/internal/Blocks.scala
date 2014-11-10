@@ -1,12 +1,12 @@
 package scala.virtualization.lms
 package internal
 
-import scala.annotation.unchecked.uncheckedVariance
+
+trait Blocks extends Expressions { //why?
 
 
-trait Blocks extends Expressions {
 
-  case class Block[+T](val res: Exp[T]) { def tp: Manifest[T @uncheckedVariance] = res.tp } // variance ...
+  case class Block[T](val res: Exp[T]) { def tp: Manifest[T] = res.tp } // variance ...
   //RF!
 
   def blocks(e: Any): Vector[Block[Any]] = e match {

@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 
 import common._
@@ -121,6 +122,7 @@ import org.scalatest.FunSpec
 class TestFFT extends FunSpec{
 
 
+
   import common._
 
   describe("check reify") {
@@ -151,3 +153,4 @@ class TestFFT extends FunSpec{
       trav(forward)
     }
 }
+*/

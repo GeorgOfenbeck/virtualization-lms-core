@@ -1,8 +1,8 @@
 name := "LMS"
 
-version := "0.3.88"
+version := "0.4.001"
 
-scalaVersion := "2.11.1"
+scalaVersion := "2.11.4"
 
 scalaSource in Compile <<= baseDirectory(_ / "src")
 

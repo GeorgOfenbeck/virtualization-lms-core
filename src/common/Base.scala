@@ -2,12 +2,30 @@ package scala.virtualization.lms
 package common
 
 import internal._
+import scala.reflect.runtime.universe._
 
 /**
  * This trait automatically lifts any concrete instance to a representation.
  */
 trait LiftAll extends Base {
   protected implicit def __unit[T:Manifest](x: T) = unit(x)
+}
+
+
+trait TypeRepBase{
+  trait TypeRep[T]  {
+    def tag: TypeTag[T]
+  }
+
+  case class TypeExp[T](tag: TypeTag[T]) extends TypeRep[T]{
+
+  }
+  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
+
+
+  implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
+  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
+
 }
 
 /**
