@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 package internal
 
@@ -59,13 +60,13 @@ trait GenericCodegen extends BlockTraversalx {
 
   // optional type remapping (default is identity)
   def remap(s: String): String = s
-  def remap[A](s: String, method: String, t: Manifest[A]) : String = remap(s, method, t.toString)
+  def remap[A](s: String, method: String, t: TypeTag[A]) : String = remap(s, method, t.toString)
   def remap(s: String, method: String, t: String) : String = s + method + "[" + remap(t) + "]"
 
-  def remap[A](m: Manifest[A]): String = ???
+  def remap[A](m: TypeTag[A]): String = ???
   /* RF!!
-  def remap[A](m: Manifest[A]): String = m match {
-    case rm: RefinedManifest[A] =>  "AnyRef{" + rm.fields.foldLeft(""){(acc, f) => {val (n,mnf) = f; acc + "val " + n + ": " + remap(mnf) + ";"}} + "}"
+  def remap[A](m: TypeTag[A]): String = m match {
+    case rm: RefinedTypeTag[A] =>  "AnyRef{" + rm.fields.foldLeft(""){(acc, f) => {val (n,mnf) = f; acc + "val " + n + ": " + remap(mnf) + ";"}} + "}"
     case _ if m.erasure == classOf[Variable[Any]] =>
       remap(m.typeArguments.head)
     case _ =>
@@ -80,11 +81,11 @@ trait GenericCodegen extends BlockTraversalx {
 
 
   //RF !!!
-  //def remapImpl[A](m: Manifest[A]): String = remap(m)
-  //def remapVar[A](m: Manifest[Variable[A]]) : String = remap(m.typeArguments.head)
+  //def remapImpl[A](m: TypeTag[A]): String = remap(m)
+  //def remapVar[A](m: TypeTag[Variable[A]]) : String = remap(m.typeArguments.head)
 
   //RF !!!
-  //def remapHost[A](m: Manifest[A]): String = remap(m).replaceAll(deviceTarget.toString,hostTarget.toString)
+  //def remapHost[A](m: TypeTag[A]): String = remap(m).replaceAll(deviceTarget.toString,hostTarget.toString)
 
   def hasMetaData: Boolean = false
   def getMetaData: String = null
@@ -118,20 +119,20 @@ trait GenericCodegen extends BlockTraversalx {
   def emitAssignment(sym: Sym[Any], rhs: String): Unit = throw new GenerationFailedException("don't know how to emit variable assignment " + quote(sym))
 
   /*
-  def emitSource[T : Manifest, R : Manifest](f: Exp[T] => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
+  def emitSource[T : TypeTag, R : TypeTag](f: Exp[T] => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val s = fresh[T]
     val body = reifyBlock(f(s))
     emitSource(List(s), body, className, stream)
   }
 
-  def emitSource2[T1 : Manifest, T2 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
+  def emitSource2[T1 : TypeTag, T2 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val s1 = fresh[T1]
     val s2 = fresh[T2]
     val body = reifyBlock(f(s1, s2))
     emitSource(List(s1, s2), body, className, stream)
   }
 
-  def emitSource3[T1 : Manifest, T2 : Manifest, T3 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2], Exp[T3]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
+  def emitSource3[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val s1 = fresh[T1]
     val s2 = fresh[T2]
     val s3 = fresh[T3]
@@ -139,7 +140,7 @@ trait GenericCodegen extends BlockTraversalx {
     emitSource(List(s1, s2, s3), body, className, stream)
   }
 
-  def emitSource4[T1 : Manifest, T2 : Manifest, T3 : Manifest, T4 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
+  def emitSource4[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, T4 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val s1 = fresh[T1]
     val s2 = fresh[T2]
     val s3 = fresh[T3]
@@ -148,7 +149,7 @@ trait GenericCodegen extends BlockTraversalx {
     emitSource(List(s1, s2, s3, s4), body, className, stream)
   }
 
-  def emitSource5[T1 : Manifest, T2 : Manifest, T3 : Manifest, T4 : Manifest, T5 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4], Exp[T5]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
+  def emitSource5[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, T4 : TypeTag, T5 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4], Exp[T5]) => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val s1 = fresh[T1]
     val s2 = fresh[T2]
     val s3 = fresh[T3]
@@ -165,8 +166,8 @@ trait GenericCodegen extends BlockTraversalx {
    * @param className Name of the generated identifier
    * @param stream Output stream
    */
-  //def emitSource[A : Manifest](args: List[Sym[_]], body: Block[A], className: String, stream: PrintWriter): List[(Sym[Any], Any)] // return free static data in block
-  def emitSource[A : Manifest](className: String, out: PrintWriter)
+  //def emitSource[A : TypeTag](args: List[Sym[_]], body: Block[A], className: String, stream: PrintWriter): List[(Sym[Any], Any)] // return free static data in block
+  def emitSource[A : TypeTag](className: String, out: PrintWriter)
 
   def quote(x: Exp[Any]) : String = x match {
     case Const(s: String) => "\""+s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")+"\"" // TODO: more escapes?
@@ -181,21 +182,21 @@ trait GenericCodegen extends BlockTraversalx {
 
 
 
-  def isPrimitiveType[A](m: Manifest[A]) : Boolean = {
+  def isPrimitiveType[A](m: TypeTag[A]) : Boolean = {
     m.toString match {
       case "Boolean" | "Byte" | "Char" | "Short" | "Int" | "Long" | "Float" | "Double" => true
       case _ => false
     }
   }
 
-  def isVoidType[A](m: Manifest[A]) : Boolean = {
+  def isVoidType[A](m: TypeTag[A]) : Boolean = {
     m.toString match {
       case "Unit" => true
       case _ => false
     }
   }
 
-  def isVariableType[A](m: Manifest[A]) : Boolean = {
+  def isVariableType[A](m: TypeTag[A]) : Boolean = {
     if(m.erasure == classOf[Variable[AnyVal]]) true
     else false
   }
@@ -209,7 +210,7 @@ trait GenericCodegen extends BlockTraversalx {
     def quoteOrRemap(arg: Any): String = arg match {
       case xs: Seq[_] => xs.map(quoteOrRemap).mkString(",")
       case e: Exp[_] => quote(e)
-      //case m: Manifest[_] => remap(m) //RF!!
+      //case m: TypeTag[_] => remap(m) //RF!!
       case s: String => s
       case _ => throw new RuntimeException(s"Could not quote or remap $arg")
     }
@@ -271,3 +272,4 @@ trait GenericNestedCodegen extends NestedBlockTraversal with GenericCodegen {
   }
 
 }          */
+*/

@@ -8,7 +8,7 @@ import scala.reflect.runtime.universe._
  * This trait automatically lifts any concrete instance to a representation.
  */
 trait LiftAll extends Base {
-  protected implicit def __unit[T:Manifest](x: T) = unit(x)
+  protected implicit def __unit[T:TypeTag](x: T) = unit(x)
 }
 
 
@@ -34,12 +34,12 @@ trait TypeRepBase{
  *
  * @since 0.1 
  */
-trait Base  {
+trait Base extends TypeRepBase{
   type API <: Base
 
   type Rep[+T]
 
-  protected def unit[T:Manifest](x: T): Rep[T]
+  protected def unit[T:TypeRep](x: T): Rep[T]
 
   // always lift Unit and Null (for now)
   implicit def unitToRepUnit(x: Unit) = unit(x)
@@ -54,7 +54,7 @@ trait Base  {
 trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
   type Rep[+T] = Exp[T]
 
-  protected def unit[T:Manifest](x: T) = Const(x)
+  protected def unit[T:TypeRep](x: T) = Const(x)
 }
 
 trait BlockExp extends BaseExp
@@ -79,13 +79,13 @@ trait EffectExp extends BaseExp with Effects {
       mayWrite = t.onlySyms(u.mayWrite), mstWrite = t.onlySyms(u.mstWrite))
   }
 
-  override def mirrorDef[A:Manifest](e: Def[A], f: Transformer): Def[A] = e match {
+  override def mirrorDef[A:TypeTag](e: Def[A], f: Transformer): Def[A] = e match {
     case Reflect(x, u, es) => Reflect(mirrorDef(x,f), mapOver(f,u), f(es))
     case Reify(x, u, es) => Reify(f(x), mapOver(f,u), f(es))
     case _ => super.mirrorDef(e,f)
   }
 
-  override def mirror[A:Manifest](e: Def[A], f: Transformer): Exp[A] = e match {
+  override def mirror[A:TypeTag](e: Def[A], f: Transformer): Exp[A] = e match {
 /*
     case Reflect(x, u, es) =>
       reifyEffects {
@@ -110,7 +110,7 @@ trait BaseFatExp extends BaseExp with FatExpressions with FatTransforming
 // The traits below provide an interface to codegen so that client do
 // not need to depend on internal._
 
-trait ScalaGenBase extends ScalaCodegen
+//trait ScalaGenBase extends ScalaCodegen
 /*
 trait ScalaGenEffect extends ScalaNestedCodegen with ScalaGenBase
 

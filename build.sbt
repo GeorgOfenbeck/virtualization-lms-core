@@ -23,6 +23,10 @@ libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.11.5"
 
 libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test"
 
+libraryDependencies ++= Seq(
+  "com.chuusai" %% "shapeless" % "2.0.0"
+)
+
 
 // tests are not thread safe
 parallelExecution in Test := false

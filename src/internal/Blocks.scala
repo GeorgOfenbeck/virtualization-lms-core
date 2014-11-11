@@ -6,7 +6,7 @@ trait Blocks extends Expressions { //why?
 
 
 
-  case class Block[T](val res: Exp[T]) { def tp: Manifest[T] = res.tp } // variance ...
+  case class Block[T](val res: Exp[T]) { /*def tp: TypeTag[T] = res.tp*/ } // variance ...
   //RF!
 
   def blocks(e: Any): Vector[Block[Any]] = e match {

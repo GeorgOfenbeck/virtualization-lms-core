@@ -6,7 +6,8 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.IntMap
 import java.lang.{StackTraceElement,Thread}
-
+import scala.reflect.runtime.universe._
+import scala.virtualization.lms.common.TypeRepBase
 
 /**
  * The Expressions trait houses common AST nodes. It also manages a list of encountered Definitions which
@@ -14,16 +15,16 @@ import java.lang.{StackTraceElement,Thread}
  * 
  * @since 0.1
  */
-trait Expressions extends Utils {
+trait Expressions extends Utils with TypeRepBase{
 
 
-  abstract class Exp[+T:Manifest] { // constants/symbols (atomic)
-  def tp: Manifest[T @uncheckedVariance] = manifest[T] //invariant position! but hey...
+  abstract class Exp[+T:TypeRep] { // constants/symbols (atomic)
+  def tp: TypeRep[T @uncheckedVariance] = typeRep[T] //invariant position! but hey...
   }
 
-  case class Const[+T:Manifest](x: T) extends Exp[T]
+  case class Const[+T:TypeRep](x: T) extends Exp[T]
 
-  case class Sym[+T:Manifest](val id: Int) extends Exp[T]
+  case class Sym[+T:TypeRep](val id: Int) extends Exp[T]
 
   case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
 
@@ -56,8 +57,8 @@ trait Expressions extends Utils {
 
 
   var nVars = 0
-  def fresh[T:Manifest]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
-  //def fresh[T:Manifest]: Sym[T] = fresh[T]
+  def fresh[T:TypeRep]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
+  //def fresh[T:TypeTag]: Sym[T] = fresh[T]
 
 
   var globalDefs: Vector[Stm] = Vector()
@@ -99,12 +100,12 @@ trait Expressions extends Utils {
   def findDefinition[T](d: Def[T]): Option[Stm] =
     globalDefs.find(x => x.defines(d).nonEmpty)
 
-  def findOrCreateDefinition[T:Manifest](d: Def[T]): Stm =
+  def findOrCreateDefinition[T:TypeRep](d: Def[T]): Stm =
     findDefinition[T](d) map { x => x.defines(d); x } getOrElse {
       createDefinition(fresh[T], d)
     }
 
-  def findOrCreateDefinitionExp[T:Manifest](d: Def[T]): Exp[T] =
+  def findOrCreateDefinitionExp[T:TypeRep](d: Def[T]): Exp[T] =
     findOrCreateDefinition(d).defines(d).get
 
   def createDefinition[T](s: Sym[T], d: Def[T]): Stm = {
@@ -115,7 +116,7 @@ trait Expressions extends Utils {
 
 
 
-  protected implicit def toAtom[T:Manifest](d: Def[T]): Exp[T] = {
+  protected implicit def toAtom[T:TypeRep](d: Def[T]): Exp[T] = {
     findOrCreateDefinitionExp(d) // TBD: return Const(()) if type is Unit??
   }
 

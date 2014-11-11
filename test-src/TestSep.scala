@@ -5,16 +5,18 @@ import org.scalatest.FunSpec
  * Georg Ofenbeck
  First created:
  * Date: 13/08/2014
- * Time: 15:25 
- */
-class TestSep  extends FunSpec {
+ * Time: 15:25
+ * */
+
+
+ class TestSep  extends FunSpec {
 
 
   describe("checking it out") {
 
     trait Expression {
 
-      abstract class Exp[+T: Manifest] {
+      abstract class Exp[+T: TypeTag] {
         // constants/symbols (atomic)
 
       }
@@ -24,7 +26,7 @@ class TestSep  extends FunSpec {
         override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
       }
 
-      case class Sym[+T: Manifest](val id: Int) extends Exp[T] {
+      case class Sym[+T: TypeTag](val id: Int) extends Exp[T] {
       }
 
       abstract class Stm
@@ -32,7 +34,7 @@ class TestSep  extends FunSpec {
       // statement (links syms and definitions)
       case class TP[+T](sym: Sym[T], rhs: Def[T]) extends Stm
 
-      protected implicit def toAtom[T: Manifest](d: Def[T]): Exp[T] = ???
+      protected implicit def toAtom[T: TypeTag](d: Def[T]): Exp[T] = ???
 
 
       var globalDefs: List[Def[Any]] = Nil
@@ -116,7 +118,6 @@ class TestSep  extends FunSpec {
     }
 
 
-
     class Foo extends PrimitivDSL
     val dsl = new Foo
 
@@ -148,4 +149,5 @@ class TestSep  extends FunSpec {
 
   }
 }
+
 */

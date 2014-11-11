@@ -6,27 +6,27 @@ import java.io.PrintWriter
 
 
 import scala.virtualization.lms.util.ClosureCompare
-
+import scala.reflect.runtime.universe._
 
 
 trait PureFunctions extends ImplicitOps {
 
-  def doLambda[A:Manifest,B:Manifest](fun: Rep[A] => Rep[B]): Rep[A => B]
-  implicit def fun[A:Manifest,B:Manifest](f: Rep[A] => Rep[B]): Rep[A=>B] = doLambda(f)
-  implicit def toLambdaOps[A:Manifest,B:Manifest](fun: Rep[A => B]) = new LambdaOps(fun)
-  class LambdaOps[A:Manifest,B:Manifest](f: Rep[A => B]) {
+  def doLambda[A:TypeTag,B:TypeTag](fun: Rep[A] => Rep[B]): Rep[A => B]
+  implicit def fun[A:TypeTag,B:TypeTag](f: Rep[A] => Rep[B]): Rep[A=>B] = doLambda(f)
+  implicit def toLambdaOps[A:TypeTag,B:TypeTag](fun: Rep[A => B]) = new LambdaOps(fun)
+  class LambdaOps[A:TypeTag,B:TypeTag](f: Rep[A => B]) {
     def apply(x: Rep[A]): Rep[B] = doApply(f,x)
   }
 
 
 
-  def doApply[A:Manifest,B:Manifest](fun: Rep[A => B], arg: Rep[A]): Rep[B]
+  def doApply[A:TypeTag,B:TypeTag](fun: Rep[A => B], arg: Rep[A]): Rep[B]
 }
 
 
 trait PureFunctionsExp extends PureFunctions with ImplicitOpsExp{
-  case class Lambda[A:Manifest,B:Manifest](f: Exp[A] => Exp[B], x: Exp[A], y: Block[B]) extends Def[A => B] { val mA = manifest[A]; val mB = manifest[B] }
-  case class Apply[A:Manifest,B:Manifest](f: Exp[A => B], arg: Exp[A]) extends Def[B] { val mA = manifest[A]; val mB = manifest[B] }
+  case class Lambda[A:TypeTag,B:TypeTag](f: Exp[A] => Exp[B], x: Exp[A], y: Block[B]) extends Def[A => B] { val mA = typeTag[A]; val mB = typeTag[B] }
+  case class Apply[A:TypeTag,B:TypeTag](f: Exp[A => B], arg: Exp[A]) extends Def[B] { val mA = typeTag[A]; val mB = typeTag[B] }
 
   // unboxedFresh and unbox are hooks that can be overridden to
   // implement multiple-arity functions with tuples. These two methods
@@ -34,20 +34,20 @@ trait PureFunctionsExp extends PureFunctions with ImplicitOpsExp{
   // creating an abstraction, and unbox when applying it. See
   // TupledFunctionsExp for an example.
 
-  def unboxedFresh[A:Manifest] : Exp[A] = fresh[A]
-  def unbox[A:Manifest](x : Exp[A]) : Exp[A] = x
+  def unboxedFresh[A:TypeTag] : Exp[A] = fresh[A]
+  def unbox[A:TypeTag](x : Exp[A]) : Exp[A] = x
 
-  def doLambdaDef[A:Manifest,B:Manifest](f: Exp[A] => Exp[B]) : Def[A => B] = {
+  def doLambdaDef[A:TypeTag,B:TypeTag](f: Exp[A] => Exp[B]) : Def[A => B] = {
     val x = unboxedFresh[A]
     //val y = reifyEffects(f(x)) // unfold completely at the definition site.
     val y = Block(f(x))
     Lambda(f, x, y)
   }
 
-  override def doLambda[A:Manifest,B:Manifest](f: Exp[A] => Exp[B]): Exp[A => B] =
+  override def doLambda[A:TypeTag,B:TypeTag](f: Exp[A] => Exp[B]): Exp[A => B] =
     doLambdaDef(f)
 
-  override def doApply[A:Manifest,B:Manifest](f: Exp[A => B], x: Exp[A]): Exp[B] = {
+  override def doApply[A:TypeTag,B:TypeTag](f: Exp[A => B], x: Exp[A]): Exp[B] = {
     val x1 = unbox(x)
     Apply(f, x1)
   }
@@ -82,7 +82,7 @@ trait PureFunctionsExp extends PureFunctions with ImplicitOpsExp{
 
 trait PureFunctionsRecursiveExp extends PureFunctionsExp with ClosureCompare {
   var funTable: List[(Sym[_], Any)] = List()
-  override def doLambda[A:Manifest,B:Manifest](f: Exp[A] => Exp[B]): Exp[A => B] = {
+  override def doLambda[A:TypeTag,B:TypeTag](f: Exp[A] => Exp[B]): Exp[A => B] = {
     val can = canonicalize(f)
     funTable.find(_._2 == can) match {
       case Some((funSym, _)) =>

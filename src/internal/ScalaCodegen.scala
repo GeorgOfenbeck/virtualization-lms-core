@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 package internal
 
@@ -22,9 +23,9 @@ trait ScalaCodegen extends GenericCodegen with Config {
       outFile.delete
   }
 
-  def emitSource[A : Manifest](className: String, out: PrintWriter) = {
+  def emitSource[A : TypeTag](className: String, out: PrintWriter) = {
 
-    //val sA = remap(manifest[A]) //RF!
+    //val sA = remap(typeTag[A]) //RF!
 
     //val staticData = getFreeDataBlock(body) //RF - not used?
     val staticData: List[(Sym[Any],Any)] = Nil
@@ -167,3 +168,4 @@ trait ScalaFatCodegen extends GenericFatCodegen with ScalaCodegen {
 } */
 
 
+*/

@@ -15,7 +15,7 @@ class TestGeneric  extends FunSpec {
 
     trait Expression {
 
-      abstract class Exp[+T: Manifest] {
+      abstract class Exp[+T: TypeTag] {
         // constants/symbols (atomic)
 
       }
@@ -25,7 +25,7 @@ class TestGeneric  extends FunSpec {
         override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
       }
 
-      case class Sym[+T: Manifest](val id: Int) extends Exp[T] {
+      case class Sym[+T: TypeTag](val id: Int) extends Exp[T] {
       }
 
       abstract class Stm
@@ -33,7 +33,7 @@ class TestGeneric  extends FunSpec {
       // statement (links syms and definitions)
       case class TP[+T](sym: Sym[T], rhs: Def[T]) extends Stm
 
-      protected implicit def toAtom[T: Manifest](d: Def[T]): Exp[T] = ???
+      protected implicit def toAtom[T: TypeTag](d: Def[T]): Exp[T] = ???
 
 
       var globalDefs: List[Def[Any]] = Nil

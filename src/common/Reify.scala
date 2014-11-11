@@ -4,7 +4,7 @@ package common
 
 import scala.virtualization.lms.internal._
 import scala.collection.immutable.IntMap
-
+import scala.reflect.runtime.universe._
 trait Reification {
   val IR: Blocks
   val globalDefs: Vector[IR.Stm]
@@ -21,28 +21,28 @@ trait Reify {
   import IR._
 
 
-  def reifyProgram[T : Manifest, R : Manifest](f: T => Exp[R], builder: => (T, Vector[IR.Sym[Any]])): Reification = {
+  def reifyProgram[T : TypeTag, R : TypeTag](f: T => Exp[R], builder: => (T, Vector[IR.Sym[Any]])): Reification = {
     IR.reset
     val (s, args) = builder
     reifyProgram(f(s),args)
   }
 
-  def reifyProgramX[T : Manifest, R : Manifest](f: Exp[T] => Exp[R]): Reification = reifyProgram(f)
+  def reifyProgramX[T : TypeTag, R : TypeTag](f: Exp[T] => Exp[R]): Reification = reifyProgram(f)
 
-  def reifyProgram[T : Manifest, R : Manifest](f: Exp[T] => Exp[R]): Reification = {
+  def reifyProgram[T : TypeTag, R : TypeTag](f: Exp[T] => Exp[R]): Reification = {
     IR.reset
     val s = fresh[T]
     reifyProgram(f(s),Vector(s))
   }
 
-  def reifyProgram[T1 : Manifest, T2 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2]) => Exp[R]): Reification = {
+  def reifyProgram[T1 : TypeTag, T2 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2]) => Exp[R]): Reification = {
     IR.reset
     val s1 = fresh[T1]
     val s2 = fresh[T2]
     reifyProgram(f(s1,s2), Vector(s1,s2))
   }
 
-  def reifyProgram[T1 : Manifest, T2 : Manifest, T3 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2], Exp[T3]) => Exp[R]): Reification = {
+  def reifyProgram[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3]) => Exp[R]): Reification = {
     IR.reset
     val s1 = fresh[T1]
     val s2 = fresh[T2]
@@ -50,7 +50,7 @@ trait Reify {
     reifyProgram(f(s1,s2,s3),Vector(s1,s2, s3))
   }
 
-  def reifyProgram[T1 : Manifest, T2 : Manifest, T3 : Manifest, T4 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4]) => Exp[R]): Reification = {
+  def reifyProgram[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, T4 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4]) => Exp[R]): Reification = {
     IR.reset
     val s1 = fresh[T1]
     val s2 = fresh[T2]
@@ -59,7 +59,7 @@ trait Reify {
     reifyProgram(f(s1,s2,s3,s4), Vector(s1,s2,s3,s4))
   }
 
-  def reifyProgram[T1 : Manifest, T2 : Manifest, T3 : Manifest, T4 : Manifest, T5 : Manifest, R : Manifest](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4], Exp[T5]) => Exp[R]): Reification = {
+  def reifyProgram[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, T4 : TypeTag, T5 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4], Exp[T5]) => Exp[R]): Reification = {
     IR.reset
     val s1 = fresh[T1]
     val s2 = fresh[T2]
@@ -70,7 +70,7 @@ trait Reify {
   }
 
 
-  def reifyProgram[A: Manifest, B: Manifest](f: Lambda[A,B] ): Reification = {
+  def reifyProgram[A: TypeTag, B: TypeTag](f: Lambda[A,B] ): Reification = {
     val (progresult, defs) = reifySubGraph(f.f(f.x))
     reflectSubGraph(defs)
     val immutable_out = new Reification {
@@ -85,7 +85,7 @@ trait Reify {
   }
 
 
-  protected def reifyProgram[T: Manifest](x: => Exp[T], pargs: Vector[Sym[Any]]): Reification = {
+  protected def reifyProgram[T: TypeTag](x: => Exp[T], pargs: Vector[Sym[Any]]): Reification = {
     val (progresult, defs) = reifySubGraph(x)
     reflectSubGraph(defs)
     val immutable_out = new Reification {
@@ -93,7 +93,7 @@ trait Reify {
       val globalDefs: Vector[IR.Stm] = self.IR.globalDefs
       val localDefs: Vector[IR.Stm] = self.IR.localDefs
       val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
-      val result = ??? //Block(progresult)
+      val result: IR.Block[Any] = IR.Block(progresult)
       val args = pargs
     }
     immutable_out
@@ -118,11 +118,11 @@ trait ReifiedProgram {
 
 trait ReifyProgram extends Expressions{
 
-  def reifyProgram[T: Manifest] (x: => Exp[T]): ReifiedProgram = {
+  def reifyProgram[T: TypeTag] (x: => Exp[T]): ReifiedProgram = {
     println("hae?")
 
     val mutablecopy = new ReifyProgram {
-      override implicit def toAtom[T:Manifest](d: Def[T]): Exp[T] =
+      override implicit def toAtom[T:TypeTag](d: Def[T]): Exp[T] =
       {
 
         findOrCreateDefinitionExp(d, List(pos)) // TBD: return Const(()) if type is Unit??
