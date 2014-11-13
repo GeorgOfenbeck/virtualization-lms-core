@@ -37,7 +37,7 @@ trait TypeRepBase{
 trait Base extends TypeRepBase{
   type API <: Base
 
-  type Rep[+T]
+  type Rep[T]
 
   protected def unit[T:TypeRep](x: T): Rep[T]
 
@@ -52,7 +52,7 @@ trait Base extends TypeRepBase{
  * @since 0.1
  */
 trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
-  type Rep[+T] = Exp[T]
+  type Rep[T] = Exp[T]
 
   protected def unit[T:TypeRep](x: T) = Const(x)
 }
