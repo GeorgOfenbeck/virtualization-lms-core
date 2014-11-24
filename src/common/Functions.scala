@@ -17,9 +17,6 @@ trait PureFunctions extends ImplicitOps {
   class LambdaOps[A:TypeTag,B:TypeTag](f: Rep[A => B]) {
     def apply(x: Rep[A]): Rep[B] = doApply(f,x)
   }
-
-
-
   def doApply[A:TypeTag,B:TypeTag](fun: Rep[A => B], arg: Rep[A]): Rep[B]
 }
 
@@ -32,7 +29,7 @@ trait PureFunctionsExp extends PureFunctions with ImplicitOpsExp{
   // implement multiple-arity functions with tuples. These two methods
   // should be overridden consistently. unboxedFresh is used when
   // creating an abstraction, and unbox when applying it. See
-  // TupledFunctionsExp for an example.
+  // TupledFunctionsExp for an example.                                                             o
 
   def unboxedFresh[A:TypeTag] : Exp[A] = fresh[A]
   def unbox[A:TypeTag](x : Exp[A]) : Exp[A] = x

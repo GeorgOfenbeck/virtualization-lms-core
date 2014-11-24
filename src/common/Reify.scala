@@ -2,6 +2,16 @@ package scala.virtualization.lms
 package common
 
 
+
+
+
+
+
+/*
+package scala.virtualization.lms
+package common
+
+
 import scala.virtualization.lms.internal._
 import scala.collection.immutable.IntMap
 import scala.reflect.runtime.universe._
@@ -142,4 +152,5 @@ trait ReifyProgram extends Expressions{
     reified
     }
 }
+*/
 */

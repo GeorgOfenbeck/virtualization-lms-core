@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 package internal
 
@@ -156,3 +157,4 @@ trait BlockTraversalx {
 }
 
 
+*/

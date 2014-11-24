@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 package common
 
@@ -40,7 +41,7 @@ trait PrimitiveOps extends ImplicitOps/*Variables*/  with OverloadHack  {
   /**
    * Enumerate all combinations of primitive math.
    * Avoids certain fragile behavior, including compiler crashes and some erroneous or inaccessible type errors.
-   */  
+   */
   def infix_-(lhs: Int, rhs: Rep[Int]): Rep[Int] = int_minus(unit(lhs), rhs)
   def infix_-(lhs: Int, rhs: Rep[Float])(implicit o: Overloaded1): Rep[Float] = float_minus(unit(lhs), rhs)
   def infix_-(lhs: Int, rhs: Rep[Double])(implicit o: Overloaded2): Rep[Double] = double_minus(unit(lhs), rhs)
@@ -321,7 +322,7 @@ trait PrimitiveOpsExp extends PrimitiveOps with ImplicitOpsExp with BaseExp {
 
   /**
    * Float
-   */  
+   */
   case class ObjFloatParseFloat(s: Exp[String]) extends Def[Float]
   case class FloatToInt(lhs: Exp[Float]) extends Def[Int]
   case class FloatToDouble(lhs: Exp[Float]) extends Def[Double]  
@@ -704,3 +705,4 @@ trait CGenPrimitiveOps extends CGenBase with CLikeGenPrimitiveOps {
   }
 }
   */
+*/

@@ -4,6 +4,7 @@ package common
 import internal._
 import scala.reflect.runtime.universe._
 
+import shapeless._
 /**
  * This trait automatically lifts any concrete instance to a representation.
  */
@@ -13,20 +14,26 @@ trait LiftAll extends Base {
 
 
 trait TypeRepBase{
+//we pack this into a trait such that its automatically mixed into every potential DSL
   trait TypeRep[T]  {
     def tag: TypeTag[T]
-  }
-
-  case class TypeExp[T](tag: TypeTag[T]) extends TypeRep[T]{
 
   }
-  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
+  implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
+  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
+}
 
-
-  implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
-  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
+trait ExposeRepBase{
+  trait ExposeRep[T] {
+    type hlist <: HList
+    val freshSyms: Unit => hlist
+    val hlist2t: hlist=> T
+    val t2hlist: T=>hlist
+  }
 
 }
+
+
 
 /**
  * The Base trait defines the type constructor Rep, which is the higher-kinded type that allows for other DSL types to be
@@ -34,13 +41,10 @@ trait TypeRepBase{
  *
  * @since 0.1 
  */
-trait Base extends TypeRepBase{
+trait Base extends TypeRepBase with ExposeRepBase{
   type API <: Base
-
   type Rep[T]
-
   protected def unit[T:TypeRep](x: T): Rep[T]
-
   // always lift Unit and Null (for now)
   implicit def unitToRepUnit(x: Unit) = unit(x)
   implicit def nullToRepNull(x: Null) = unit(x)
@@ -53,8 +57,37 @@ trait Base extends TypeRepBase{
  */
 trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
   type Rep[T] = Exp[T]
-
   protected def unit[T:TypeRep](x: T) = Const(x)
+
+
+
+  case class TypeExp[T](tag: TypeTag[T]) extends TypeRep[T]
+  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
+
+
+  implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
+  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
+
+  /*class ExposeExp[T,H <: HList] extends ExposeRep[T]{
+    type hlist = H
+    val freshSyms: Unit => hlist
+    val tfromHlist: hlist => T
+  }*/
+
+
+  private def helper1[T](u : Unit)(implicit tag: TypeTag[T]): ::[Exp[T], HNil] = fresh[T](tag) :: HNil
+  private def helper2[T](x : ::[Exp[T], HNil]): Exp[T] = x.head
+  private def helper3[T](x: Exp[T]): ::[Exp[T], HNil] = x :: HNil
+
+  implicit def exposeRepFromRep[T]( )(implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
+    type hlist = ::[Exp[T], HNil]
+    val freshSyms: Unit => hlist = helper1
+    val hlist2t: hlist => Exp[T] = helper2
+    val t2hlist: Exp[T] => hlist = helper3
+  }
+
+
+
 }
 
 trait BlockExp extends BaseExp

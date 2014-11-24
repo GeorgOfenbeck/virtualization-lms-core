@@ -2,6 +2,8 @@ package scala.virtualization.lms
 package internal
 
 
+import shapeless._
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.IntMap
@@ -31,6 +33,12 @@ trait Expressions extends Utils with TypeRepBase{
   abstract class Def[+T] { // operations (composite)
   override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
   }
+
+
+
+
+
+
   /*abstract class Stm // statement (links syms and definitions)
   {
     def lhs(): List[Sym[Any]] = this match {
@@ -52,7 +60,7 @@ trait Expressions extends Utils with TypeRepBase{
     }
   }*/
 
-  case class TP[+T](val sym: Sym[T], val rhs: Def[T]) //, val tag: TypeRep[T])
+  case class TP[T](val sym: Sym[T], val rhs: Def[T], val tag: TypeRep[T])
 
 
 
@@ -61,27 +69,32 @@ trait Expressions extends Utils with TypeRepBase{
   //def fresh[T:TypeTag]: Sym[T] = fresh[T]
 
 
-  var globalDefs: Vector[TP[Any]] = Vector()
-  var localDefs: Vector[TP[Any]] = Vector()
+  //var globalDefs: Vector[TP[Any]] = Vector()
+  //var localDefs: Vector[TP[Any]] = Vector()
 
-  var sym2tp: Map[Sym[Any], TP[Any]] = Map.empty
-  var def2tp: Map[Def[Any], TP[Any]] = Map.empty
+  var sym2tp: Map[Sym[_], TP[_]] = Map.empty
+  var def2tp: Map[Def[_], TP[_]] = Map.empty
+
+
+  //var globalDefs: Vector[TP[_]] = Vector()
+
 
 
   def reifySubGraph[T](b: =>T): (T, Vector[TP[Any]]) = {
-    val saveLocal = localDefs
-    val saveGlobal = globalDefs
+    //val saveLocal = localDefs
+    //val saveGlobal = globalDefs
     //val saveGlobalCache = globalDefsCache
-    localDefs = Vector()
+    //localDefs = Vector()
     val r = b
-    val defs = localDefs
-    localDefs = saveLocal
-    globalDefs = saveGlobal
+    //val defs = localDefs
+    //localDefs = saveLocal
+    //globalDefs = saveGlobal
     //globalDefsCache = saveGlobalCache
-    (r, defs)
+    /*(r, defs)*/
+    ???
   }
 
-  def reflectSubGraph[T: TypeRep](ds: Vector[TP[Any]]): Unit = {
+  /*def reflectSubGraph[T: TypeRep](ds: Vector[TP[Any]]): Unit = {
     val lhs = ds.map(_.sym)
     assert(lhs.length == lhs.distinct.length, "multiple defs: " + ds)
     lhs.map( p => assert(sym2tp.contains(p), "already defined: " + sym2tp(p) + " for " + ds))
@@ -96,31 +109,46 @@ trait Expressions extends Utils with TypeRepBase{
 
     localDefs = localDefs ++ ds
     globalDefs = globalDefs ++ ds
+  }*/
+
+
+
+  def storeTP[T: TypeRep](tp: TP[T]): Unit = {
+    //globalDefs = globalDefs ++ tp
+    def2tp = def2tp + (tp.rhs -> tp)
+    sym2tp = sym2tp + (tp.sym -> tp)
+  }
+
+
+  def getTP[T: TypeRep](d: Def[T]): Option[TP[T]] = {
+    def2tp.get(d).asInstanceOf[Option[TP[T]]] //TODO - get rid of the type cast
+  }
+
+  def getTP[T: TypeRep](sym: Sym[T]): Option[TP[T]] = {
+    sym2tp.get(sym).asInstanceOf[Option[TP[T]]] //TODO - get rid of the type cast
   }
 
 
 
-
-  def findDefinition[T](s: Sym[T]): Option[TP[Any]] = sym2tp.get(s)
-
-  def findDefinition[T](d: Def[T]): Option[TP[Any]] = def2tp.get(d)
-
-  def findOrCreateDefinition[T:TypeRep](d: Def[T]): TP[Any] = def2tp.get(d).getOrElse(createDefinition(fresh[T], d))
-
-  def findOrCreateDefinitionExp[T:TypeRep](d: Def[T]): Exp[T] = {
-    val t = findOrCreateDefinition(d).sym
-    t.asInstanceOf[Sym[T]]
-    //TODO:
-    //this is safe since a Sym[T] always has the same type then the according Def[T]
-    //still would be nice to not have to cast here
-    //put typetag as part of the TP - rewrite this to use the tag for the conversion
+  def reflectSubGraph[T: TypeRep](tp: TP[T]): Unit = {
+    assert(getTP(tp.rhs).isEmpty, "already defined" + tp)
+    storeTP(tp)
   }
 
 
-  def createDefinition[T](s: Sym[T], d: Def[T]) /*(implicit tag: TypeRep[T])*/: TP[T] = {
-    val f = TP(s, d) //, tag)
-    reflectSubGraph(Vector(f))
-    //reflectSubGraph(f)
+
+  def findDefinition[T: TypeRep](s: Sym[T]): Option[TP[T]] = getTP(s)
+
+  def findDefinition[T: TypeRep](d: Def[T]): Option[TP[T]] = getTP(d)
+
+  def findOrCreateDefinition[T:TypeRep](d: Def[T]): TP[T] = getTP(d).getOrElse(createDefinition(fresh[T], d))
+
+  def findOrCreateDefinitionExp[T:TypeRep](d: Def[T]): Exp[T] = findOrCreateDefinition(d).sym
+
+
+  def createDefinition[T](s: Sym[T], d: Def[T]) (implicit tag: TypeRep[T]): TP[T] = {
+    val f = TP(s, d, tag)
+    reflectSubGraph(f)
     f
   }
 
@@ -210,10 +238,11 @@ trait Expressions extends Utils with TypeRepBase{
 
   // graph construction state
   object Def {
-    def unapply[T](e: Exp[T]): Option[Def[T]] = e match { // really need to test for sym?
+    def unapply[T: TypeRep](e: Exp[T]): Option[Def[T]] = e match { // really need to test for sym?
       case s @ Sym(_) =>
         //findDefinition(s).flatMap(_.defines(s))
-        findDefinition(s).map( x => x.rhs.asInstanceOf[Def[T]]) //get rid of the cast
+        //findDefinition(s).map( x => x.rhs.asInstanceOf[Def[T]]) //get rid of the cast
+        ??? //TODO
       case _ =>
         None
     }
@@ -223,8 +252,6 @@ trait Expressions extends Utils with TypeRepBase{
 
   def reset { // used by delite?
     nVars = 0
-    globalDefs = Vector()
-    localDefs = Vector()
     //globalDefsCache = IntMap.empty
   }
 
