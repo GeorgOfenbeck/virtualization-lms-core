@@ -2,14 +2,11 @@ package scala.virtualization.lms
 package internal
 
 
-import shapeless._
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.mutable.ListBuffer
-import scala.collection.immutable.IntMap
-import java.lang.{StackTraceElement,Thread}
-import scala.reflect.runtime.universe._
-import scala.virtualization.lms.common.TypeRepBase
+
+
+
+import scala.virtualization.lms.common._
 
 /**
  * The Expressions trait houses common AST nodes. It also manages a list of encountered Definitions which
@@ -34,91 +31,25 @@ trait Expressions extends Utils with TypeRepBase{
   override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
   }
 
-
-
-
-
-
-  /*abstract class Stm // statement (links syms and definitions)
-  {
-    def lhs(): List[Sym[Any]] = this match {
-      case TP(sym, rhs) => sym::Nil
-    }
-
-    def xrhs(): Any = this match { // clients use syms(e.rhs), boundSyms(e.rhs) etc.
-      case TP(sym, rhs) => rhs
-    }
-
-    def defines[A]( sym: Sym[A]): Option[Def[A]] = this match {
-      case TP(`sym`, rhs: Def[A]) => Some(rhs)
-      case _ => None
-    }
-
-    def defines[A](rhs: Def[A]): Option[Sym[A]] = this match {
-      case TP(sym: Sym[A], `rhs`) => Some(sym)
-      case _ => None
-    }
-  }*/
-
   case class TP[T](val sym: Sym[T], val rhs: Def[T], val tag: TypeRep[T])
-
-
 
   var nVars = 0
   def fresh[T:TypeRep]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
-  //def fresh[T:TypeTag]: Sym[T] = fresh[T]
 
-
-  //var globalDefs: Vector[TP[Any]] = Vector()
-  //var localDefs: Vector[TP[Any]] = Vector()
 
   var sym2tp: Map[Sym[_], TP[_]] = Map.empty
   var def2tp: Map[Def[_], TP[_]] = Map.empty
 
-
-  //var globalDefs: Vector[TP[_]] = Vector()
-
-
-
   def reifySubGraph[T](b: =>T): (T, Vector[TP[Any]]) = {
-    //val saveLocal = localDefs
-    //val saveGlobal = globalDefs
-    //val saveGlobalCache = globalDefsCache
-    //localDefs = Vector()
     val r = b
-    //val defs = localDefs
-    //localDefs = saveLocal
-    //globalDefs = saveGlobal
-    //globalDefsCache = saveGlobalCache
-    /*(r, defs)*/
     ???
   }
 
-  /*def reflectSubGraph[T: TypeRep](ds: Vector[TP[Any]]): Unit = {
-    val lhs = ds.map(_.sym)
-    assert(lhs.length == lhs.distinct.length, "multiple defs: " + ds)
-    lhs.map( p => assert(sym2tp.contains(p), "already defined: " + sym2tp(p) + " for " + ds))
-    val (tsym2tp, tdef2tp) = ds.foldLeft((sym2tp,def2tp))((acc,ele) => {
-      val (lsym2tp,ldef2tp) = acc               //take the existing Hashmaps and add all new Symbols to them
-      val nsym2tp = lsym2tp + (ele.sym -> ele)  //in the end replace the existing HashMaps
-      val ndef2tp = ldef2tp + (ele.rhs -> ele)
-      (nsym2tp,ndef2tp)
-    })
-    sym2tp = tsym2tp
-    def2tp = tdef2tp
-
-    localDefs = localDefs ++ ds
-    globalDefs = globalDefs ++ ds
-  }*/
-
-
 
   def storeTP[T: TypeRep](tp: TP[T]): Unit = {
-    //globalDefs = globalDefs ++ tp
     def2tp = def2tp + (tp.rhs -> tp)
     sym2tp = sym2tp + (tp.sym -> tp)
   }
-
 
   def getTP[T: TypeRep](d: Def[T]): Option[TP[T]] = {
     def2tp.get(d).asInstanceOf[Option[TP[T]]] //TODO - get rid of the type cast
@@ -128,14 +59,10 @@ trait Expressions extends Utils with TypeRepBase{
     sym2tp.get(sym).asInstanceOf[Option[TP[T]]] //TODO - get rid of the type cast
   }
 
-
-
   def reflectSubGraph[T: TypeRep](tp: TP[T]): Unit = {
     assert(getTP(tp.rhs).isEmpty, "already defined" + tp)
     storeTP(tp)
   }
-
-
 
   def findDefinition[T: TypeRep](s: Sym[T]): Option[TP[T]] = getTP(s)
 
@@ -152,12 +79,11 @@ trait Expressions extends Utils with TypeRepBase{
     f
   }
 
-
-
   protected implicit def toAtom[T:TypeRep](d: Def[T]): Exp[T] = {
-    findOrCreateDefinitionExp(d) // TBD: return Const(()) if type is Unit??
+    findOrCreateDefinitionExp(d)
   }
 
+/*
 
   // dependencies
 
@@ -231,6 +157,7 @@ trait Expressions extends Utils with TypeRepBase{
   def freqNormal(e: Any) = symsFreq(e)
   def freqHot(e: Any) = symsFreq(e).map(p=>(p._1,p._2*1000.0))
   def freqCold(e: Any) = symsFreq(e).map(p=>(p._1,p._2*0.5))
+*/
 
 
 
@@ -252,6 +179,7 @@ trait Expressions extends Utils with TypeRepBase{
 
   def reset { // used by delite?
     nVars = 0
+
     //globalDefsCache = IntMap.empty
   }
 

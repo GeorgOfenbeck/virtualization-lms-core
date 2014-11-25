@@ -30,7 +30,6 @@ trait ExposeRepBase{
     val hlist2t: hlist=> T
     val t2hlist: T=>hlist
   }
-
 }
 
 
@@ -59,115 +58,23 @@ trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
   type Rep[T] = Exp[T]
   protected def unit[T:TypeRep](x: T) = Const(x)
 
-
-
   case class TypeExp[T](tag: TypeTag[T]) extends TypeRep[T]
   def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
-
 
   implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
   implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
 
-  /*class ExposeExp[T,H <: HList] extends ExposeRep[T]{
-    type hlist = H
-    val freshSyms: Unit => hlist
-    val tfromHlist: hlist => T
-  }*/
+  private def helper1[T](u : Unit)(implicit tag: TypeTag[T]): ::[Rep[T], HNil] = fresh[T](tag) :: HNil
+  private def helper2[T](x : ::[Rep[T], HNil]): Rep[T] = x.head
+  private def helper3[T](x: Rep[T]): ::[Rep[T], HNil] = x :: HNil
 
-
-  private def helper1[T](u : Unit)(implicit tag: TypeTag[T]): ::[Exp[T], HNil] = fresh[T](tag) :: HNil
-  private def helper2[T](x : ::[Exp[T], HNil]): Exp[T] = x.head
-  private def helper3[T](x: Exp[T]): ::[Exp[T], HNil] = x :: HNil
-
-  implicit def exposeRepFromRep[T]( )(implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
+  implicit def exposeRepFromRep[T](implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
     type hlist = ::[Exp[T], HNil]
     val freshSyms: Unit => hlist = helper1
     val hlist2t: hlist => Exp[T] = helper2
     val t2hlist: Exp[T] => hlist = helper3
   }
-
-
-
 }
 
 trait BlockExp extends BaseExp
 
-/*
-trait BlockExp extends BaseExp with Blocks {
-  
-  implicit object CanTransformBlock extends CanTransform[Block] {
-    def transform[A](x: Block[A], t: Transformer): Block[A] = Block(t(x.res))
-  }
-  
-}
-*/
-
-
-/*
-trait EffectExp extends BaseExp with Effects {
-
-
-  def mapOver(t: Transformer, u: Summary) = { // TODO: move to effects class?
-    u.copy(mayRead = t.onlySyms(u.mayRead), mstRead = t.onlySyms(u.mstRead),
-      mayWrite = t.onlySyms(u.mayWrite), mstWrite = t.onlySyms(u.mstWrite))
-  }
-
-  override def mirrorDef[A:TypeTag](e: Def[A], f: Transformer): Def[A] = e match {
-    case Reflect(x, u, es) => Reflect(mirrorDef(x,f), mapOver(f,u), f(es))
-    case Reify(x, u, es) => Reify(f(x), mapOver(f,u), f(es))
-    case _ => super.mirrorDef(e,f)
-  }
-
-  override def mirror[A:TypeTag](e: Def[A], f: Transformer): Exp[A] = e match {
-/*
-    case Reflect(x, u, es) =>
-      reifyEffects {
-        context = f(es)
-        mirror(x)
-      }
-    
-*/    
-//    case Reflect(Print(x), u, es) => Reflect(Print(f(x)), es map (e => f(e)))
-    case Reflect(x, u, es) => reflectMirrored(mirrorDef(e,f).asInstanceOf[Reflect[A]])
-    case Reify(x, u, es) => Reify(f(x), mapOver(f,u), f(es)) //TODO: u
-    case _ => super.mirror(e,f)
-  }
-    
-}
-
-trait BaseFatExp extends BaseExp with FatExpressions with FatTransforming
-
-*/
-
-
-// The traits below provide an interface to codegen so that client do
-// not need to depend on internal._
-
-//trait ScalaGenBase extends ScalaCodegen
-/*
-trait ScalaGenEffect extends ScalaNestedCodegen with ScalaGenBase
-
-trait ScalaGenFat extends ScalaFatCodegen with ScalaGenBase
-
-
-trait CLikeGenBase extends CLikeCodegen
-trait CLikeGenEffect extends CLikeNestedCodegen with CLikeGenBase
-trait CLikeGenFat extends CLikeFatCodegen with CLikeGenBase
-
-trait GPUGenBase extends GPUCodegen
-trait GPUGenEffect extends GPUGenBase with CLikeNestedCodegen
-trait GPUGenFat extends GPUGenBase with CLikeFatCodegen
-
-trait CudaGenBase extends CudaCodegen
-trait CudaGenEffect extends CudaNestedCodegen with CudaGenBase
-trait CudaGenFat extends CudaFatCodegen with CudaGenBase
-
-trait OpenCLGenBase extends OpenCLCodegen
-trait OpenCLGenEffect extends OpenCLNestedCodegen with OpenCLGenBase
-trait OpenCLGenFat extends OpenCLFatCodegen with OpenCLGenBase
-
-trait CGenBase extends CCodegen
-trait CGenEffect extends CNestedCodegen with CGenBase
-trait CGenFat extends CFatCodegen with CGenBase
-
-*/
