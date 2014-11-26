@@ -27,7 +27,7 @@ libraryDependencies ++= Seq(
   "com.chuusai" %% "shapeless" % "2.0.0"
 )
 
-scalacOptions ++= Seq("-unchecked", "-deprecation", "-Xlog-implicits", "-Xlint")
+scalacOptions ++= Seq("-unchecked", "-deprecation", "-Xlint") //, "-Xlog-implicits"
 
 // tests are not thread safe
 parallelExecution in Test := false

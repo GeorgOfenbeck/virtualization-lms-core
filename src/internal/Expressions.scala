@@ -15,15 +15,12 @@ import scala.virtualization.lms.common._
  * @since 0.1
  */
 trait Expressions extends Utils with TypeRepBase{
+  //abstract class Exp[+T:TypeRep]
+  case class Exp[+T:TypeRep](val id: Int)
 
+  /*case class Const[+T:TypeRep](x: T) extends Exp[T]
 
-  abstract class Exp[+T:TypeRep] { // constants/symbols (atomic)
-  //def tp: TypeRep[T @uncheckedVariance] = typeRep[T] //invariant position! but hey...
-  }
-
-  case class Const[+T:TypeRep](x: T) extends Exp[T]
-
-  case class Sym[+T:TypeRep](val id: Int) extends Exp[T]
+  case class Sym[+T:TypeRep](val id: Int) extends Exp[T]*/
 
   case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
 
@@ -35,7 +32,6 @@ trait Expressions extends Utils with TypeRepBase{
 
   var nVars = 0
   def fresh[T:TypeRep]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
-
 
   var sym2tp: Map[Sym[_], TP[_]] = Map.empty
   var def2tp: Map[Def[_], TP[_]] = Map.empty
@@ -72,7 +68,6 @@ trait Expressions extends Utils with TypeRepBase{
 
   def findOrCreateDefinitionExp[T:TypeRep](d: Def[T]): Exp[T] = findOrCreateDefinition(d).sym
 
-
   def createDefinition[T](s: Sym[T], d: Def[T]) (implicit tag: TypeRep[T]): TP[T] = {
     val f = TP(s, d, tag)
     reflectSubGraph(f)
@@ -83,83 +78,13 @@ trait Expressions extends Utils with TypeRepBase{
     findOrCreateDefinitionExp(d)
   }
 
-/*
-
-  // dependencies
-
-  // regular data (and effect) dependencies
-  def syms(e: Any): Vector[Sym[Any]] = e match {
-    case s: Sym[Any] => Vector(s)
-    case ss: Iterable[Any] => ss.toVector.flatMap(syms(_))
-    // All case classes extend Product!
-    case p: Product =>
-      //return p.productIterator.toList.flatMap(syms(_))
-      /* performance hotspot */
-      val iter = p.productIterator
-      val out = new ListBuffer[Sym[Any]]
-      while (iter.hasNext) {
-        val e = iter.next()
-        out ++= syms(e)
-      }
-      out.result().toVector
-    case _ => Vector()
-  }
 
   // symbols which are bound in a definition
-  def boundSyms(e: Any): Vector[Sym[Any]] = e match {
-    case ss: Iterable[Any] => ss.toVector.flatMap(boundSyms(_))
-    case p: Product => p.productIterator.toVector.flatMap(boundSyms(_))
-    case _ => Vector()
+  def boundSyms(e: Any): List[Sym[Any]] = e match {
+    case ss: Iterable[Any] => ss.toList.flatMap(boundSyms(_))
+    case p: Product => p.productIterator.toList.flatMap(boundSyms(_))
+    case _ => Nil
   }
-
-  // symbols which are bound in a definition, but also defined elsewhere
-  def tunnelSyms(e: Any): Vector[Sym[Any]] = e match {
-    case ss: Iterable[Any] => ss.toVector.flatMap(tunnelSyms(_))
-    case p: Product => p.productIterator.toVector.flatMap(tunnelSyms(_))
-    case _ => Vector()
-  }
-
-  // symbols of effectful components of a definition
-  def effectSyms(x: Any): Vector[Sym[Any]] = x match {
-    case ss: Iterable[Any] => ss.toVector.flatMap(effectSyms(_))
-    case p: Product => p.productIterator.toVector.flatMap(effectSyms(_))
-    case _ => Vector()
-  }
-
-  // soft dependencies: they are not required but if they occur, 
-  // they must be scheduled before
-  def softSyms(e: Any): Vector[Sym[Any]] = e match {
-    // empty by default
-    //case s: Sym[Any] => List(s)
-    case ss: Iterable[Any] => ss.toVector.flatMap(softSyms(_))
-    case p: Product => p.productIterator.toVector.flatMap(softSyms(_))
-    case _ => Vector()
-  }
-
-
-  def rsyms[T](e: Any)(f: Any=>Vector[T]): Vector[T] = e match {
-    case s: Sym[Any] => f(s)
-    case ss: Iterable[Any] => ss.toVector.flatMap(f)
-    case p: Product => p.productIterator.toVector.flatMap(f)
-    case _ => Vector()
-  }
-
-  // frequency information for dependencies: used/computed
-  // often (hot) or not often (cold). used to drive code motion.
-  def symsFreq(e: Any): Vector[(Sym[Any], Double)] = e match {
-    case s: Sym[Any] => Vector((s,1.0))
-    case ss: Iterable[Any] => ss.toVector.flatMap(symsFreq(_))
-    case p: Product => p.productIterator.toVector.flatMap(symsFreq(_))
-    //case _ => rsyms(e)(symsFreq)
-    case _ => Vector()
-  }
-
-  def freqNormal(e: Any) = symsFreq(e)
-  def freqHot(e: Any) = symsFreq(e).map(p=>(p._1,p._2*1000.0))
-  def freqCold(e: Any) = symsFreq(e).map(p=>(p._1,p._2*0.5))
-*/
-
-
 
 
 
@@ -175,12 +100,10 @@ trait Expressions extends Utils with TypeRepBase{
     }
   }
 
-
-
-  def reset { // used by delite?
+  def reset() =  {
     nVars = 0
-
-    //globalDefsCache = IntMap.empty
+    sym2tp = Map.empty
+    def2tp = Map.empty
   }
 
 }

@@ -1,14 +1,14 @@
 package scala.virtualization.lms
 package internal
 
-import shapeless.HList
-
 
 trait Blocks extends Expressions { //why?
 
 
 
-  case class Block[H <: HList](val hlist: H)
+  case class Block(val res: Vector[Exp[_]])  {
+    require(res.isEmpty == false)
+  }
 
 
   /*def blocks(e: Any): Vector[Block[Any]] = e match {

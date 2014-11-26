@@ -2,155 +2,37 @@ package scala.virtualization.lms
 package common
 
 
-
-
-
-
-
-/*
-package scala.virtualization.lms
-package common
-
+import shapeless.HList
 
 import scala.virtualization.lms.internal._
-import scala.collection.immutable.IntMap
-import scala.reflect.runtime.universe._
-trait Reification {
-  val IR: Blocks
-  val globalDefs: Vector[IR.Stm]
-  val localDefs: Vector[IR.Stm]
-  val globalDefsCache: IntMap[IR.Stm]
-  val result: IR.Block[Any]
-  val args: Vector[IR.Sym[Any]]
+
+trait ReificationPure{
+  val IR: BaseExp with PureFunctionsExp
+  val sym2tp: Map[IR.Sym[_], IR.TP[_]]
+  val def2tp: Map[IR.Def[_], IR.TP[_]]
+  val rootfunction: IR.Exp[_ => _]
 }
 
 
-trait Reify {
+trait ReifyPure{
   self =>
-  val IR: Blocks with PureFunctionsExp
+  val IR: BaseExp with PureFunctionsExp
   import IR._
 
-
-  def reifyProgram[T : TypeTag, R : TypeTag](f: T => Exp[R], builder: => (T, Vector[IR.Sym[Any]])): Reification = {
-    IR.reset
-    val (s, args) = builder
-    reifyProgram(f(s),args)
+  def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ReificationPure = {
+    IR.reset()
+    val lambda = fun(f)
+    reifyProgram(lambda)
   }
 
-  def reifyProgramX[T : TypeTag, R : TypeTag](f: Exp[T] => Exp[R]): Reification = reifyProgram(f)
-
-  def reifyProgram[T : TypeTag, R : TypeTag](f: Exp[T] => Exp[R]): Reification = {
-    IR.reset
-    val s = fresh[T]
-    reifyProgram(f(s),Vector(s))
-  }
-
-  def reifyProgram[T1 : TypeTag, T2 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2]) => Exp[R]): Reification = {
-    IR.reset
-    val s1 = fresh[T1]
-    val s2 = fresh[T2]
-    reifyProgram(f(s1,s2), Vector(s1,s2))
-  }
-
-  def reifyProgram[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3]) => Exp[R]): Reification = {
-    IR.reset
-    val s1 = fresh[T1]
-    val s2 = fresh[T2]
-    val s3 = fresh[T3]
-    reifyProgram(f(s1,s2,s3),Vector(s1,s2, s3))
-  }
-
-  def reifyProgram[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, T4 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4]) => Exp[R]): Reification = {
-    IR.reset
-    val s1 = fresh[T1]
-    val s2 = fresh[T2]
-    val s3 = fresh[T3]
-    val s4 = fresh[T4]
-    reifyProgram(f(s1,s2,s3,s4), Vector(s1,s2,s3,s4))
-  }
-
-  def reifyProgram[T1 : TypeTag, T2 : TypeTag, T3 : TypeTag, T4 : TypeTag, T5 : TypeTag, R : TypeTag](f: (Exp[T1], Exp[T2], Exp[T3], Exp[T4], Exp[T5]) => Exp[R]): Reification = {
-    IR.reset
-    val s1 = fresh[T1]
-    val s2 = fresh[T2]
-    val s3 = fresh[T3]
-    val s4 = fresh[T4]
-    val s5 = fresh[T5]
-    reifyProgram(f(s1,s2,s3,s4,s5), Vector(s1,s2,s3,s4,s5))
-  }
-
-
-  def reifyProgram[A: TypeTag, B: TypeTag](f: Lambda[A,B] ): Reification = {
-    val (progresult, defs) = reifySubGraph(f.f(f.x))
-    reflectSubGraph(defs)
-    val immutable_out = new Reification {
+  def reifyProgram(lambda: Exp[_ => _]): ReificationPure = {
+    val immutable_out = new ReificationPure {
       val IR: self.IR.type = self.IR
-      val globalDefs: Vector[IR.Stm] = self.IR.globalDefs
-      val localDefs: Vector[IR.Stm] = self.IR.localDefs
-      val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
-      val result = ??? //Block(progresult)
-      val args:Vector[IR.Sym[Any]] = Vector() //FIX ME!!!!!!!
-    }
-    immutable_out
-  }
-
-
-  protected def reifyProgram[T: TypeTag](x: => Exp[T], pargs: Vector[Sym[Any]]): Reification = {
-    val (progresult, defs) = reifySubGraph(x)
-    reflectSubGraph(defs)
-    val immutable_out = new Reification {
-      val IR: self.IR.type = self.IR
-      val globalDefs: Vector[IR.Stm] = self.IR.globalDefs
-      val localDefs: Vector[IR.Stm] = self.IR.localDefs
-      val globalDefsCache: IntMap[IR.Stm] = self.IR.globalDefsCache
-      val result: IR.Block[Any] = IR.Block(progresult)
-      val args = pargs
+      val sym2tp: Map[IR.Sym[_], IR.TP[_]] = self.IR.sym2tp
+      val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
+      val rootfunction = lambda
     }
     immutable_out
   }
 }
 
-
-/*
-package scala.virtualization.lms
-package common
-
-
-
-import scala.virtualization.lms.internal._
-
-trait ReifiedProgram {
-  val globalDefs: List[Stm]
-  val globalDefsCache: Map[Sym[Any],Stm]
-  val localDefs: List[Stm]
-}
-
-
-trait ReifyProgram extends Expressions{
-
-  def reifyProgram[T: TypeTag] (x: => Exp[T]): ReifiedProgram = {
-    println("hae?")
-
-    val mutablecopy = new ReifyProgram {
-      override implicit def toAtom[T:TypeTag](d: Def[T]): Exp[T] =
-      {
-
-        findOrCreateDefinitionExp(d, List(pos)) // TBD: return Const(()) if type is Unit??
-      }
-    }
-
-
-
-    val (result, defs) = mutablecopy.reifySubGraph(() => x)
-    mutablecopy.reflectSubGraph(defs)
-
-    val reified = new ReifiedProgram {
-      override val globalDefs: List[Stm] = mutablecopy.globalDefs
-      override val globalDefsCache: Map[Sym[Any], Stm] = mutablecopy.globalDefsCache
-      override val localDefs: List[Stm] = mutablecopy.localDefs
-    }
-    reified
-    }
-}
-*/
-*/

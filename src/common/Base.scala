@@ -23,12 +23,13 @@ trait TypeRepBase{
   implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
 }
 
-trait ExposeRepBase{
+trait ExposeRepBase extends Expressions{
   trait ExposeRep[T] {
     type hlist <: HList
     val freshSyms: Unit => hlist
     val hlist2t: hlist=> T
     val t2hlist: T=>hlist
+    val hlist2Syms: hlist => Vector[Exp[_]]
   }
 }
 
@@ -47,6 +48,7 @@ trait Base extends TypeRepBase with ExposeRepBase{
   // always lift Unit and Null (for now)
   implicit def unitToRepUnit(x: Unit) = unit(x)
   implicit def nullToRepNull(x: Null) = unit(x)
+  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T]
 }
 
 /**
@@ -54,7 +56,7 @@ trait Base extends TypeRepBase with ExposeRepBase{
  *
  * @since 0.1
  */
-trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
+trait BaseExp extends Base with Expressions with Blocks with ExposeRepBase/*with Transforming*/ {
   type Rep[T] = Exp[T]
   protected def unit[T:TypeRep](x: T) = Const(x)
 
@@ -67,12 +69,15 @@ trait BaseExp extends Base with Expressions with Blocks /*with Transforming*/ {
   private def helper1[T](u : Unit)(implicit tag: TypeTag[T]): ::[Rep[T], HNil] = fresh[T](tag) :: HNil
   private def helper2[T](x : ::[Rep[T], HNil]): Rep[T] = x.head
   private def helper3[T](x: Rep[T]): ::[Rep[T], HNil] = x :: HNil
+  private def helper4[T](x: ::[Rep[T], HNil]): Vector[Exp[_]] = Vector(x.head)
 
   implicit def exposeRepFromRep[T](implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
     type hlist = ::[Exp[T], HNil]
     val freshSyms: Unit => hlist = helper1
     val hlist2t: hlist => Exp[T] = helper2
     val t2hlist: Exp[T] => hlist = helper3
+    val hlist2Syms: hlist => Vector[Exp[_]] = helper4
+
   }
 }
 

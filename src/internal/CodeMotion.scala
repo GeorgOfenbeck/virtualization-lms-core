@@ -1,30 +1,24 @@
-/*
+
+
 package scala.virtualization.lms
 package internal
 
+
+import shapeless.HList
+
+import scala.virtualization.lms.common._
+
+
 import scala.collection.immutable._
-import scala.virtualization.lms.common.Reification
-import scala.annotation.tailrec
 
 /**
  * Trait CodeMotion will perform the code motion on the IR without requiring knowledge of the individual Def Types (the type of the DSL nodes)
  * While doing so it will persist all info in immutable data structures that it will hand out to the user
  **/
 
-trait CodeMotion{
-  val reifiedIR: Reification
-
-  /**
-   * @param children The children of the current block (if the block contains nested blocks, the nested children will be saved within the sub block)
-   * @param child_schedule One possible topological sort that was used during code motion
-   * @param uplinks All Nodes used from outside this block (should always be empty for the root block!)
-   * @param roots All Nodes without predecessor in the current Block
-   */
-  case class BlockInfo(children: IntMap[EnrichedGraphNode], child_schedule: Stack[Int], uplinks: Set[Int], roots: Set[Int])
-
-  case class IRBlockInfo(val head: Int, val blockinfo: IntMap[BlockInfo]){
-    def getHead(): BlockInfo = blockinfo(head)
-  }
+trait CodeMotion {
+  val reifiedIR: ReificationPure
+  import reifiedIR.IR._
 
   /**
    * @param irdef Some(Int) = an index into globaldefs to the according IR Definition
@@ -37,7 +31,19 @@ trait CodeMotion{
    */
   case class EnrichedGraphNode( irdef: Option[Int], out: Set[Int], in: Set[Int], bounds: Set[Int], blocks: Set[Int] )
 
-  import reifiedIR.IR._
+
+  /**
+   * @param children The children of the current block (if the block contains nested blocks, the nested children will be saved within the sub block)
+   * @param child_schedule One possible topological sort that was used during code motion
+   * @param uplinks All Nodes used from outside this block (should always be empty for the root block!)
+   * @param roots All Nodes without predecessor in the current Block
+   */
+  case class BlockInfo(children: IntMap[EnrichedGraphNode], child_schedule: Stack[Int], uplinks: Set[Int], roots: Set[Int])
+
+  //TODO - add docu
+  case class IRBlockInfo(val head: Int, val blockinfo: IntMap[BlockInfo]){
+    def getHead(): BlockInfo = blockinfo(head)
+  }
 
   /**
    * An Intmap with globalDefEntryIndex -> EnchancedNode for all of globaldefs
@@ -51,78 +57,18 @@ trait CodeMotion{
   protected var bcache = IntMap.empty[BlockInfo]
 
 
-
-
   lazy val block_cache: IRBlockInfo = {
     bcache = IntMap.empty[BlockInfo] //just in case someone initialized that by accident before
-    getBlockInfo(reifiedIR.result)
+    //getBlockInfo(reifiedIR.result)
+    ???
   }
 
 
-
-  protected def DeftoDagEntry(defentry: Stm, odep: Option[List[Exp[Any]]]): (Int,EnrichedGraphNode) = {
-    defentry match {
-      /*case TP(sym: Sym[Any], Reflect(rdef,u,es)) => {
-        val id = sym.id
-        val x = TP(sym,rdef)
-        val node: Def[Any] with Product = rdef
-        val out = node.productIterator.toSet
-        //val outsyms = out.map( x =>syms(x) )
-        val int_out = out.collect { case ele: Sym[Any] => ele.id }
-        val int_blocks = out.collect { case Block(res: Sym[Any] ) => res.id}
-        val in = Set.empty[Int]
-        (id,EnrichedGraphNode(Some(x),int_out,in,Set.empty[Int],int_blocks))
-      } */
-      case TP(sym: Sym[Any], node: Def[Any] with Product) => {
-
-        val out = node match {
-
-          /*
-          case Reflect(u,summary,deps) => {
-            val x = TP(sym,u)
-            DeftoDagEntry(x,Some(deps))
-
-          }
-          case Reify(u,summary,deps) => {
-            //val out = node.productIterator.toSet
-            val out: Set[Exp[Any]] = deps.toSet
-            val x = TP(sym,node)
-            val id = sym.id
-            //val outsyms = out.map( x =>syms(x) )
-            val int_out = out.collect { case ele: Sym[Any] => ele.id } ++ odep.collect{ case ele: Sym[Any] => ele.id }
-            val int_blocks = Set.empty[Int]
-            val in = Set.empty[Int]
-            (id,EnrichedGraphNode(Some(x),int_out,in,Set.empty[Int],int_blocks))
-          }
-          */ //RF - move this to effectful variant
-
-          case _ => {
-            //val out = node.productIterator.toSet
-            val out = syms(node)
-
-            val x = TP(sym,node)
-            val id = sym.id
-            //val outsyms = out.map( x =>syms(x) )
-            //val int_out = out.collect { case ele: Sym[Any] => ele.id } ++ odep.collect{ case ele: Sym[Any] => ele.id }
-            val int_out = ( out.map( x => x.id) ++  odep.collect{ case ele: Sym[Any] => ele.id } ).toSet
-            //            val int_blocks = out.collect { case IR.Block(res: IR.Sym[Any] ) => res.id}
-            val int_blocks = blocks(node).collect { case Block(res: Sym[Any] ) => res.id}.toSet
-            val in = Set.empty[Int]
-            (id,EnrichedGraphNode(Some(x.sym.id),int_out,in,Set.empty[Int],int_blocks))
-          }
-        }
-        out
-      }
-      case _ => {
-        println("seems this case can happen for " + defentry)
-        ???
-      }
-    }
+  protected def DeftoDagEntry(defentry: TP[_], odep: Option[List[Exp[Any]]]): (Int,EnrichedGraphNode) = {
+    ???
   }
-
 
   /**
-
    * This will take the whole DAG and add the reverse dependency information to the nodes
    * (instead of only having the "who do I depend on" - also having "who depends on me"
    * Additionally it will create Nodes for Symbols which do not have a Def bound to them (e.g. loop indices)
@@ -131,8 +77,8 @@ trait CodeMotion{
    */
   protected def enhanceDAG(): IntMap[EnrichedGraphNode] = {
     //this gives us the dag without the reverse lookup
-    val dagmap = globalDefs.foldLeft(IntMap.empty[EnrichedGraphNode]){
-      (acc,ele) => acc + DeftoDagEntry(ele,None)
+    val dagmap = def2tp.foldLeft(IntMap.empty[EnrichedGraphNode]){
+      (acc,ele) => acc + DeftoDagEntry(ele._2,None)
     }
     //creates a hashmap of the reverse edges (one hashmap per origin node)
     val reverse_dag = dagmap map {
@@ -180,59 +126,40 @@ trait CodeMotion{
   }
 
 
-  /**
-   * Called by update_nest - finds all symbols that are transitively bound within the current block
-   * Doing this is crucial for code motion - symbols that are not bound within the current block will recognized as "uplinks" in the current
-   * scope
-   * @param root the block result symbol from which we backtrack
-   * @param backtrack used while recursively calling itself to keep track of where to backtrack (branches in DAG)
-   * @param currentmap what we discovered so far
-   * @param full the full graph
-   * @return the final discovered graph that is bound within the block
-  **/
+  /** This will traverse the DAG in topological order (result to input direction) and create the BlockInfo datastructure
+    * To do so it will recurse into all blocks and bind symbols to blocks
+    * It will also note all symbols within blocks that are referencing blocks higher up in the nesting
+    * After this function is executed bcache will be filled with a BlockInfo data structure per block that appears in the DAG
+    * @param block The block on which code motion should be performed - should always be the result block of the reified DAG
+    * @tparam A
+    */
+  protected def getBlockInfo(block: Block): IRBlockInfo = {
 
-  @tailrec
-  private def depGraph(root: Int, backtrack: Set[Int], currentmap: IntMap[EnrichedGraphNode], full: IntMap[EnrichedGraphNode]): (IntMap[EnrichedGraphNode])  = { //private for tailrec
-    if (backtrack.isEmpty)
-      (currentmap)
-    else {
-      val track: Int = backtrack.head //backtrack is a stack of nodes we still not to go through
-      val tracknode: EnrichedGraphNode = full(track) //get the head and traverse from there
-      val newtrack = tracknode.in filter ( e => !(currentmap.contains(e)) && e != root) //make sure we didnt visit that path already and that we are not at the origin of the subgraph
-      //val local_uplink = tracknode.out.filter( x => !full.contains(x))
-      //val newuplink = uplink ++ local_uplink
-      val newbacktrack = backtrack.tail ++ newtrack //add the alternative paths to the stack
-      val entry : (Int,EnrichedGraphNode) = (track,tracknode)
-      val newcurrent = currentmap + entry //add the new node of the path to the result
-      depGraph(root,newbacktrack,newcurrent,full) //recurse on this path
+    //val res = getBlockResult(block)
+    val res = block.res
+
+
+    if (true) {//TODO - RF!
+    //if (!bcache.contains(resid)) { //this should always be true
+
+      val head = res.head
+      val rest = res.tail
+
+      val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = //calling visited_nested with the empty status variables and the full graph to start things off
+        visit_nested(resid,Set.empty[Int],Set.empty[Int],Stack.empty[Int],enriched_graph,enriched_graph,Set.empty[Int],Set.empty[Int])
+
+
+      val cache_entry: (Int, BlockInfo) = (resid,BlockInfo(rfullscope,stack,uplinks,roots))
+      bcache = bcache + cache_entry
     }
+    else{
+      assert(false,"in the current setup getBlockInfo should only be callable from the root block - therefore we should" +
+        "never end up here!")
+    }
+    assert(bcache.contains(resid),"sanity check fails?")
+    IRBlockInfo(resid,bcache)
   }
 
-  /**
-   * This is called by visit_nested. Will update the given block (blocksym) in the bache by calling in turn visit_nested
-   * on the subgraph that is bound within the block
-   *
-   * @param blocksym The Block Symbol (e.g. Block(Sym(4)) -> 4) for which we want to create a new bcache entry
-   * @param curr The current scope - this shrinks with every node already visited in the process
-   * @param full The full scope of the DAG - stays full always
-   * @return Returns the updated (curr,full) tuple
-   */
-  protected def update_nest(blocksym: Int, curr: IntMap[EnrichedGraphNode], full: IntMap[EnrichedGraphNode]): (IntMap[EnrichedGraphNode], IntMap[EnrichedGraphNode])  = {
-    val focused = curr(blocksym)
-    val blockhead = focused.blocks.head
-    if (!focused.blocks.tail.isEmpty) assert(false, "we are not handling this yet (multiple blocks in one symbol")
-    val children = depGraph(blocksym,focused.bounds,IntMap.empty[EnrichedGraphNode],full) //get the subgraph that depends on that bounds
-    //val centry: (Int, EnrichedGraphNode)  = (blockhead,focused)
-    //val children = children_dep + centry //depgraph doesnt include the root
-    val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks,roots) =
-      visit_nested(blockhead,Set.empty[Int],Set.empty[Int],Stack.empty[Int],children, full,Set.empty[Int],Set.empty[Int])
-    val binfo = BlockInfo(children,stack,uplinks,roots)
-    val cache_entry: (Int, BlockInfo) = (blockhead,binfo)
-    bcache = bcache + cache_entry
-    //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
-    val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
-    (curr + entry,rfullscope + entry)
-  }
 
   /**
    *
@@ -262,22 +189,21 @@ trait CodeMotion{
 
     else {
       val focused: EnrichedGraphNode = curr_scope(n)
-
       val next = focused.out //.filter(x => full_scope(x).irdef.isDefined) //all nexts
 
       val (allnext, curr_nscope, full_nscope) =
         if (!focused.blocks.isEmpty) {//we have a block
-          val (curr_uscope, full_uscope): (IntMap[EnrichedGraphNode],IntMap[EnrichedGraphNode]) =
-            if (!bcache.contains(focused.blocks.head))
-              update_nest(n,curr_scope, full_scope)
-            else
-              (curr_scope, full_scope) //we update the scope to have the blockinfo
+        val (curr_uscope, full_uscope): (IntMap[EnrichedGraphNode],IntMap[EnrichedGraphNode]) =
+          if (!bcache.contains(focused.blocks.head))
+            update_nest(n,curr_scope, full_scope)
+          else
+            (curr_scope, full_scope) //we update the scope to have the blockinfo
 
 
           val nfocused = focused //curr_uscope(n) //refresh the focused
-            if (!bcache.contains(focused.blocks.head)) assert(false, "this should just not happen")
-            val binfo = bcache(focused.blocks.head)
-            (binfo.uplinks ++ next, curr_uscope, full_uscope)
+          if (!bcache.contains(focused.blocks.head)) assert(false, "this should just not happen")
+          val binfo = bcache(focused.blocks.head)
+          (binfo.uplinks ++ next, curr_uscope, full_uscope)
         }
         else {
           (next,curr_scope, full_scope)
@@ -302,66 +228,58 @@ trait CodeMotion{
   }
 
 
-  /** This will traverse the DAG in topological order (result to input direction) and create the BlockInfo datastructure
-    * To do so it will recurse into all blocks and bind symbols to blocks
-    * It will also note all symbols within blocks that are referencing blocks higher up in the nesting
-    * After this function is executed bcache will be filled with a BlockInfo data structure per block that appears in the DAG
-   * @param block The block on which code motion should be performed - should always be the result block of the reified DAG
-   * @tparam A
+  /**
+   * This is called by visit_nested. Will update the given block (blocksym) in the bache by calling in turn visit_nested
+   * on the subgraph that is bound within the block
+   *
+   * @param blocksym The Block Symbol (e.g. Block(Sym(4)) -> 4) for which we want to create a new bcache entry
+   * @param curr The current scope - this shrinks with every node already visited in the process
+   * @param full The full scope of the DAG - stays full always
+   * @return Returns the updated (curr,full) tuple
    */
-  protected def getBlockInfo[A](block: Block[A]): IRBlockInfo = {
-    val res = getBlockResult(block)
-    //RF! just not nice
-    val resid: Int = block match {
-      case Block(Sym(id)) => id
-      case Block(Const(x)) => {
-        ??? //we never have this in our code - //TODO - fix for common case
-      }
-    }
-
-
-    if (!bcache.contains(resid)) { //this should always be true
-
-
-      val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = //calling visited_nested with the empty status variables and the full graph to start things off
-        visit_nested(resid,Set.empty[Int],Set.empty[Int],Stack.empty[Int],enriched_graph,enriched_graph,Set.empty[Int],Set.empty[Int])
-
-
-      val cache_entry: (Int, BlockInfo) = (resid,BlockInfo(rfullscope,stack,uplinks,roots))
-      bcache = bcache + cache_entry
-    }
-    else{
-      assert(false,"in the current setup getBlockInfo should only be callable from the root block - therefore we should" +
-        "never end up here!")
-    }
-    assert(bcache.contains(resid),"sanity check fails?")
-    IRBlockInfo(resid,bcache)
+  protected def update_nest(blocksym: Int, curr: IntMap[EnrichedGraphNode], full: IntMap[EnrichedGraphNode]): (IntMap[EnrichedGraphNode], IntMap[EnrichedGraphNode])  = {
+    val focused = curr(blocksym)
+    val blockhead = focused.blocks.head
+    if (!focused.blocks.tail.isEmpty) assert(false, "we are not handling this yet (multiple blocks in one symbol")
+    val children = depGraph(blocksym,focused.bounds,IntMap.empty[EnrichedGraphNode],full) //get the subgraph that depends on that bounds
+    //val centry: (Int, EnrichedGraphNode)  = (blockhead,focused)
+    //val children = children_dep + centry //depgraph doesnt include the root
+    val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks,roots) =
+      visit_nested(blockhead,Set.empty[Int],Set.empty[Int],Stack.empty[Int],children, full,Set.empty[Int],Set.empty[Int])
+    val binfo = BlockInfo(children,stack,uplinks,roots)
+    val cache_entry: (Int, BlockInfo) = (blockhead,binfo)
+    bcache = bcache + cache_entry
+    //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
+    val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
+    (curr + entry,rfullscope + entry)
   }
 
-}
+  /**
+   * Called by update_nest - finds all symbols that are transitively bound within the current block
+   * Doing this is crucial for code motion - symbols that are not bound within the current block will recognized as "uplinks" in the current
+   * scope
+   * @param root the block result symbol from which we backtrack
+   * @param backtrack used while recursively calling itself to keep track of where to backtrack (branches in DAG)
+   * @param currentmap what we discovered so far
+   * @param full the full graph
+   * @return the final discovered graph that is bound within the block
+   **/
 
-object CodeMotion {
-  /** Takes a reified Program as an input. It then follows the dependencies of the the result of the reified program
-   * and also stores the reverse edges (for each node - which nodes depend on it).
-   * For CodeMotion purpose it also stores for each Block the following information:
-    * RF! //update this
-    *  Statements that have to be part of the Block (e.g. dependent on Loop iterator)
-    *  Statements that are "free" in the block (no dependencies) - this should only happen in the top most block
-    *  Uplinks of the current Block (Dependencies of Statements within the block on Statements outside the Bock)
-    *
-   * @param preifiedIR
-   * @author Georg Ofenbeck
-   * @return
-   */
-  def apply(preifiedIR : Reification): CodeMotion = {
-    val cm = new CodeMotion {
-      override val reifiedIR: Reification = preifiedIR
+  private def depGraph(root: Int, backtrack: Set[Int], currentmap: IntMap[EnrichedGraphNode], full: IntMap[EnrichedGraphNode]): (IntMap[EnrichedGraphNode])  = { //private for tailrec
+    if (backtrack.isEmpty)
+      (currentmap)
+    else {
+      val track: Int = backtrack.head //backtrack is a stack of nodes we still not to go through
+      val tracknode: EnrichedGraphNode = full(track) //get the head and traverse from there
+      val newtrack = tracknode.in filter ( e => !(currentmap.contains(e)) && e != root) //make sure we didnt visit that path already and that we are not at the origin of the subgraph
+      //val local_uplink = tracknode.out.filter( x => !full.contains(x))
+      //val newuplink = uplink ++ local_uplink
+      val newbacktrack = backtrack.tail ++ newtrack //add the alternative paths to the stack
+      val entry : (Int,EnrichedGraphNode) = (track,tracknode)
+      val newcurrent = currentmap + entry //add the new node of the path to the result
+      depGraph(root,newbacktrack,newcurrent,full) //recurse on this path
     }
-    cm
   }
 
 
-
-
 }
-*/
