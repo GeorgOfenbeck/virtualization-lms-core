@@ -29,7 +29,7 @@ trait CodeMotion {
    * @param bounds ? //RF!
    * @param blocks The result id of the blocks bound within this node (e.g. Block(Sym(4)) - we would save the 4)
    */
-  case class EnrichedGraphNode( irdef: Option[Int], out: Set[Int], in: Set[Int], bounds: Set[Int], blocks: Set[Int] )
+  case class EnrichedGraphNode( irdef: Option[Int], out: Set[Int], in: Set[Int], bounds: Set[Int], blocks: Set[Block] )
 
 
   /**
@@ -41,7 +41,7 @@ trait CodeMotion {
   case class BlockInfo(children: IntMap[EnrichedGraphNode], child_schedule: Stack[Int], uplinks: Set[Int], roots: Set[Int])
 
   //TODO - add docu
-  case class IRBlockInfo(val head: Int, val blockinfo: IntMap[BlockInfo]){
+  case class IRBlockInfo(val head: Block, val blockinfo: Map[Block,BlockInfo]){
     def getHead(): BlockInfo = blockinfo(head)
   }
 
@@ -54,18 +54,36 @@ trait CodeMotion {
   /**
    * used to build block_cache - should only be used internal (mutable)
    */
-  protected var bcache = IntMap.empty[BlockInfo]
+  protected var bcache = Map.empty[Block,BlockInfo]
 
 
   lazy val block_cache: IRBlockInfo = {
-    bcache = IntMap.empty[BlockInfo] //just in case someone initialized that by accident before
-    //getBlockInfo(reifiedIR.result)
-    ???
+    bcache = Map.empty[Block,BlockInfo] //just in case someone initialized that by accident before
+    getBlockInfo(reifiedIR.rootblock)
   }
 
 
   protected def DeftoDagEntry(defentry: TP[_], odep: Option[List[Exp[Any]]]): (Int,EnrichedGraphNode) = {
-    ???
+    defentry match {
+      case TP(sym: Exp[_], node: Def[_] with Product, tag) => {
+        val out = node match{
+
+
+          case _ => {
+            val out = node.productIterator.toSet
+            val id = sym.id
+            val int_out = (out.collect { case ele: Exp[_] => ele.id }  ++  odep.collect{ case ele: Exp[_] => ele.id } ).toSet
+            //            val int_blocks = out.collect { case IR.Block(res: IR.Sym[Any] ) => res.id}
+            //val int_blocks = blocks(node).collect { case Block(res: Sym[Any] ) => res.id}.toSet
+            val int_blocks:Set[Block] = out.collect { case x: Block => x}
+            //val int_blocks:Set[Int] = bla.flatMap(y => y).toSet
+            val in = Set.empty[Int]
+            (id,EnrichedGraphNode(Some(sym.id),int_out,in,Set.empty[Int],int_blocks))
+          }
+        }
+        out
+      }
+    }
   }
 
   /**
@@ -77,13 +95,15 @@ trait CodeMotion {
    */
   protected def enhanceDAG(): IntMap[EnrichedGraphNode] = {
     //this gives us the dag without the reverse lookup
-    val dagmap = def2tp.foldLeft(IntMap.empty[EnrichedGraphNode]){
+    val dagmap: IntMap[EnrichedGraphNode] = def2tp.foldLeft(IntMap.empty[EnrichedGraphNode]){
       (acc,ele) => acc + DeftoDagEntry(ele._2,None)
     }
+
     //creates a hashmap of the reverse edges (one hashmap per origin node)
     val reverse_dag = dagmap map {
       entry => {
-        val outedges = entry._2.out ++ entry._2.blocks
+        val blockouts: Set[Int] = entry._2.blocks.flatMap( x => x.res.map(y => y.id))
+        val outedges = entry._2.out ++ blockouts
         val hmap = outedges.foldLeft(IntMap.empty[Set[Int]]){
           (acc,ele) => acc + (ele -> Set(entry._1))
         }
@@ -103,7 +123,7 @@ trait CodeMotion {
         if (dagmap.contains(ele._1)) acc
         else {
           //in this case it has no Def
-          acc + (ele._1,EnrichedGraphNode(None,Set.empty[Int],Set.empty[Int],Set.empty[Int],Set.empty[Int]))
+          acc + (ele._1,EnrichedGraphNode(None,Set.empty[Int],Set.empty[Int],Set.empty[Int],Set.empty[Block]))
         }
       }
     }
@@ -116,7 +136,7 @@ trait CodeMotion {
         val rhs = content.irdef
         val out = content.out
         val in = merged.get(key).getOrElse(Set.empty[Int])
-        val bound = boundSyms(rhs).map( x => x.id).toSet
+        val bound = boundExps(rhs).map( x => x.id).toSet
         val blocks = content.blocks
         val entry : (Int,EnrichedGraphNode) = (key,EnrichedGraphNode(rhs,out,in,bound,blocks))
         acc + entry
@@ -142,22 +162,20 @@ trait CodeMotion {
     if (true) {//TODO - RF!
     //if (!bcache.contains(resid)) { //this should always be true
 
-      val head = res.head
-      val rest = res.tail
-
       val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = //calling visited_nested with the empty status variables and the full graph to start things off
-        visit_nested(resid,Set.empty[Int],Set.empty[Int],Stack.empty[Int],enriched_graph,enriched_graph,Set.empty[Int],Set.empty[Int])
+        res.foldLeft( (Set.empty[Int],Set.empty[Int],Stack.empty[Int],enriched_graph,enriched_graph,Set.empty[Int],Set.empty[Int]) ) {
+          (acc,ele) => visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
+          }
 
-
-      val cache_entry: (Int, BlockInfo) = (resid,BlockInfo(rfullscope,stack,uplinks,roots))
+      val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rfullscope,stack,uplinks,roots))
       bcache = bcache + cache_entry
     }
     else{
       assert(false,"in the current setup getBlockInfo should only be callable from the root block - therefore we should" +
         "never end up here!")
     }
-    assert(bcache.contains(resid),"sanity check fails?")
-    IRBlockInfo(resid,bcache)
+    assert(bcache.contains(block),"sanity check fails?")
+    IRBlockInfo(block,bcache)
   }
 
 
@@ -245,9 +263,12 @@ trait CodeMotion {
     //val centry: (Int, EnrichedGraphNode)  = (blockhead,focused)
     //val children = children_dep + centry //depgraph doesnt include the root
     val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks,roots) =
-      visit_nested(blockhead,Set.empty[Int],Set.empty[Int],Stack.empty[Int],children, full,Set.empty[Int],Set.empty[Int])
+       blockhead.res.foldLeft(Set.empty[Int],Set.empty[Int],Stack.empty[Int],children, full,Set.empty[Int],Set.empty[Int]){
+         (acc,ele) => visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
+       }
+
     val binfo = BlockInfo(children,stack,uplinks,roots)
-    val cache_entry: (Int, BlockInfo) = (blockhead,binfo)
+    val cache_entry: (Block, BlockInfo) = (blockhead,binfo)
     bcache = bcache + cache_entry
     //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
     val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
@@ -282,4 +303,26 @@ trait CodeMotion {
   }
 
 
+}
+
+
+object CodeMotion {
+  /** Takes a reified Program as an input. It then follows the dependencies of the the result of the reified program
+    * and also stores the reverse edges (for each node - which nodes depend on it).
+    * For CodeMotion purpose it also stores for each Block the following information:
+    * RF! //update this
+    *  Statements that have to be part of the Block (e.g. dependent on Loop iterator)
+    *  Statements that are "free" in the block (no dependencies) - this should only happen in the top most block
+    *  Uplinks of the current Block (Dependencies of Statements within the block on Statements outside the Bock)
+    *
+    * @param preifiedIR
+    * @author Georg Ofenbeck
+    * @return
+    */
+  def apply(preifiedIR : ReificationPure): CodeMotion = {
+    val cm = new CodeMotion {
+      override val reifiedIR: ReificationPure = preifiedIR
+    }
+    cm
+  }
 }

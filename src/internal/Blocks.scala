@@ -10,6 +10,11 @@ trait Blocks extends Expressions { //why?
     require(res.isEmpty == false)
   }
 
+  def blocks(e: Any): List[Block] = e match {
+    case b: Block => List(b)
+    case p: Product => p.productIterator.toList.flatMap(blocks(_))
+    case _ => Nil
+  }
 
   /*def blocks(e: Any): Vector[Block[Any]] = e match {
     case b: Block[Any] => Vector(b)

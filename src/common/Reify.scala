@@ -8,9 +8,9 @@ import scala.virtualization.lms.internal._
 
 trait ReificationPure{
   val IR: BaseExp with PureFunctionsExp
-  val sym2tp: Map[IR.Sym[_], IR.TP[_]]
+  val sym2tp: Map[IR.Exp[_], IR.TP[_]]
   val def2tp: Map[IR.Def[_], IR.TP[_]]
-  val rootfunction: IR.Exp[_ => _]
+  val rootblock: IR.Block
 }
 
 
@@ -26,11 +26,20 @@ trait ReifyPure{
   }
 
   def reifyProgram(lambda: Exp[_ => _]): ReificationPure = {
+    val tp = exp2tp(lambda)
+    val block: Block = tp.rhs match{
+      case Lambda(_,_,block,_,_) => block
+      case _ => {
+        assert(false, "This should not be possible")
+        ???
+      }
+    }
+
     val immutable_out = new ReificationPure {
       val IR: self.IR.type = self.IR
-      val sym2tp: Map[IR.Sym[_], IR.TP[_]] = self.IR.sym2tp
+      val sym2tp: Map[IR.Exp[_], IR.TP[_]] = self.IR.exp2tp
       val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
-      val rootfunction = lambda
+      val rootblock = block
     }
     immutable_out
   }

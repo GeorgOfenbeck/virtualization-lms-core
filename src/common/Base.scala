@@ -26,10 +26,10 @@ trait TypeRepBase{
 trait ExposeRepBase extends Expressions{
   trait ExposeRep[T] {
     type hlist <: HList
-    val freshSyms: Unit => hlist
+    val freshExps: Unit => hlist
     val hlist2t: hlist=> T
     val t2hlist: T=>hlist
-    val hlist2Syms: hlist => Vector[Exp[_]]
+    val hlist2Exps: hlist => Vector[Exp[_]]
   }
 }
 
@@ -73,10 +73,10 @@ trait BaseExp extends Base with Expressions with Blocks with ExposeRepBase/*with
 
   implicit def exposeRepFromRep[T](implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
     type hlist = ::[Exp[T], HNil]
-    val freshSyms: Unit => hlist = helper1
+    val freshExps: Unit => hlist = helper1
     val hlist2t: hlist => Exp[T] = helper2
     val t2hlist: Exp[T] => hlist = helper3
-    val hlist2Syms: hlist => Vector[Exp[_]] = helper4
+    val hlist2Exps: hlist => Vector[Exp[_]] = helper4
 
   }
 }

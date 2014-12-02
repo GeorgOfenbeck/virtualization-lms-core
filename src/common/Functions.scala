@@ -20,7 +20,7 @@ trait PureFunctionsExp extends PureFunctions with BaseExp{
   case class Lambda[A <: HList,R <: HList, CA, CR](f: Function1[A,R], x: A, y: Block, args: ExposeRep[CA], returns: ExposeRep[CR]) extends Def[_ => _]
 
   def doLambdaDef[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]) : Def[_ => _] = {
-    val x = args.freshSyms()
+    val x = args.freshExps()
 
     val hlistf: (args.hlist) => returns.hlist = (in: args.hlist ) => {
       val container = args.hlist2t(in)
@@ -30,14 +30,14 @@ trait PureFunctionsExp extends PureFunctions with BaseExp{
     }
 
     val res = hlistf(x)
-    val explist = returns.hlist2Syms(res)
+    val explist = returns.hlist2Exps(res)
     val block = Block(explist)
     Lambda(hlistf, x, block, args, returns)
   }
 
 
   override def doLambda[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): Exp[_ => _] = {
-    val x = args.freshSyms()
+    val x = args.freshExps()
     val y = doLambdaDef(f)(args, returns)
     toAtom(y)
   }
