@@ -37,7 +37,6 @@ trait PureFunctionsExp extends PureFunctions with BaseExp{
 
 
   override def doLambda[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): Exp[_ => _] = {
-    val x = args.freshExps()
     val y = doLambdaDef(f)(args, returns)
     toAtom(y)
   }
