@@ -1,4 +1,3 @@
-/*
 package scala.virtualization.lms
 package internal
 
@@ -77,7 +76,7 @@ trait GenericCodegen extends BlockTraversalx {
         ms.take(ms.indexOf("[")+1) + targs.map(tp => remap(tp)).mkString(", ") + "]"
       }
       else m.toString
-  } */
+  }
 
 
   //RF !!!
@@ -118,7 +117,6 @@ trait GenericCodegen extends BlockTraversalx {
   def emitVarDecl(sym: Sym[Any]): Unit = throw new GenerationFailedException("don't know how to emit variable declaration " + quote(sym))
   def emitAssignment(sym: Sym[Any], rhs: String): Unit = throw new GenerationFailedException("don't know how to emit variable assignment " + quote(sym))
 
-  /*
   def emitSource[T : TypeTag, R : TypeTag](f: Exp[T] => Exp[R], className: String, stream: PrintWriter): List[(Sym[Any], Any)] = {
     val s = fresh[T]
     val body = reifyBlock(f(s))
@@ -158,14 +156,12 @@ trait GenericCodegen extends BlockTraversalx {
     val body = reifyBlock(f(s1, s2, s3, s4, s5))
     emitSource(List(s1, s2, s3, s4, s5), body, className, stream)
   }
-  */
 
-  /**
+  *
    * @param args List of symbols bound to `body`
    * @param body Block to emit
    * @param className Name of the generated identifier
    * @param stream Output stream
-   */
   //def emitSource[A : TypeTag](args: List[Sym[_]], body: Block[A], className: String, stream: PrintWriter): List[(Sym[Any], Any)] // return free static data in block
   def emitSource[A : TypeTag](className: String, out: PrintWriter)
 
@@ -241,7 +237,7 @@ trait GenericCodegen extends BlockTraversalx {
 }
 
 
-/* RF!!
+ RF!!
 trait GenericNestedCodegen extends NestedBlockTraversal with GenericCodegen {
   val IR: Expressions with Effects
   import IR._
@@ -271,5 +267,5 @@ trait GenericNestedCodegen extends NestedBlockTraversal with GenericCodegen {
     }
   }
 
-}          */
+}
 */

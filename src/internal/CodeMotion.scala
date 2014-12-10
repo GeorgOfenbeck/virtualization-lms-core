@@ -59,7 +59,7 @@ trait CodeMotion {
 
   lazy val block_cache: IRBlockInfo = {
     bcache = Map.empty[Block,BlockInfo] //just in case someone initialized that by accident before
-    getBlockInfo(reifiedIR.rootblock)
+    getBlockInfo(reifiedIR.rootlambda.y)
   }
 
 
@@ -123,6 +123,7 @@ trait CodeMotion {
         if (dagmap.contains(ele._1)) acc
         else {
           //in this case it has no Def
+
           acc + (ele._1,EnrichedGraphNode(None,Set.empty[Int],Set.empty[Int],Set.empty[Int],Set.empty[Block]))
         }
       }

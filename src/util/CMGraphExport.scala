@@ -95,7 +95,7 @@ trait CMGraphExport {
 
 
   def emitDepGraph( out: PrintWriter) {
-    val block = CM.reifiedIR.rootblock
+    val block = CM.reifiedIR.rootlambda.y
     val stringOutput = new StringWriter()
     val stringWriter = new PrintWriter(stringOutput)
     val stringOutput_edges = new StringWriter()

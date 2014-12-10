@@ -1,10 +1,11 @@
+
 import java.io.PrintWriter
 
 import _root_.util.CMGraphExport
 import org.scalatest.FunSpec
 import scala.virtualization.lms._
 import common._
-import scala.virtualization.lms.internal.CodeMotion
+import scala.virtualization.lms.internal._
 
 class TestNewF extends FunSpec{
 
@@ -25,76 +26,68 @@ class TestNewF extends FunSpec{
       case class Complex[T](val re: Rep[T], val im: Rep[T])
 
       import scala.reflect.runtime.universe._
-      import shapeless._
-
-
-      private def helper1[T](u : Unit)(implicit tag: TypeTag[T]): ::[Exp[T],::[Exp[T], HNil]] =fresh[T](tag) :: fresh[T](tag) :: HNil
-      private def helper2[T](x : ::[Exp[T],::[Exp[T], HNil]]): Complex[T] = Complex(x.head,x.tail.head)
-      private def helper3[T](x: Complex[T]): ::[Exp[T],::[Exp[T], HNil]] = x.re :: x.im :: HNil
-      private def helper4[T](x: ::[Exp[T],::[Exp[T], HNil]]): Vector[Exp[_]] = Vector(x.head,x.tail.head)
 
       implicit def exposeRepFromComplex[T](implicit tag: TypeTag[T]): ExposeRep[Complex[T]] = new ExposeRep[Complex[T]](){
-        type hlist = ::[Exp[T],::[Exp[T], HNil]]
-        val freshExps: Unit => hlist = helper1
-        val hlist2t: hlist => Complex[T] = helper2
-        val t2hlist: Complex[T] => hlist = helper3
-        val hlist2Exps: hlist => Vector[Exp[_]] = helper4
+        val freshExps: Unit => hlist = (u: Unit) => Vector(fresh[T](tag), fresh[T](tag))
+        val hlist2t: hlist => Complex[T] = (v: hlist) => {
+          val re: Exp[T] = v(0).asInstanceOf[Exp[T]] //RF!!!!
+          val im: Exp[T] = v(1).asInstanceOf[Exp[T]]
+          Complex(re,im)
+        }
+        val t2hlist: Complex[T] => hlist = (c: Complex[T]) => Vector(c.re,c.im)
       }
 
 
       case class ComplexVector[T](val vec: Vector[Complex[T]])
 
-      /*private def vhelper1[T](u : Unit)(implicit tag: TypeTag[T]): ::[Exp[T],::[Exp[T], HNil]] =fresh[T](tag) :: fresh[T](tag) :: HNil
-      private def vhelper2[T](x : ::[Exp[T],::[Exp[T], HNil]]): Complex[T] = Complex(x.head,x.tail.head)
-      private def vhelper3[T](x: Complex[T]): ::[Exp[T],::[Exp[T], HNil]] = x.re :: x.im :: HNil
-      private def vhelper4[T](x: ::[Exp[T],::[Exp[T], HNil]]): Vector[Exp[_]] = Vector(x.head,x.tail.head)
 
-      implicit def exposeRepFromComplex[T](implicit tag: TypeTag[T]): ExposeRep[Vector[Complex[T]]] = new ExposeRep[Vector[Complex[T]]](){
-        type hlist = HList
-        val freshExps: Unit => hlist =
-        val hlist2t: hlist => Complex[T] = helper2
-        val t2hlist: Complex[T] => hlist = helper3
-        val hlist2Exps: hlist => Vector[Exp[_]] = helper4
-      }*/
+      implicit def exposeRepFromVComplex[T](implicit tag: TypeTag[T] , instance_size: Int,
+                                            exposeComplex: ExposeRep[Complex[T]]
+                                            ): ExposeRep[ComplexVector[T]] = new ExposeRep[ComplexVector[T]](){
 
-
-
-      def myVfunction[T:Numeric:TypeRep](inv: ComplexVector[T]): Def[_ => _] = {
-
-      implicit def exposeRepFromVComplex[T](implicit tag: TypeTag[T], instance: Vector[Complex[T]], exposeComplex: ExposeRep[Complex[T]]): ExposeRep[Vector[Complex[T]]] = new ExposeRep[Vector[Complex[T]]](){
-        type hlist = HList
         val freshExps: Unit => hlist = (u: Unit) => {
-          val t = instance.map( x => exposeComplex.freshExps)
-          val ini: HList = HNil
-          val con: HList = t.foldLeft(ini)((acc,ele) => {
-            ele :: acc
+                    val t = for(i <- 0 until instance_size) yield exposeComplex.freshExps()
+                    val con: hlist = t.foldLeft(Vector.empty[Exp[_]])((acc,ele) => {
+                      acc ++ ele
+                    })
+                    con
+
+        }
+        val hlist2t: hlist => ComplexVector[T] = (h: hlist) => {
+          val vc = h.grouped(2)
+          val v = vc.foldLeft(Vector.empty[Complex[T]])((acc,ele) => {
+            val c = exposeComplex.hlist2t(ele)
+            acc :+ c
           })
-          con
+          ComplexVector(v)
         }
-        val hlist2t: hlist => Vector[Complex[T]] = (h: hlist) => {
-          ???
-        }
-        val t2hlist: Vector[Complex[T]] => hlist = {
-          ???
-        }
-        val hlist2Exps: hlist => Vector[Exp[_]] = (h: hlist) => {
-          val t = h.head
-
-
+        val t2hlist: ComplexVector[T] => hlist = (v: ComplexVector[T]) => {
+          v.vec.foldLeft(Vector.empty[Exp[_]])((acc,ele) => {
+            val part = exposeComplex.t2hlist(ele)
+            acc ++ part
+          })
         }
       }
 
+      def myVfunction[X:Numeric:TypeRep:TypeTag](sample: X, size: Int): Rep[_ => _] = {
 
-        val t = inv.vec.map( in =>
-          Complex(
-            numeric_plus(in.re,in.re),
-            numeric_plus(in.im, in.im)
-          )
-        ).toVector
-        ComplexVector(t)
-        ???
+        val tmpf: ComplexVector[X] => ComplexVector[X] = (inv: ComplexVector[X]) => {
+          val t = inv.vec.map(in =>
+            Complex(
+              numeric_plus(in.re, in.re),
+              numeric_plus(in.im, in.im)
+            )
+          ).toVector
+          ComplexVector(t)
+        }
+        implicit val instance_size: Int = size
+        fun(tmpf) (exposeRepFromVComplex[X],exposeRepFromVComplex[X])
       }
 
+
+      def simplef[T:Numeric:TypeRep](in: Rep[T]): Rep[T] = {
+          numeric_plus(in,in)
+      }
 
       def myfunction[T:Numeric:TypeRep](in: Complex[T]): Complex[T] = {
         Complex(
@@ -109,7 +102,12 @@ class TestNewF extends FunSpec{
 
 
     val myf: Complex[Double] => Complex[Double] = dsl.myfunction[Double]
-    val reified = dsl.reifyProgram(myf)
+    val simplef: Rep[Double] => Rep[Double] = dsl.simplef[Double]
+    val compf = dsl.myVfunction(10.0, 2)
+
+
+    //val reified = dsl.reifyProgram(myf)
+    val reified = dsl.reifyProgram(compf)
     val scheduled = CodeMotion(reified)
     val x = scheduled.block_cache
     println(x)
@@ -120,7 +118,20 @@ class TestNewF extends FunSpec{
     }
     graph.emitDepGraph (new java.io.PrintWriter(new java.io.FileOutputStream("bla.graph")))
 
+    val traverser = Traversal(scheduled)
 
+    val forward = traverser.getForwardIterator()
+
+
+    def trav (t: Traverser): Unit = {
+      t.scheduleoptions.map(x => println(x._1))
+      println("--------")
+
+      if(!t.scheduleoptions.isEmpty)
+        trav(t.scheduleoptions.head._2())
+    }
+
+    trav(forward)
 
   }
 

@@ -37,6 +37,7 @@ trait Expressions extends Utils with TypeRepBase{
 
   var exp2tp: Map[Exp[_], TP[_]] = Map.empty
   var def2tp: Map[Def[_], TP[_]] = Map.empty
+  var id2tp: Map[Int, TP[_]] = Map.empty
 
   def reifySubGraph[T](b: =>T): (T, Vector[TP[Any]]) = {
     val r = b
@@ -47,6 +48,7 @@ trait Expressions extends Utils with TypeRepBase{
   def storeTP[T: TypeRep](tp: TP[T]): Unit = {
     def2tp = def2tp + (tp.rhs -> tp)
     exp2tp = exp2tp + (tp.exp -> tp)
+    id2tp = id2tp + (tp.exp.id -> tp)
   }
 
   def getTP[T: TypeRep](d: Def[T]): Option[TP[T]] = {

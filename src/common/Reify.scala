@@ -10,7 +10,9 @@ trait ReificationPure{
   val IR: BaseExp with PureFunctionsExp
   val sym2tp: Map[IR.Exp[_], IR.TP[_]]
   val def2tp: Map[IR.Def[_], IR.TP[_]]
-  val rootblock: IR.Block
+  val id2tp: Map[Int, IR.TP[_]]
+  //val rootblock: IR.Block
+  val rootlambda: IR.Lambda[_,_]
 }
 
 
@@ -27,8 +29,8 @@ trait ReifyPure{
 
   def reifyProgram(lambda: Exp[_ => _]): ReificationPure = {
     val tp = exp2tp(lambda)
-    val block: Block = tp.rhs match{
-      case Lambda(_,_,block,_,_) => block
+    val lam: Lambda[_,_] = tp.rhs match{
+      case x@Lambda(_,_,block,_,_) => x
       case _ => {
         assert(false, "This should not be possible")
         ???
@@ -39,7 +41,10 @@ trait ReifyPure{
       val IR: self.IR.type = self.IR
       val sym2tp: Map[IR.Exp[_], IR.TP[_]] = self.IR.exp2tp
       val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
-      val rootblock = block
+      val id2tp: Map[Int,IR.TP[_]] = self.IR.id2tp
+
+      //val rootblock = lam.y
+      val rootlambda = lam
     }
     immutable_out
   }
