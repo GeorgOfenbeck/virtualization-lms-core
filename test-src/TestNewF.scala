@@ -28,7 +28,7 @@ class TestNewF extends FunSpec{
       import scala.reflect.runtime.universe._
 
       implicit def exposeRepFromComplex[T](implicit tag: TypeTag[T]): ExposeRep[Complex[T]] = new ExposeRep[Complex[T]](){
-        val freshExps: Unit => hlist = (u: Unit) => Vector(fresh[T](tag), fresh[T](tag))
+        val freshExps: Unit => hlist = (u: Unit) => Vector(Arg[T](tag), Arg[T](tag))
         val hlist2t: hlist => Complex[T] = (v: hlist) => {
           val re: Exp[T] = v(0).asInstanceOf[Exp[T]] //RF!!!!
           val im: Exp[T] = v(1).asInstanceOf[Exp[T]]
@@ -103,11 +103,11 @@ class TestNewF extends FunSpec{
 
     val myf: Complex[Double] => Complex[Double] = dsl.myfunction[Double]
     val simplef: Rep[Double] => Rep[Double] = dsl.simplef[Double]
-    val compf = dsl.myVfunction(10.0, 2)
+    //val compf = dsl.myVfunction(10.0, 2)
 
 
-    //val reified = dsl.reifyProgram(myf)
-    val reified = dsl.reifyProgram(compf)
+    val reified = dsl.reifyProgram(myf)
+    //val reified = dsl.reifyProgram(compf)
     val scheduled = CodeMotion(reified)
     val x = scheduled.block_cache
     println(x)
@@ -124,7 +124,14 @@ class TestNewF extends FunSpec{
 
 
     def trav (t: Traverser): Unit = {
-      t.scheduleoptions.map(x => println(x._1))
+      val id2tp = t.cminfo.reifiedIR.id2tp
+      t.scheduleoptions.map(x => {
+        val tp = id2tp(x._1)
+
+        println(s"${x._1} -> Type: ${tp.tag.tag.toString()}")
+        //println(x._1)
+      })
+
       println("--------")
 
       if(!t.scheduleoptions.isEmpty)

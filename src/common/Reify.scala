@@ -13,6 +13,27 @@ trait ReificationPure{
   val id2tp: Map[Int, IR.TP[_]]
   //val rootblock: IR.Block
   val rootlambda: IR.Lambda[_,_]
+
+  object Const {
+    def unapply[T](e: IR.Exp[T]): Option[IR.ConstDef[T]] = {
+      val tp = sym2tp(e)
+      tp.rhs match {
+        case d@IR.ConstDef(x) => Some(d.asInstanceOf[IR.ConstDef[T]]) //TODO - get rid of type cast
+        case _ => None
+      }
+    }
+  }
+
+  object Arg {
+    def unapply[T](e: IR.Exp[T]): Option[IR.ArgDef[T]] = {
+      val tp = sym2tp(e)
+      tp.rhs match {
+        case d@IR.ArgDef(id) => Some(d.asInstanceOf[IR.ArgDef[T]]) //TODO - get rid of type cast
+        case _ => None
+      }
+    }
+  }
+
 }
 
 

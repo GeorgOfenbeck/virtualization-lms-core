@@ -67,7 +67,7 @@ trait BaseExp extends Base with Expressions with Blocks with ExposeRepBase/*with
 
 
   implicit def exposeRepFromRep[T](implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
-    val freshExps: Unit => hlist = (u: Unit) => Vector(fresh[T](tag))
+    val freshExps: Unit => hlist = (u: Unit) => Vector(Arg[T](tag))
     val hlist2t: hlist => Exp[T] = (v: Vector[Exp[_]]) => v.head.asInstanceOf[Exp[T]]   //RF!!!!
     val t2hlist: Exp[T] => hlist = (x: Rep[T]) => Vector(x)
   }

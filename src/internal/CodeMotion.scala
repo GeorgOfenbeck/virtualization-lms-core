@@ -135,9 +135,10 @@ trait CodeMotion {
         val key = ele._1
         val content = ele._2
         val rhs = content.irdef
+        val tpo = rhs map (x => id2tp(x))
         val out = content.out
         val in = merged.get(key).getOrElse(Set.empty[Int])
-        val bound = boundExps(rhs).map( x => x.id).toSet
+        val bound = (tpo map (tp => boundExps(tp.rhs).map( x => x.id).toSet)).getOrElse(Set.empty)
         val blocks = content.blocks
         val entry : (Int,EnrichedGraphNode) = (key,EnrichedGraphNode(rhs,out,in,bound,blocks))
         acc + entry

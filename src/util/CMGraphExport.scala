@@ -39,13 +39,13 @@ trait CMGraphExport {
 
     edgestream.println("edge[style=bold];")
     for (dep <- depsout) {
-      edgestream.println("\""+ sym + "\" -> \"Sym(" + dep + ")\"")
+      edgestream.println("\""+ sym + "\" -> \"Exp(" + dep + ")\"")
     }
     edgestream.println("edge[style=dotted];")
     val depsin = enriched_graph(sym.id).in
     for (dep <- depsin) {
       //stream.println("\"Sym(" + dep + ")\" -> \"" + sym + "\"")
-      edgestream.println("\""+ sym + "\" -> \"Sym(" + dep + ")\"")
+      edgestream.println("\""+ sym + "\" -> \"Exp(" + dep + ")\"")
     }
 
 
@@ -84,7 +84,7 @@ trait CMGraphExport {
       for (i <- 1 until binfo.child_schedule.size){
         val n1 = binfo.child_schedule(i-1)
         val n2 = binfo.child_schedule(i)
-        stream.println("\"Sym(" + n1 + ")\" -> \"Sym(" + n2 + ")\"")
+        //stream.println("\"Exp(" + n1 + ")\" -> \"Exp(" + n2 + ")\"")
       }
     }
     binfo.child_schedule.foreach( stmid => {
@@ -103,9 +103,9 @@ trait CMGraphExport {
     withStream(stringWriter) {
       stream.println("digraph G {")
       //traverseBlock(block)
-      val binfo = CM.block_cache.blockinfo(block)
-
-      traverseStmsinBlock(binfo)
+      //val binfo = CM.block_cache.blockinfo(block)
+      //traverseStmsinBlock(binfo)
+      traverseStm(CM.reifiedIR.def2tp(CM.reifiedIR.rootlambda))
       //stream.println("}")
     }
     edgestream.println("}")

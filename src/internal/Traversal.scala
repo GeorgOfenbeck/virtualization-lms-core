@@ -32,6 +32,15 @@ trait Traverser {
       }
       )
 
+    /*val fnewfs = newfs.filter( p => {
+      val id = p._1
+      val tp = cminfo.reifiedIR.id2tp(id)
+      tp.rhs match{
+        case cminfo.reifiedIR.IR.ArgDef(x) => false
+        case _ => true
+      }
+    })*/
+
     val newtrav = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
       val scheduleoptions = newfs
@@ -51,15 +60,15 @@ trait Traversal {
   //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
   def getForwardIterator(): Traverser = {
     val lam = cminfo.reifiedIR.rootlambda
-    val args = lam.x map (x => x.id)
+    //val args = lam.x map (tp => tp.exp.id)
 
     //val arg = cminfo.reifiedIR.rootlambda.x
 
     //val args =  map (x => x.id)
 
 
-    val initalblock = cminfo.block_cache.getHead()
-    val roots = initalblock.roots
+    //val initalblock = cminfo.block_cache.getHead()
+    //val roots = initalblock.roots
 
     val t = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
