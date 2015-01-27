@@ -1,22 +1,47 @@
 
 import java.io.PrintWriter
 
-import _root_.util.CMGraphExport
+
 import org.scalatest.FunSpec
-import scala.virtualization.lms._
-import common._
+import util.CMGraphExport
 import scala.virtualization.lms.internal._
+import scala.virtualization.lms.common._
+
+
 
 class TestNewF extends FunSpec{
 
 
   describe("trying the new style functions") {
 
+    /*trait SimpleNumericOps extends ImplicitOps with TypeRepBase{
+      class NumericOpsCls(lhs: Rep[Double])(implicit val reptag: TypeRep[Double]){
+        def +(rhs: Rep[Double]) = numeric_plus(lhs,rhs)
+        def -(rhs: Rep[Double]) = numeric_minus(lhs,rhs)
+        def *(rhs: Rep[Double]) = numeric_times(lhs,rhs)
+        def /(rhs: Rep[Double]) = numeric_divide(lhs,rhs)
+      }
 
+      def numeric_plus(lhs: Rep[Double], rhs: Rep[Double])(implicit reptag: TypeRep[Double]): Rep[Double]
+      def numeric_minus(lhs: Rep[Double], rhs: Rep[Double])(implicit reptag: TypeRep[Double]): Rep[Double]
+      def numeric_times(lhs: Rep[Double], rhs: Rep[Double])(implicit reptag: TypeRep[Double]): Rep[Double]
+      def numeric_divide(lhs: Rep[Double], rhs: Rep[Double])(implicit reptag: TypeRep[Double]): Rep[Double]
+    }
 
+    trait SimpleNumericOpsExp extends SimpleNumericOps with ImplicitOpsExp with BaseExp with TypeRepBase  {
+      case class NumericPlus(lhs: Exp[Double], rhs: Exp[Double])(implicit val reptag: TypeRep[Double]) extends Def[Double]
+      case class NumericMinus(lhs: Exp[Double], rhs: Exp[Double])(implicit val reptag: TypeRep[Double]) extends Def[Double]
+      case class NumericTimes(lhs: Exp[Double], rhs: Exp[Double])(implicit val reptag: TypeRep[Double]) extends Def[Double]
+      case class NumericDivide(lhs: Exp[Double], rhs: Exp[Double])(implicit val reptag: TypeRep[Double]) extends Def[Double]
 
+      def numeric_plus(lhs: Exp[Double], rhs: Exp[Double])(implicit reptag: TypeRep[Double]) : Exp[Double] = NumericPlus(lhs, rhs)
+      def numeric_minus(lhs: Exp[Double], rhs: Exp[Double])(implicit reptag: TypeRep[Double]) : Exp[Double] = NumericMinus(lhs, rhs)
+      def numeric_times(lhs: Exp[Double], rhs: Exp[Double])(implicit reptag: TypeRep[Double]) : Exp[Double] = NumericTimes(lhs, rhs)
+      def numeric_divide(lhs: Exp[Double], rhs: Exp[Double])(implicit reptag: TypeRep[Double]) : Exp[Double] = NumericDivide(lhs, rhs)
+    }*/
+    
 
-    class DSL extends NumericOpsExp with PureFunctionsExp with ReifyPure{
+    class DSL extends NumericOpsExp with PureFunctionsExp with ReifyPure with TransformingPure{
       self =>
       val IR: self.type = self
 
@@ -97,7 +122,29 @@ class TestNewF extends FunSpec{
       }
     }
 
+
+
+
     val dsl = new DSL
+
+    trait MyTransformer extends ForwardTransformer {
+      val IR: DSL
+      import IR._
+      override def transformStm(stm: TP[_]): Exp[_] = stm match {
+        case TP(s,NumericPlus(a,b),tag) =>
+          println("replacing " + stm)
+          val ta: Exp[_] = a
+          val tb: Exp[_] = b
+
+          val na: Exp[Double] = apply(ta).asInstanceOf[Exp[Double]]
+          val nb: Exp[Double] = apply(tb).asInstanceOf[Exp[Double]]
+
+          numeric_minus(na,nb)
+        case _ => super.transformStm(stm)
+      }
+    }
+
+
     import dsl._
 
 
@@ -109,6 +156,21 @@ class TestNewF extends FunSpec{
     val reified = dsl.reifyProgram(myf)
     //val reified = dsl.reifyProgram(compf)
     val scheduled = CodeMotion(reified)
+
+    //do transform here
+
+
+
+
+    val trans = new MyTransformer {
+      val IR: dsl.type = dsl
+    }
+
+
+
+    //
+
+
     val x = scheduled.block_cache
     println(x)
     println("aha - no idea why this works")
@@ -125,6 +187,7 @@ class TestNewF extends FunSpec{
 
     def trav (t: Traverser): Unit = {
       val id2tp = t.cminfo.reifiedIR.id2tp
+
       t.scheduleoptions.map(x => {
         val tp = id2tp(x._1)
 
@@ -134,8 +197,17 @@ class TestNewF extends FunSpec{
 
       println("--------")
 
-      if(!t.scheduleoptions.isEmpty)
+      if(!t.scheduleoptions.isEmpty) {
+        val blocks = traverser.cminfo.reifiedIR.IR.blocks(id2tp(t.scheduleoptions.head._1))
+        if (!blocks.isEmpty)
+        {
+          blocks map (block => {
+            val btrav: Traverser = traverser.getForwardIterator(block)
+            trav(btrav)
+          })
+        }
         trav(t.scheduleoptions.head._2())
+      }
     }
 
     trav(forward)

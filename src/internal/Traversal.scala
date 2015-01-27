@@ -9,13 +9,19 @@ trait Traverser {
   val scheduleoptions: Vector[(Int , Unit => Traverser)]
 
   protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Set[Int] = {
+    //val onblocks =
+    val ir = cminfo.reifiedIR
+    val tp = ir.id2tp(root)
+    val onblocks = ir.IR.blocks(tp)
+
+
     val nexts = block.children(root).in //get all successors
     val withoutprev = nexts flatMap (
         next => { //for each successors
-        val allprev = block.children(next).out //get its predecessors
+        val allprev = block.children(next).in //get its predecessors
         val withoutroot = allprev - root
-          val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
-          if (onlyfromblock.isEmpty) Some(next) else None
+        val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
+        if (!onlyfromblock.isEmpty) Some(next) else None
         }
         )
     val newroots = current_roots - root ++ withoutprev
@@ -60,22 +66,47 @@ trait Traversal {
   //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
   def getForwardIterator(): Traverser = {
     val lam = cminfo.reifiedIR.rootlambda
-    //val args = lam.x map (tp => tp.exp.id)
+    val t = new Traverser {
+      val cminfo: self.cminfo.type = self.cminfo
+      val scheduleoptions = Vector()
+      val explored: Vector[Int] = Vector()
+    }
+    val newfs: Vector[(Int , Unit => Traverser)] = {
+      val id = cminfo.reifiedIR.def2tp(lam).exp.id
+      val cache = cminfo.block_cache
+      val f: (Unit => Traverser) = (u: Unit) => {
+        t.getNewTraverser(cache.blockinfo(lam.y),Set.empty,id)
+      }
+      Vector((id,f))
+    }
+/*
+    val newfs: Vector[(Int , Unit => Traverser)] = roots.toVector map (
+      node => {
+        val block = t.cminfo.block_cache.getHead()
+        val f: (Unit => Traverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
+        (node,f)
+      }
+      )
+*/
+    val newtrav = new Traverser {
+      val cminfo: self.cminfo.type = self.cminfo
+      val scheduleoptions = newfs
+      val explored: Vector[Int] = Vector()
+    }
+    newtrav
+  }
 
-    //val arg = cminfo.reifiedIR.rootlambda.x
 
-    //val args =  map (x => x.id)
-
-
-    //val initalblock = cminfo.block_cache.getHead()
-    //val roots = initalblock.roots
-
+  //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
+  def getForwardIterator(block: cminfo.reifiedIR.IR.Block): Traverser = {
     val t = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
       val scheduleoptions = Vector()
       val explored: Vector[Int] = Vector()
     }
 
+    val binfo = cminfo.block_cache.blockinfo(block)
+    val roots =  binfo.roots
 
     val newfs: Vector[(Int , Unit => Traverser)] = roots.toVector map (
       node => {
@@ -84,7 +115,15 @@ trait Traversal {
         (node,f)
       }
       )
-
+    /*
+        val newfs: Vector[(Int , Unit => Traverser)] = roots.toVector map (
+          node => {
+            val block = t.cminfo.block_cache.getHead()
+            val f: (Unit => Traverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
+            (node,f)
+          }
+          )
+    */
     val newtrav = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
       val scheduleoptions = newfs
