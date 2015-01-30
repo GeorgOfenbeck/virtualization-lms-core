@@ -89,6 +89,8 @@ trait Expressions extends Utils with TypeRepBase{
   }
 
 
+  def boundSyms(e: Any): List[Exp[Any]] = boundExps(e) //just here for legacy
+
   // symbols which are bound in a definition
   def boundExps(e: Any): List[Exp[Any]] = e match {
     case ss: Iterable[Any] => ss.toList.flatMap(boundExps(_))
