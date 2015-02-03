@@ -4,7 +4,7 @@ package scala.virtualization.lms
 package internal
 
 
-import shapeless.HList
+
 
 import scala.virtualization.lms.common._
 

@@ -4,7 +4,7 @@ package common
 import internal._
 import scala.reflect.runtime.universe._
 
-import shapeless._
+
 /**
  * This trait automatically lifts any concrete instance to a representation.
  */

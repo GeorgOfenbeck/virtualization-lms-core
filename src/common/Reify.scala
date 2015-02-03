@@ -2,8 +2,6 @@ package scala.virtualization.lms
 package common
 
 
-import shapeless.HList
-
 import scala.virtualization.lms.internal._
 
 trait ReificationPure{
