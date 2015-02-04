@@ -6,15 +6,17 @@ trait Traverser {
   self =>
   val cminfo: CodeMotion
   val explored: Vector[Int]
-  val scheduleoptions: Vector[(Int , Unit => Traverser)]
+
+  type MyTraverser2 = Traverser{
+    val cminfo :self.cminfo.type
+  }
+  val scheduleoptions: Vector[(Int , Unit => MyTraverser2)]
 
   protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Set[Int] = {
     //val onblocks =
     val ir = cminfo.reifiedIR
     val tp = ir.id2tp(root)
     val onblocks = ir.IR.blocks(tp)
-
-
     val nexts = block.children(root).in //get all successors
     val withoutprev = nexts flatMap (
         next => { //for each successors
@@ -28,74 +30,59 @@ trait Traverser {
     newroots
   }
 
-  def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Traverser = {
+  def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): MyTraverser2 = {
     val newfront = getNewFront(block,current_roots,root).toVector
-    val newfs: Vector[(Int , Unit => Traverser)] = newfront map (
+    val newfs: Vector[(Int , Unit => MyTraverser2)] = newfront map (
       node => {
-        val f: (Unit => Traverser) = (u: Unit) => getNewTraverser(block,newfront.toSet,node)
-        //val exp = cminfo.reifiedIR.id2tp(node).exp
+        val f: (Unit => MyTraverser2) = (u: Unit) => getNewTraverser(block,newfront.toSet,node)
         (node,f)
       }
       )
 
-    /*val fnewfs = newfs.filter( p => {
-      val id = p._1
-      val tp = cminfo.reifiedIR.id2tp(id)
-      tp.rhs match{
-        case cminfo.reifiedIR.IR.ArgDef(x) => false
-        case _ => true
-      }
-    })*/
-
-    val newtrav = new Traverser {
+    val newtrav: MyTraverser2 = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
-      val scheduleoptions = newfs
+      val scheduleoptions: Vector[(Int , Unit => MyTraverser2)] = newfs
       val explored: Vector[Int] = Vector()
     }
     newtrav
+
   }
 }
+
+
+
 
 trait Traversal {
   self =>
   val cminfo: CodeMotion
-
-
-
-
+  type MyTraverser = Traverser{
+    val cminfo :self.cminfo.type
+  }
 
   //this returns an iterator to traverse all free symbols (e.g. global variables)
   //symbols that are not bound on the arguments of the Block
   def getFreeSymsIterator() =  ???
 
   //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
-  def getForwardIterator(): Traverser = {
+  def getForwardIterator(): MyTraverser = {
     val lam = cminfo.reifiedIR.rootlambda
-    val t = new Traverser {
+    val t: MyTraverser = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
       val scheduleoptions = Vector()
       val explored: Vector[Int] = Vector()
     }
-    val newfs: Vector[(Int , Unit => Traverser)] = {
+    val newfs: Vector[(Int , Unit => MyTraverser)] = {
       val id = cminfo.reifiedIR.def2tp(lam).exp.id
       val cache = cminfo.block_cache
-      val f: (Unit => Traverser) = (u: Unit) => {
+      val f: (Unit => MyTraverser) = (u: Unit) => {
         t.getNewTraverser(cache.blockinfo(lam.y),Set.empty,id)
       }
       Vector((id,f))
     }
-/*
-    val newfs: Vector[(Int , Unit => Traverser)] = roots.toVector map (
-      node => {
-        val block = t.cminfo.block_cache.getHead()
-        val f: (Unit => Traverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
-        (node,f)
-      }
-      )
-*/
-    val newtrav = new Traverser {
+
+    val newtrav: MyTraverser = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
-      val scheduleoptions = newfs
+      val scheduleoptions: Vector[(Int , Unit => MyTraverser)]  = newfs
       val explored: Vector[Int] = Vector()
     }
     newtrav
@@ -103,8 +90,8 @@ trait Traversal {
 
 
   //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
-  def getForwardIterator(block: cminfo.reifiedIR.IR.Block): Traverser = {
-    val t = new Traverser {
+  def getForwardIterator(block: cminfo.reifiedIR.IR.Block): MyTraverser = {
+    val t: MyTraverser = new Traverser {
       val cminfo: self.cminfo.type = self.cminfo
       val scheduleoptions = Vector()
       val explored: Vector[Int] = Vector()
@@ -113,10 +100,10 @@ trait Traversal {
     val binfo = cminfo.block_cache.blockinfo(block)
     val roots =  binfo.roots
 
-    val newfs: Vector[(Int , Unit => Traverser)] = roots.toVector map (
+    val newfs: Vector[(Int , Unit => MyTraverser)] = roots.toVector map (
       node => {
         val block = t.cminfo.block_cache.getHead()
-        val f: (Unit => Traverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
+        val f: (Unit => MyTraverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
         (node,f)
       }
       )
