@@ -134,6 +134,7 @@ trait Expressions extends Utils with TypeRepBase{
     nVars = 0
     exp2tp = Map.empty
     def2tp = Map.empty
+    id2tp = Map.empty
   }
 
 }
