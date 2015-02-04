@@ -1,6 +1,6 @@
 name := "LMS"
 
-version := "0.4.001"
+version := "0.4.002"
 
 scalaVersion := "2.11.5"
 
