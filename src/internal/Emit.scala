@@ -13,12 +13,12 @@ trait Emit {
     trav(t)
   }
 
-  def trav (t: traversal.Traverser): Unit = {
+  def trav (t: Traverser): Unit = {
     val id2tp = t.cminfo.reifiedIR.id2tp
     if(!t.scheduleoptions.isEmpty) {
       val tp: t.cminfo.reifiedIR.IR.TP[_] = id2tp(t.scheduleoptions.head._1)
       def emitBlock(b: traversal.cminfo.reifiedIR.IR.Block): Unit = {
-        val btrav: traversal.Traverser = traversal.getForwardIterator(b)
+        val btrav: Traverser = traversal.getForwardIterator(b)
         trav(btrav)
       }
 

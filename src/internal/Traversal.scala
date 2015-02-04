@@ -2,65 +2,65 @@ package scala.virtualization.lms
 package internal
 
 
+trait Traverser {
+  self =>
+  val cminfo: CodeMotion
+  val explored: Vector[Int]
+  val scheduleoptions: Vector[(Int , Unit => Traverser)]
+
+  protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Set[Int] = {
+    //val onblocks =
+    val ir = cminfo.reifiedIR
+    val tp = ir.id2tp(root)
+    val onblocks = ir.IR.blocks(tp)
+
+
+    val nexts = block.children(root).in //get all successors
+    val withoutprev = nexts flatMap (
+        next => { //for each successors
+        val allprev = block.children(next).in //get its predecessors
+        val withoutroot = allprev - root
+          val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
+          if (!onlyfromblock.isEmpty) Some(next) else None
+        }
+        )
+    val newroots = current_roots - root ++ withoutprev
+    newroots
+  }
+
+  def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Traverser = {
+    val newfront = getNewFront(block,current_roots,root).toVector
+    val newfs: Vector[(Int , Unit => Traverser)] = newfront map (
+      node => {
+        val f: (Unit => Traverser) = (u: Unit) => getNewTraverser(block,newfront.toSet,node)
+        //val exp = cminfo.reifiedIR.id2tp(node).exp
+        (node,f)
+      }
+      )
+
+    /*val fnewfs = newfs.filter( p => {
+      val id = p._1
+      val tp = cminfo.reifiedIR.id2tp(id)
+      tp.rhs match{
+        case cminfo.reifiedIR.IR.ArgDef(x) => false
+        case _ => true
+      }
+    })*/
+
+    val newtrav = new Traverser {
+      val cminfo: self.cminfo.type = self.cminfo
+      val scheduleoptions = newfs
+      val explored: Vector[Int] = Vector()
+    }
+    newtrav
+  }
+}
 
 trait Traversal {
   self =>
   val cminfo: CodeMotion
 
 
-  trait Traverser {
-    self =>
-    val cminfo: CodeMotion
-    val explored: Vector[Int]
-    val scheduleoptions: Vector[(Int , Unit => Traverser)]
-
-    protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Set[Int] = {
-      //val onblocks =
-      val ir = cminfo.reifiedIR
-      val tp = ir.id2tp(root)
-      val onblocks = ir.IR.blocks(tp)
-
-
-      val nexts = block.children(root).in //get all successors
-      val withoutprev = nexts flatMap (
-          next => { //for each successors
-          val allprev = block.children(next).in //get its predecessors
-          val withoutroot = allprev - root
-            val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
-            if (!onlyfromblock.isEmpty) Some(next) else None
-          }
-          )
-      val newroots = current_roots - root ++ withoutprev
-      newroots
-    }
-
-    def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Traverser = {
-      val newfront = getNewFront(block,current_roots,root).toVector
-      val newfs: Vector[(Int , Unit => Traverser)] = newfront map (
-        node => {
-          val f: (Unit => Traverser) = (u: Unit) => getNewTraverser(block,newfront.toSet,node)
-          //val exp = cminfo.reifiedIR.id2tp(node).exp
-          (node,f)
-        }
-        )
-
-      /*val fnewfs = newfs.filter( p => {
-        val id = p._1
-        val tp = cminfo.reifiedIR.id2tp(id)
-        tp.rhs match{
-          case cminfo.reifiedIR.IR.ArgDef(x) => false
-          case _ => true
-        }
-      })*/
-
-      val newtrav = new Traverser {
-        val cminfo: self.cminfo.type = self.cminfo
-        val scheduleoptions = newfs
-        val explored: Vector[Int] = Vector()
-      }
-      newtrav
-    }
-  }
 
 
 
