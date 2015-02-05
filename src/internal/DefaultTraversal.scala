@@ -10,10 +10,11 @@ trait PureDefaultTraversal extends ReifyPure{
   import IR._
 
 
-  def default_traversal[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): Traversal = {
+  def default_traversal[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]):
+    Traversal{ val cminfo: CodeMotion { val reifiedIR: ReificationPure{ val IR: self.IR.type }} } = {
     val reified = reifyProgram(f)(args,returns)
     val scheduled = CodeMotion(reified)
-    val traverser = Traversal(scheduled)
+    val traverser: Traversal{ val cminfo: CodeMotion { val reifiedIR: ReificationPure{ val IR: self.IR.type }} } = Traversal(scheduled)
     //
     //val size = reified.id2tp.size
     traverser

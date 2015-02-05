@@ -24,15 +24,17 @@ class CheckSPL extends Properties("SPL") {
     }
     val bydef = bd.nt.toMatrix()
 
-    val bydecomp =spltransformation.SPL2Mat(spltransformation.bd2spl(bd))
+    val bydecompmap =spltransformation.SPL2Mat(spltransformation.bd2spl(bd))
+    
+    val finalmatrix = bydecompmap.last._2
 
 
-    val ret = if (bydef.getColumnDimension() == bydecomp.last.getColumnDimension() && bydef.getRowDimension == bydecomp.last.getRowDimension) {
+    val ret = if (bydef.getColumnDimension() == finalmatrix.getColumnDimension() && bydef.getRowDimension == finalmatrix.getRowDimension) {
 
       val errors = for {
         i <- 0 until bydef.getRowDimension
         j <- 0 until bydef.getColumnDimension
-      } yield bydef.getEntry(i,j).subtract(bydecomp.last.getEntry(i,j))
+      } yield bydef.getEntry(i,j).subtract(finalmatrix.getEntry(i,j))
 
       val filtered = errors.filter( error => (error.getReal > allowed_error || error.getImaginary > allowed_error))
       filtered.isEmpty
@@ -48,14 +50,14 @@ class CheckSPL extends Properties("SPL") {
     {
 
       println("-------------------")
-      for (i <- 0 until bydecomp.size) {
-        MathUtilities.printm(bydecomp(i))
+      for (i <- bydecompmap) {
+        MathUtilities.printm(i._2)
         println("!")
       }
       println("@")
       MathUtilities.printm(bydef)
       println("diff")
-      MathUtilities.printm(bydecomp.last.subtract(bydef))
+      MathUtilities.printm(finalmatrix.subtract(bydef))
     }
     ret
   }
@@ -85,6 +87,6 @@ class WHY extends FunSpec {
   describe("Debug") {
     val x = new CheckSPL
     //forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
-    BreakdownRules.genRandomWHTRuleTree.sample.map ( t => x.checkMatrix(t))
+    BreakdownRules.genRandomWHTRuleTree(4).sample.map ( t => x.checkMatrix(t))
   }
 }

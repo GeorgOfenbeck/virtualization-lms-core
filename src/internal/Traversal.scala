@@ -1,6 +1,7 @@
 package scala.virtualization.lms
 package internal
 
+import common._
 
 trait Traverser {
   self =>
@@ -133,9 +134,10 @@ trait Traversal {
 
 
 object Traversal {
-  def apply(cm : CodeMotion): Traversal = {
+  //def apply(cm : CodeMotion): Traversal{ val cminfo: CodeMotion { val reifiedIR: ReificationPure{ val IR: cm.reifiedIR.IR.type }}  = {
+  def apply(cm : CodeMotion): Traversal{ val cminfo: cm.type}  = {
     val traversal = new Traversal{
-      override val cminfo = cm
+      override val cminfo: cm.type = cm
     }
     traversal
   }

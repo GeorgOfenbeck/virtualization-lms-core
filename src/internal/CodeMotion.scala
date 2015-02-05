@@ -321,9 +321,9 @@ object CodeMotion {
     * @author Georg Ofenbeck
     * @return
     */
-  def apply(preifiedIR : ReificationPure): CodeMotion = {
+  def apply(preifiedIR : ReificationPure): CodeMotion{ val reifiedIR: preifiedIR.type} = {
     val cm = new CodeMotion {
-      override val reifiedIR: ReificationPure = preifiedIR
+      override val reifiedIR: preifiedIR.type = preifiedIR
     }
     cm
   }

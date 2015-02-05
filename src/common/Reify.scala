@@ -40,13 +40,13 @@ trait ReifyPure{
   val IR: BaseExp with PureFunctionsExp
   import IR._
 
-  def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ReificationPure = {
+  def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ReificationPure{ val IR: self.IR.type} = {
     IR.reset()
     val lambda = fun(f)
     reifyProgram(lambda)
   }
 
-  def reifyProgram(lambda: Exp[_ => _]): ReificationPure = {
+  def reifyProgram(lambda: Exp[_ => _]): ReificationPure{ val IR: self.IR.type} = {
     val tp = exp2tp(lambda)
     val lam: Lambda[_,_] = tp.rhs match{
       case x@Lambda(_,_,block,_,_) => x
