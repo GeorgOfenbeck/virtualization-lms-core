@@ -9,7 +9,7 @@ import org.scalacheck._
 import scala.virtualization.lms.common.ReifyPure
 
 
-class CheckSPL extends Properties("SPL") {
+class CheckSPL2Matrix extends Properties("SPL") {
   implicit val shrinkBreakDown: Shrink[BreakDown] = Shrink {
     bd: BreakDown =>
       val children: List[BreakDown] = bd.applied_bd.map( resolved => resolved.children).getOrElse(List())
@@ -76,7 +76,7 @@ class CheckSPL extends Properties("SPL") {
 
 object ValidateSPL extends org.scalacheck.Properties("WHT") {
   property("WHT matrix test") = {
-    val x = new CheckSPL
+    val x = new CheckSPL2Matrix
     forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
   }
 
@@ -86,8 +86,8 @@ object ValidateSPL extends org.scalacheck.Properties("WHT") {
 import org.scalatest.FunSpec
 
 class WHY extends FunSpec {
-  describe("Debug") {
-    val x = new CheckSPL
+  describe("Debug!") {
+    val x = new CheckSPL2Matrix
     forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
     //BreakdownRules.genRandomWHTRuleTree(8).sample.map ( t => x.checkMatrix(t))
   }
