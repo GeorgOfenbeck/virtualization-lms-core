@@ -33,9 +33,9 @@ class CheckSPL2Scala extends Properties("SPL") {
     for (i <- 0 until 1) {
       val x = new Array[Complex](size)
       for (j <- 0 until size) {
-          x.update(i, new Complex(j, j))
+          x.update(j, new Complex(j, j))
       }
-      testin.setRow(i,x)
+      testin.setColumn(i,x)
     }
     val bydefres = bydef.multiply(testin)
 
@@ -48,29 +48,45 @@ class CheckSPL2Scala extends Properties("SPL") {
     val (byscaladecomp, finalnode) = spltransformation.SPL2Scala(spltransformation.bd2spl(bd))
     val finalfunction = byscaladecomp(finalnode)
 
-    val inforfunction = (for (i <- 0 until size) yield Vector(i,i):Vector[Double]).flatten.toVector
+    val inforfunction = (for (i <- 0 until size) yield MyComplex(i,i)).toVector
+
+
     val res = finalfunction(inforfunction)
 
     val scalaout = new BlockFieldMatrix[Complex](ComplexField.getInstance(), size, 1)
     for (i <- 0 until 1) {
       val x = new Array[Complex](size)
       for (j <- 0 until size) {
-        x.update(i, new Complex(res(j*2), j*2+1))
+        x.update(j, new Complex(res(j).re, res(j).im))
       }
-      scalaout.setRow(i,x)
+      scalaout.setColumn(i,x)
     }
     println(" check")
 
-    ???
+    val ret = if (bydefres.getColumnDimension() == scalaout.getColumnDimension() && bydefres.getRowDimension == scalaout.getRowDimension) {
+
+      val errors = for {
+        i <- 0 until bydefres.getRowDimension
+        j <- 0 until bydefres.getColumnDimension
+      } yield bydefres.getEntry(i,j).subtract(scalaout.getEntry(i,j))
+
+      val filtered = errors.filter( error => (error.getReal > allowed_error || error.getImaginary > allowed_error))
+      filtered.isEmpty
+
+    }
+    else
+      false
+
+    ret
   }
 }
 
 import org.scalatest.FunSpec
 
 class TestSPL2Scala extends FunSpec {
-  describe("Debug") {
+  describe("Debug me") {
     val x = new CheckSPL2Scala
-    forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrixvsScala)
-    //BreakdownRules.genRandomWHTRuleTree(8).sample.map ( t => x.checkMatrix(t))
+    //forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrixvsScala)
+    BreakdownRules.genRandomWHTRuleTree(512).sample.map ( t => x.checkMatrixvsScala(t))
   }
 }

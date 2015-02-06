@@ -11,7 +11,7 @@ import org.apache.commons.math3.complex.{ComplexField, Complex}
 trait SPL_DSL2Scala extends PureDefaultTraversal {
   val IR: SPL_Exp with PureFunctionsExp
 
-  var f_array = Map.empty[Int, Vector[Double] => Vector[Double] ]
+  var f_array = Map.empty[Int, Vector[MyComplex] => Vector[MyComplex] ]
   var sizeinfo = Map.empty[Int, Int ]
   var finalnode: Int = 0
   var tmpfix = true
@@ -30,33 +30,56 @@ trait SPL_DSL2Scala extends PureDefaultTraversal {
       rhs match{
         //--------------------------------Compose -----------------------------
         case Compose(Exp(a),Exp(b)) => {
-          val f: Vector[Double] => Vector[Double] = (in: Vector[Double]) => f_array(a)(f_array(b)(in))
+          val f: Vector[MyComplex] => Vector[MyComplex] = (in: Vector[MyComplex]) => f_array(a)(f_array(b)(in))
           f_array = f_array + (sym.id -> f)
           sizeinfo = sizeinfo + (sym.id -> sizeinfo(a))
         }
         //-------------------------------Tensor--------------------------------
         case Tensor(Exp(a),Exp(b)) => {
-          val f: Vector[Double] => Vector[Double] =(id2tp(a).rhs,id2tp(b).rhs) match {
-            case (ConstDef(I(n)),_) => (in: Vector[Double]) => {
-              in.grouped(sizeinfo(b)).flatMap( chunk => f_array(b)(chunk)).toVector
+          val f: Vector[MyComplex] => Vector[MyComplex] = (id2tp(a).rhs,id2tp(b).rhs) match {
+            case (ConstDef(I(n)),_) => {
+              sizeinfo = sizeinfo + (sym.id -> sizeinfo(b)*n)
+             (in: Vector[MyComplex]) => {
+              println("insize: "+in.size)
+              val o = in.grouped(sizeinfo(b)).flatMap( chunk => f_array(b)(chunk)).toVector
+              println("out size: "+o.size)
+              assert(in.size == o.size)
+              o
+              }
             }
-            case (_,ConstDef(I(n))) => (in: Vector[Double]) => {
-              val x = in.grouped(sizeinfo(a)).toList.transpose
-              val y = x.map( chunk => f_array(a)(chunk.toVector)).transpose
-              val z = y.flatten
+            case (_,ConstDef(I(n))) => {
+              sizeinfo = sizeinfo + (sym.id -> sizeinfo(a)*n)
+              (in: Vector[MyComplex]) => {
+
+              println("insize: "+in.size + n)
+              val x = in.grouped(n).toList.transpose
+              val y = x.map( chunk => {
+                println(chunk.size)
+                f_array(a)(chunk.toVector)
+              })
+              val z1 = y.transpose
+              val z = z1.flatten
+              assert(in.size == z.size)
+              println("out size: "+z.size)
               z.toVector
+              }
             }
             case _ => ??? //we dont support anyting else for this tutorial
           }
-          sizeinfo = sizeinfo + (sym.id -> sizeinfo(a)*sizeinfo(b))
+
           f_array = f_array + (sym.id -> f)
         }
         //-------------------------------SPl Objects--------------------------------
         case ConstDef(x: SPL) => {
-          val f: Vector[Double] => Vector[Double] =
+          val f: Vector[MyComplex] => Vector[MyComplex] =
             x match{
-              case F_2() => (in: Vector[Double]) => Vector(in(0)+in(1),in(0)-in(1))
-              case I(n) => (in: Vector[Double]) => in
+              case F_2() => (in: Vector[MyComplex]) => {
+                if (in.size != 2)
+                  println(" .")
+                  // assert(in.size == 2)
+                Vector(in(0)+in(1),in(0)-in(1))
+              }
+              case I(n) => (in: Vector[MyComplex]) => in
               case _ => ??? //we dont support anyting else for this tutorial
           }
           f_array = f_array + (sym.id -> f)
@@ -70,7 +93,7 @@ trait SPL_DSL2Scala extends PureDefaultTraversal {
   }
 
   //-----------------------------------------Matrix Representation Part --------------------------------
-  def SPL2Scala (splgenf: => IR.Exp[SPL]): (Map[Int, Vector[Double] => Vector[Double] ], Int) = {
+  def SPL2Scala (splgenf: => IR.Exp[SPL]): (Map[Int, Vector[MyComplex] => Vector[MyComplex] ], Int) = {
     val myf: IR.Exp[Unit] => IR.Exp[SPL] = (u: IR.Exp[Unit]) => splgenf
     val expos_u = IR.exposeRepFromRep[Unit]
     val expos_spl = IR.exposeRepFromRep[SPL]
