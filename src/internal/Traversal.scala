@@ -13,7 +13,7 @@ trait Traverser {
   }
   val scheduleoptions: Vector[(Int , Unit => MyTraverser2)]
 
-  protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): Set[Int] = {
+  protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int, done : Set[Int]): Set[Int] = {
     //val onblocks =
     val ir = cminfo.reifiedIR
     val tp = ir.id2tp(root)
@@ -21,21 +21,21 @@ trait Traverser {
     val nexts = block.children(root).in //get all successors
     val withoutprev = nexts flatMap (
         next => { //for each successors
-        val allprev = block.children(next).in //get its predecessors
-        val withoutroot = allprev - root
+        val allprev = block.children(next).out //get its predecessors
+        val withoutroot = allprev - root -- done
           val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
-          if (!onlyfromblock.isEmpty) Some(next) else None
+          if (onlyfromblock.isEmpty) Some(next) else None
         }
         )
-    val newroots = current_roots - root ++ withoutprev
+    val newroots = (current_roots - root ++ withoutprev).filter(p => block.children.contains(p)) //the filter to make sure we dont schedule the calling block function
     newroots
   }
 
-  def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int): MyTraverser2 = {
-    val newfront = getNewFront(block,current_roots,root).toVector
+  def getNewTraverser(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int, done: Set[Int]): MyTraverser2 = {
+    val newfront = getNewFront(block,current_roots,root, done).toVector
     val newfs: Vector[(Int , Unit => MyTraverser2)] = newfront map (
       node => {
-        val f: (Unit => MyTraverser2) = (u: Unit) => getNewTraverser(block,newfront.toSet,node)
+        val f: (Unit => MyTraverser2) = (u: Unit) => getNewTraverser(block,newfront.toSet,node, done + root)
         (node,f)
       }
       )
@@ -76,7 +76,7 @@ trait Traversal {
       val id = cminfo.reifiedIR.def2tp(lam).exp.id
       val cache = cminfo.block_cache
       val f: (Unit => MyTraverser) = (u: Unit) => {
-        t.getNewTraverser(cache.blockinfo(lam.y),Set.empty,id)
+        t.getNewTraverser(cache.blockinfo(lam.y),Set.empty,id, Set.empty)
       }
       Vector((id,f))
     }
@@ -104,7 +104,7 @@ trait Traversal {
     val newfs: Vector[(Int , Unit => MyTraverser)] = roots.toVector map (
       node => {
         val block = t.cminfo.block_cache.getHead()
-        val f: (Unit => MyTraverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node)
+        val f: (Unit => MyTraverser) = (u: Unit) => t.getNewTraverser(block,block.roots,node, Set.empty)
         (node,f)
       }
       )

@@ -22,7 +22,9 @@ trait Expressions extends Utils with TypeRepBase{
 
   case class ConstDef[T:TypeRep](x: T) extends Def[T]
   case class ArgDef[T:TypeRep](id: Int) extends Def[T]
-  def Const[T:TypeRep](x: T) = toAtom(ConstDef(x))
+  def Const[T:TypeRep](x: T) = {
+    toAtom(ConstDef(x))
+  }
   var nArgs = 0
   def Arg[T:TypeRep] = {
     val r = toAtom( ArgDef(nArgs))

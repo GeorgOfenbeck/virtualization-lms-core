@@ -24,9 +24,9 @@ class CheckSPL extends Properties("SPL") {
     }
     val bydef = bd.nt.toMatrix()
 
-    val bydecompmap =spltransformation.SPL2Mat(spltransformation.bd2spl(bd))
-    
-    val finalmatrix = bydecompmap.last._2
+    val (bydecompmap, finalnode) =spltransformation.SPL2Mat(spltransformation.bd2spl(bd))
+
+    val finalmatrix = bydecompmap(finalnode)
 
 
     val ret = if (bydef.getColumnDimension() == finalmatrix.getColumnDimension() && bydef.getRowDimension == finalmatrix.getRowDimension) {
@@ -54,8 +54,10 @@ class CheckSPL extends Properties("SPL") {
         MathUtilities.printm(i._2)
         println("!")
       }
-      println("@")
+      println("by def")
       MathUtilities.printm(bydef)
+      println("finalmatrix")
+      MathUtilities.printm(finalmatrix)
       println("diff")
       MathUtilities.printm(finalmatrix.subtract(bydef))
     }
@@ -86,7 +88,7 @@ import org.scalatest.FunSpec
 class WHY extends FunSpec {
   describe("Debug") {
     val x = new CheckSPL
-    //forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
-    BreakdownRules.genRandomWHTRuleTree(4).sample.map ( t => x.checkMatrix(t))
+    forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
+    //BreakdownRules.genRandomWHTRuleTree(8).sample.map ( t => x.checkMatrix(t))
   }
 }

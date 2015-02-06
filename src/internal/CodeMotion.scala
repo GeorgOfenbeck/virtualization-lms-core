@@ -169,6 +169,7 @@ trait CodeMotion {
           (acc,ele) => visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
           }
 
+      //val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rfullscope,stack,uplinks,roots))
       val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rfullscope,stack,uplinks,roots))
       bcache = bcache + cache_entry
     }

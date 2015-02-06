@@ -147,7 +147,7 @@ object BreakdownRules {
   import org.scalacheck._
   import Gen._
 
-  def genRandomWHTRuleTree(whtsize: Int): Gen[BreakDown] = for {
+  def  genRandomWHTRuleTree(whtsize: Int): Gen[BreakDown] = for {
     size <- whtsize
     bd <- genRandomRuleTree(WHT(size))
   } yield bd
