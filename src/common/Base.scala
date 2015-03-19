@@ -17,7 +17,6 @@ trait TypeRepBase{
 //we pack this into a trait such that its automatically mixed into every potential DSL
   trait TypeRep[T]  {
     def tag: TypeTag[T]
-
   }
   implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
   implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
@@ -31,8 +30,6 @@ trait ExposeRepBase extends Expressions{
     val t2hlist: T=> hlist
   }
 }
-
-
 
 /**
  * The Base trait defines the type constructor Rep, which is the higher-kinded type that allows for other DSL types to be
@@ -59,11 +56,13 @@ trait BaseExp extends Base with Expressions with Blocks with ExposeRepBase/*with
   type Rep[T] = Exp[T]
   protected def unit[T:TypeRep](x: T) = Const(x)
 
-  case class TypeExp[T](tag: TypeTag[T]) extends TypeRep[T]
+  class TypeExp[T](ptag: TypeTag[T]) extends TypeRep[T]{
+    def tag() = ptag
+  }
   def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
 
-  implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
-  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = TypeExp(tag)
+  implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = new TypeExp(tag)
+  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = new TypeExp(tag)
 
 
   implicit def exposeRepFromRep[T](implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){

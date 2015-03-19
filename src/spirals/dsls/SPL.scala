@@ -22,7 +22,7 @@
  * along with this program. If not, see http://www.gnu.org/licenses/.
  */
 
-package ch.ethz.spirals.cgo2015
+package ch.ethz.spirals.dsls
 
 
 import org.apache.commons.math3.linear._
@@ -152,6 +152,20 @@ case class I(n: Int) extends SPL(n) with StridePermutation with DiagonalMatrix {
 
 object MathUtilities {
   import scala.math._
+  def kronecker (A: BlockFieldMatrix[Complex], B: BlockFieldMatrix[Complex] ): BlockFieldMatrix[Complex] = {
+    val x = A.getRowDimension() * B.getRowDimension()
+    val y = A.getColumnDimension() * B.getColumnDimension()
+    val m = new BlockFieldMatrix[Complex](ComplexField.getInstance(), x, y)
+    for (i <- 0 until x)
+      for (j <- 0 until y)
+      {
+        val aentry = A.getEntry( (i/B.getRowDimension()), j/B.getColumnDimension() )
+        val bentry = B.getEntry(i % B.getRowDimension(), j % B.getColumnDimension())
+        m.setEntry(i,j, aentry.multiply(bentry))
+      }
+    m
+  }
+
   def printm(m: org.apache.commons.math3.linear.BlockFieldMatrix[org.apache.commons.math3.complex.Complex]) = {
     for (i <- 0 until m.getRowDimension) {
       for (j <- 0 until m.getColumnDimension) {

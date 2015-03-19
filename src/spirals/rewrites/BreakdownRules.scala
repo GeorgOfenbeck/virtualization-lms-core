@@ -16,10 +16,11 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see http://www.gnu.org/licenses/.
  */
-package ch.ethz.spirals.cgo2015
+package ch.ethz.spirals.rewrites
 
 
 import scala.math._
+import ch.ethz.spirals.dsls._
 
 
 //-------------------------------------------------------------------------------

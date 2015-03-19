@@ -1,4 +1,4 @@
-package ch.ethz.spirals.cgo2015
+package ch.ethz.spirals.rewrites
 
 import scala.virtualization.lms.common._
 import scala.virtualization.lms._
@@ -7,29 +7,19 @@ import internal._
 
 import org.apache.commons.math3.linear.BlockFieldMatrix
 import org.apache.commons.math3.complex.{ComplexField, Complex}
+import ch.ethz.spirals.dsls._
 
 trait SPL_DSL2Mat extends PureDefaultTraversal {
   val IR: SPL_Exp with PureFunctionsExp
+
 
   var f_array = Map.empty[Int, BlockFieldMatrix[Complex] ]
   var finalnode: Int = 0
   var tmpfix = true
 
 
-  def kronecker (A: BlockFieldMatrix[Complex], B: BlockFieldMatrix[Complex] ): BlockFieldMatrix[Complex] = {
-    val x = A.getRowDimension() * B.getRowDimension()
-    val y = A.getColumnDimension() * B.getColumnDimension()
-    val m = new BlockFieldMatrix[Complex](ComplexField.getInstance(), x, y)
-    for (i <- 0 until x)
-      for (j <- 0 until y)
-      {
-        val aentry = A.getEntry( (i/B.getRowDimension()), j/B.getColumnDimension() )
-        val bentry = B.getEntry(i % B.getRowDimension(), j % B.getColumnDimension())
-        m.setEntry(i,j, aentry.multiply(bentry))
-      }
-    m
-  }
-  
+
+  import MathUtilities._
   import org.apache.commons.math3.linear.BlockFieldMatrix
   import org.apache.commons.math3.complex.{ComplexField, Complex}
 
@@ -72,4 +62,5 @@ trait SPL_DSL2Mat extends PureDefaultTraversal {
 
 
 }
+
 

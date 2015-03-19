@@ -12,12 +12,15 @@ trait PureDefaultTraversal extends ReifyPure{
 
   def default_traversal[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]):
     Traversal{ val cminfo: CodeMotion { val reifiedIR: ReificationPure{ val IR: self.IR.type }} } = {
-    val reified = reifyProgram(f)(args,returns)
-    val scheduled = CodeMotion(reified)
-    val traverser: Traversal{ val cminfo: CodeMotion { val reifiedIR: ReificationPure{ val IR: self.IR.type }} } = Traversal(scheduled)
+    val reified = reifyProgram(f)(args, returns)
+    val code_moved = CodeMotion(reified)
+    val traverser: Traversal {val cminfo: CodeMotion {val reifiedIR: ReificationPure {val IR: self.IR.type}}} = Traversal(code_moved)
+    traverser
+  }
+}
     //
     //val size = reified.id2tp.size
-    traverser
+
 
 /*
 
@@ -55,7 +58,7 @@ trait PureDefaultTraversal extends ReifyPure{
       }
     }
 
-    trav(forward)*/
+    trav(forward)
   }
 
 
@@ -64,6 +67,6 @@ trait PureDefaultTraversal extends ReifyPure{
   def emitNode(sym: IR.Exp[Any], rhs: IR.Def[Any], block_callback: Block => Unit): Unit =  {
     throw new GenerationFailedException("don't know how to generate code for: " + rhs)
   }
-*/
 
-}
+
+}*/

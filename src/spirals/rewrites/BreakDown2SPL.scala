@@ -1,10 +1,10 @@
-package ch.ethz.spirals.cgo2015
+package ch.ethz.spirals.rewrites
 
 trait BreakDown2SPL_DSL{
   import virtualization.lms._
   import common._
   import internal._
-
+  import ch.ethz.spirals.dsls._
 
   val IR: SPL_Exp
   implicit def unit(spl : SPL): IR.Rep[SPL] = IR.SPLtoRep(spl)
