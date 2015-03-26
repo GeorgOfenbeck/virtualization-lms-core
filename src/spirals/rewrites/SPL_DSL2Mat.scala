@@ -11,41 +11,65 @@ import ch.ethz.spirals.dsls._
 
 trait SPL_DSL2Mat extends PureDefaultTraversal {
   val IR: SPL_Exp with PureFunctionsExp
-
-
-  var f_array = Map.empty[Int, BlockFieldMatrix[Complex] ]
+  
   var finalnode: Int = 0
   var tmpfix = true
-
-
 
   import MathUtilities._
   import org.apache.commons.math3.linear.BlockFieldMatrix
   import org.apache.commons.math3.complex.{ComplexField, Complex}
 
-  trait EmitSPLMatrix extends Emit{
+  trait EmitSPLMatrix extends Schedule{
     val traversal: Traversal {
       val cminfo : CodeMotion {
         val reifiedIR: ReificationPure {
           val IR: SPL_Exp with PureFunctionsExp}}}
-    
-    override def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_], block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit =  {
+
+
+    def emitNode(tp: traversal.cminfo.reifiedIR.IR.TP[_], mmap: Map[Int, BlockFieldMatrix[Complex]], block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]]): Map[Int, BlockFieldMatrix[Complex]] =  {
       import traversal.cminfo.reifiedIR.IR._      
-      rhs match{
+      tp.rhs match{
         //--------------------------------Compose -----------------------------
-        case Compose(Exp(a),Exp(b)) => f_array = f_array + (sym.id -> f_array(a).multiply( f_array(b) ))
+        case Compose(Exp(a),Exp(b)) => mmap + (tp.exp.id -> mmap(a).multiply( mmap(b) ))
         //-------------------------------Tensor--------------------------------
-        case Tensor(Exp(a),Exp(b)) => f_array = f_array + (sym.id -> kronecker(f_array(a),f_array(b)))
+        case Tensor(Exp(a),Exp(b)) => mmap + (tp.exp.id -> kronecker(mmap(a),mmap(b)))
         //-------------------------------SPl Objects--------------------------------
-        case ConstDef(x: SPL) => f_array = f_array + (sym.id -> x.toMatrix())
+        case ConstDef(x: SPL) => mmap + (tp.exp.id -> x.toMatrix())
         //------------------------------default traversal-----------------------------------------
-        case Lambda(_,_,block,_,_) => if (tmpfix){ tmpfix = false; finalnode = block.res.head.id; block_callback(block)}
-        case _ => super.emitNode(sym,rhs,block_callback)  
+        case Lambda(_,_,block,_,_) => block_callback(block).foldLeft(Map.empty[Int, BlockFieldMatrix[Complex]]){
+          (acc,ele) => {
+            emitNode(ele,acc, block_callback)
+          }
+        }
+    //    case _ => super.emitNode(sym,rhs,block_callback)
       }
     }
   }
 
   //-----------------------------------------Matrix Representation Part --------------------------------
+  def SPL2Mat (splgenf: => IR.Exp[SPL]): Map[Int, BlockFieldMatrix[Complex] ] = {
+    val myf: IR.Exp[Unit] => IR.Exp[SPL] = (u: IR.Exp[Unit]) => splgenf
+    val expos_u = IR.exposeRepFromRep[Unit]
+    val expos_spl = IR.exposeRepFromRep[SPL]
+    val emit = new EmitSPLMatrix {
+      override val traversal = default_traversal(myf)(expos_u, expos_spl)
+    }
+    val col = new emit.MyCollection
+    def tmp(b: emit.traversal.cminfo.reifiedIR.IR.Block): Iterator[emit.traversal.cminfo.reifiedIR.IR.TP[_]] = {
+      val x = col.iterator(b)
+      x
+    }
+
+    val it = col.iterator()
+    val hnext = it.hasNext
+    it.foldLeft(Map.empty[Int, BlockFieldMatrix[Complex]]){
+      (acc,ele) => {
+        emit.emitNode(ele,acc, tmp)
+      }
+    }
+  }
+
+  /*
   def SPL2Mat (splgenf: => IR.Exp[SPL]): (Map[Int, BlockFieldMatrix[Complex] ], Int) = {
     val myf: IR.Exp[Unit] => IR.Exp[SPL] = (u: IR.Exp[Unit]) => splgenf
     val expos_u = IR.exposeRepFromRep[Unit]
@@ -55,7 +79,7 @@ trait SPL_DSL2Mat extends PureDefaultTraversal {
     }
     emit.emit()    
     (f_array, finalnode)
-  }
+  } */
 
   
 

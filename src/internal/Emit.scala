@@ -1,5 +1,6 @@
+
 package scala.virtualization.lms
-package internal                                                                                                                                                                                                                                  Index
+package internal
 
 import scala.collection.IndexedSeqLike
 
@@ -13,25 +14,27 @@ trait Emit {
     trav(t)
   }
 
-  def trav (t: traversal.MyTraverser): Unit = {
+  def trav(t: traversal.MyTraverser): Unit = {
     val id2tp = t.cminfo.reifiedIR.id2tp
-    if(!t.scheduleoptions.isEmpty) {
+    if (!t.scheduleoptions.isEmpty) {
       val tp: t.cminfo.reifiedIR.IR.TP[_] = id2tp(t.scheduleoptions.head._1)
       def emitBlock(b: traversal.cminfo.reifiedIR.IR.Block): Unit = {
         val btrav: traversal.MyTraverser = traversal.getForwardIterator(b)
         trav(btrav)
       }
 
-      emitNode(tp.exp,tp.rhs, emitBlock)
+      emitNode(tp.exp, tp.rhs, emitBlock)
       trav(t.scheduleoptions.head._2())
     }
   }
 
-  def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_], block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit =  {
+  def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_], block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit = {
     println(rhs)
 
   }
+}
 
+/*
 
 
   def createEmit = {
@@ -93,6 +96,8 @@ abstract class MyCollection[TP] extends Iterable[TP] {
 
 
 
+
+*/
 
 
 

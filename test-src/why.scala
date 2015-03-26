@@ -1,5 +1,6 @@
+/*
 
-package ch.ethz.spirals.cgo2015
+package ch.ethz.spirals
 
 import org.scalacheck.Arbitrary._
 import org.scalacheck.Prop
@@ -7,6 +8,8 @@ import org.scalacheck.Prop._
 import org.scalacheck._
 
 import scala.virtualization.lms.common.ReifyPure
+import rewrites._
+import dsls._
 
 
 class CheckSPL2Matrix extends Properties("SPL") {
@@ -91,4 +94,4 @@ class WHY extends FunSpec {
     forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
     //BreakdownRules.genRandomWHTRuleTree(8).sample.map ( t => x.checkMatrix(t))
   }
-}
+}*/

@@ -62,7 +62,7 @@ trait PureDefaultTraversal extends ReifyPure{
   }
 
 
-  /*
+
 
   def emitNode(sym: IR.Exp[Any], rhs: IR.Def[Any], block_callback: Block => Unit): Unit =  {
     throw new GenerationFailedException("don't know how to generate code for: " + rhs)

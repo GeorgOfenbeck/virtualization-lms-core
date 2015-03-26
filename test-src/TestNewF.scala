@@ -1,4 +1,5 @@
 /*
+
 import java.io.PrintWriter
 
 
@@ -43,11 +44,11 @@ class TestNewF extends FunSpec{
       val IR: self.type = self
 
 
-
+      import scala.reflect.runtime.universe._
 
       case class Complex[T](val re: Rep[T], val im: Rep[T])
 
-      import scala.reflect.runtime.universe._
+
 
       implicit def exposeRepFromComplex[T](implicit tag: TypeTag[T]): ExposeRep[Complex[T]] = new ExposeRep[Complex[T]](){
         val freshExps: Unit => hlist = (u: Unit) => Vector(Arg[T](tag), Arg[T](tag))
@@ -212,3 +213,4 @@ class TestNewF extends FunSpec{
   }
 
 }*/
+

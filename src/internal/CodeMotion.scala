@@ -103,7 +103,7 @@ trait CodeMotion {
     val reverse_dag = dagmap map {
       entry => {
         val blockouts: Set[Int] = entry._2.blocks.flatMap( x => x.res.map(y => y.id))
-        val outedges = entry._2.out ++ blockouts
+        val outedges = entry._2.out //++ blockouts
         val hmap = outedges.foldLeft(IntMap.empty[Set[Int]]){
           (acc,ele) => acc + (ele -> Set(entry._1))
         }
@@ -304,8 +304,6 @@ trait CodeMotion {
       depGraph(root,newbacktrack,newcurrent,full) //recurse on this path
     }
   }
-
-
 }
 
 

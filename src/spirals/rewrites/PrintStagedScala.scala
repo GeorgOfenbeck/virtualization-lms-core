@@ -19,13 +19,13 @@ trait PrintStagedScala extends PureDefaultTraversal {
   var tmpfix = true
 
 
-  trait EmitSPL2Scala extends Emit{
+  trait EmitSPL2Scala extends Schedule{
     val traversal: Traversal {
       val cminfo : CodeMotion {
         val reifiedIR: ReificationPure {
           val IR: StagedScala_Exp}}}
 
-    override def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_], block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit =  {
+/*    override def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_], block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit =  {
       import traversal.cminfo.reifiedIR.IR._
       rhs match{
 
@@ -35,7 +35,8 @@ trait PrintStagedScala extends PureDefaultTraversal {
         case Lambda(_,_,block,_,_) => if (tmpfix){ tmpfix = false; finalnode = block.res.head.id; block_callback(block)}
         case _ => super.emitNode(sym,rhs,block_callback)
       }
-    }
+    }*/
+
   }
 
   //-----------------------------------------Matrix Representation Part --------------------------------
@@ -53,8 +54,42 @@ trait PrintStagedScala extends PureDefaultTraversal {
     val emit = new EmitSPL2Scala {
       override val traversal = default_traversal(myf)(IR.exposeRepFromVComplex[Double](size), IR.exposeRepFromVComplex[Double](size))
     }
-    emit.emit()
+    val coll = new emit.MyCollection
+
+    val it = coll.iterator()
+
+    for (ele <- it){
+      println(ele)
+    }
+
+
+    //emit.emit()
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

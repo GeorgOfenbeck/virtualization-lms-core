@@ -1,4 +1,4 @@
-package ch.ethz.spirals.cgo2015
+package ch.ethz.spirals
 
 
 import org.apache.commons.math3.complex.{ComplexField, Complex}
@@ -12,7 +12,8 @@ import org.scalacheck._
 import scala.virtualization.lms.common.ReifyPure
 
 
-
+import rewrites._
+import dsls._
 
 
 class CheckSPL2Scala extends Properties("SPL") {
