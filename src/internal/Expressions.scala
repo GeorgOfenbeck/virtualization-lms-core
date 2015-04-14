@@ -3,6 +3,7 @@ package internal
 
 
 import scala.collection.mutable.ListBuffer
+
 import scala.virtualization.lms.common._
 
 /**
@@ -22,9 +23,31 @@ trait Expressions extends Utils with TypeRepBase{
 
   case class ConstDef[T:TypeRep](x: T) extends Def[T]
   case class ArgDef[T:TypeRep](id: Int) extends Def[T]
-  def Const[T:TypeRep](x: T) = {
+  /*def Const[T:TypeRep](x: T) = {
     toAtom(ConstDef(x))
+  }*/
+  object Const{
+    def apply[T:TypeRep](x: T): Exp[T] = {
+      toAtom(ConstDef(x))
+    }
+    import scala.reflect._
+
+    def unapply[T: ClassTag](exp: Exp[_]) = getTP(exp) match {
+      case Some(x) => x.rhs match {
+        case ConstDef(y) => Some(y)
+        case _ => scala.None
+      }
+      case None => scala.None
+    }
+    def unapply[T: ClassTag](rhs: Def[_]) = getTP(rhs) match {
+        case Some(x) => x.rhs match {
+            case ConstDef(y) => Some(y)
+            case _ => scala.None
+        }
+        case None => scala.None
+      }
   }
+
   var nArgs = 0
   def Arg[T:TypeRep] = {
     val r = toAtom( ArgDef(nArgs))
@@ -35,7 +58,7 @@ trait Expressions extends Utils with TypeRepBase{
   case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
 
   abstract class Def[+T] { // operations (composite)
-  override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
+  //override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
   }
 
   case class TP[T](val exp: Exp[T], val rhs: Def[T], val tag: TypeRep[T])

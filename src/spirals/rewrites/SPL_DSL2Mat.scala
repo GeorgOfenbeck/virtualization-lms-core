@@ -11,9 +11,6 @@ import ch.ethz.spirals.dsls._
 
 trait SPL_DSL2Mat extends PureDefaultTraversal {
   val IR: SPL_Exp with PureFunctionsExp
-  
-  var finalnode: Int = 0
-  var tmpfix = true
 
   import MathUtilities._
   import org.apache.commons.math3.linear.BlockFieldMatrix
@@ -25,6 +22,12 @@ trait SPL_DSL2Mat extends PureDefaultTraversal {
         val reifiedIR: ReificationPure {
           val IR: SPL_Exp with PureFunctionsExp}}}
 
+    import scala.reflect._
+    def test[T: ClassTag](defin: traversal.cminfo.reifiedIR.IR.Def[Any]) = {
+      defin match {
+        case traversal.cminfo.reifiedIR.IR.ConstDef(y: T) if (classTag[T].runtimeClass.isInstance(defin)) => println("hae?")
+      }
+    }
 
     def emitNode(tp: traversal.cminfo.reifiedIR.IR.TP[_], mmap: Map[Int, BlockFieldMatrix[Complex]], block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]]): Map[Int, BlockFieldMatrix[Complex]] =  {
       import traversal.cminfo.reifiedIR.IR._      
@@ -34,14 +37,13 @@ trait SPL_DSL2Mat extends PureDefaultTraversal {
         //-------------------------------Tensor--------------------------------
         case Tensor(Exp(a),Exp(b)) => mmap + (tp.exp.id -> kronecker(mmap(a),mmap(b)))
         //-------------------------------SPl Objects--------------------------------
-        case ConstDef(x: SPL) => mmap + (tp.exp.id -> x.toMatrix())
+        case Const(x: SPL) => mmap + (tp.exp.id -> x.toMatrix())
         //------------------------------default traversal-----------------------------------------
         case Lambda(_,_,block,_,_) => block_callback(block).foldLeft(Map.empty[Int, BlockFieldMatrix[Complex]]){
           (acc,ele) => {
             emitNode(ele,acc, block_callback)
           }
         }
-    //    case _ => super.emitNode(sym,rhs,block_callback)
       }
     }
   }
@@ -60,31 +62,12 @@ trait SPL_DSL2Mat extends PureDefaultTraversal {
       x
     }
 
-    val it = col.iterator()
-    val hnext = it.hasNext
-    it.foldLeft(Map.empty[Int, BlockFieldMatrix[Complex]]){
+    col.iterator().foldLeft(Map.empty[Int, BlockFieldMatrix[Complex]]){
       (acc,ele) => {
         emit.emitNode(ele,acc, tmp)
       }
     }
   }
-
-  /*
-  def SPL2Mat (splgenf: => IR.Exp[SPL]): (Map[Int, BlockFieldMatrix[Complex] ], Int) = {
-    val myf: IR.Exp[Unit] => IR.Exp[SPL] = (u: IR.Exp[Unit]) => splgenf
-    val expos_u = IR.exposeRepFromRep[Unit]
-    val expos_spl = IR.exposeRepFromRep[SPL]
-    val emit = new EmitSPLMatrix {
-      override val traversal = default_traversal(myf)(expos_u, expos_spl)
-    }
-    emit.emit()    
-    (f_array, finalnode)
-  } */
-
-  
-
-
-
 }
 
 

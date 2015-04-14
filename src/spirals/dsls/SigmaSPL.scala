@@ -1,4 +1,4 @@
-package spirals.dsls
+package ch.ethz.spirals.dsls
 
 
 import virtualization.lms.common._
@@ -18,7 +18,7 @@ trait SigmaSPLBase extends Base with NumericOps {
   def scatter (im: Rep[IndexMapping], x: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
 
 
-  def tag(x: Rep[SigmaSPLVector], tag: Rep[Tag]) : Rep[SigmaSPLVector]
+  //def tag(x: Rep[SigmaSPLVector], tag: Rep[Tag]) : Rep[SigmaSPLVector]
   def sigma (n: Rep[Int], start: Rep[Int], end: Rep[Int], f: Rep[Int] => Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
   def directsum (x: Rep[SigmaSPLVector], y: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
 }
@@ -41,7 +41,7 @@ trait SigmaSPLExp extends SigmaSPLBase with NumericOpsExp { self =>
   case class DirectSum  (x: Exp[SigmaSPLVector], y: Exp[SigmaSPLVector]) extends Def[SigmaSPLVector]
   case class Sigma      (n: Exp[Int], start: Exp[Int], end: Exp[Int], i: Exp[Int], body: Block)  extends Def[SigmaSPLVector]
 
-  def tag(x: Exp[SigmaSPLVector], tag: Exp[Tag]) : Exp[SigmaSPLVector] = Tag(x,tag)
+  def tag(x: Exp[SigmaSPLVector], tag: Exp[Tag]): Exp[SigmaSPLVector] = Tag(x,tag)
   def directsum (x: Exp[SigmaSPLVector], y: Exp[SigmaSPLVector]): Exp[SigmaSPLVector] = DirectSum(x, y)
   def gather (im: Exp[IndexMapping], x: Exp[SigmaSPLVector]): Exp[SigmaSPLVector] = Gather (im, x)
   def scatter (im: Exp[IndexMapping], x: Exp[SigmaSPLVector]): Exp[SigmaSPLVector] = Scatter (im, x)

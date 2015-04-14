@@ -40,11 +40,13 @@ trait ExposeRepBase extends Expressions{
 trait Base extends TypeRepBase with ExposeRepBase{
   type API <: Base
   type Rep[T]
-  protected def unit[T:TypeRep](x: T): Rep[T]
+  def unit[T:TypeRep](x: T): Rep[T]            //TODO - why protected??
   // always lift Unit and Null (for now)
   implicit def unitToRepUnit(x: Unit) = unit(x)
   implicit def nullToRepNull(x: Null) = unit(x)
   def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T]
+
+
 }
 
 /**
@@ -54,7 +56,7 @@ trait Base extends TypeRepBase with ExposeRepBase{
  */
 trait BaseExp extends Base with Expressions with Blocks with ExposeRepBase/*with Transforming*/ {
   type Rep[T] = Exp[T]
-  protected def unit[T:TypeRep](x: T) = Const(x)
+  def unit[T:TypeRep](x: T) = Const(x)
 
   class TypeExp[T](ptag: TypeTag[T]) extends TypeRep[T]{
     def tag() = ptag

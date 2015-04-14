@@ -29,9 +29,7 @@ class CheckSPL2Matrix extends Properties("SPL") {
 
   val finalnode = bydecompmap.map(x => x._1).reduceLeft(_ max _)
 
-
   val finalmatrix = bydecompmap(finalnode)
-
 
   val ret = if (bydef.getColumnDimension() == finalmatrix.getColumnDimension() && bydef.getRowDimension == finalmatrix.getRowDimension) {
 
@@ -42,17 +40,12 @@ class CheckSPL2Matrix extends Properties("SPL") {
 
    val filtered = errors.filter( error => (error.getReal > allowed_error || error.getImaginary > allowed_error))
    filtered.isEmpty
-
-
-
   }
   else
    false
 
 
-  if (!ret && bydef.getColumnDimension() <= 32)
-  {
-
+  if (!ret && bydef.getColumnDimension() <= 32)  {
    println("-------------------")
    for (i <- bydecompmap) {
     MathUtilities.printm(i._2)
@@ -85,7 +78,7 @@ object ValidateSPL extends org.scalacheck.Properties("WHT") {
  }
 }
 
-/*
+
 
 import org.scalatest.FunSpec
 
@@ -96,4 +89,4 @@ class ViaFunSpec extends FunSpec {
   x.checkMatrix(bd)
  }
 
-}*/
+}
