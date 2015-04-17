@@ -12,14 +12,19 @@ trait LiftAll extends Base {
   protected implicit def __unit[T:TypeTag](x: T) = unit(x)
 }
 
+trait TypeRep[T]  {
+  def tag: TypeTag[T]
+}
+
+
+
 
 trait TypeRepBase{
 //we pack this into a trait such that its automatically mixed into every potential DSL
-  trait TypeRep[T]  {
-    def tag: TypeTag[T]
-  }
+
+
   implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
-  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)
+  implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] //= TypeExp(tag)*/
 }
 
 trait ExposeRepBase extends Expressions{
@@ -58,13 +63,17 @@ trait BaseExp extends Base with Expressions with Blocks with ExposeRepBase/*with
   type Rep[T] = Exp[T]
   def unit[T:TypeRep](x: T) = Const(x)
 
+
+  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
+
   class TypeExp[T](ptag: TypeTag[T]) extends TypeRep[T]{
     def tag() = ptag
   }
-  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T] = tr
+
 
   implicit def convertFromTypeTag[T](tag: TypeTag[T]): TypeRep[T] = new TypeExp(tag)
   implicit def typeRepFromTypeTag[T](implicit tag: TypeTag[T]): TypeRep[T] = new TypeExp(tag)
+
 
 
   implicit def exposeRepFromRep[T](implicit tag: TypeTag[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
