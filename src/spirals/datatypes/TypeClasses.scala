@@ -183,13 +183,15 @@ object VectorElementOps {
  * =========================================================================================================
  *
  */
-/*object ArrayOpsUnstaged extends IdendityTypes{
-  class UnstagedIndexedSequence[T] (implicit val is: IS[T]) extends ArrayOps[NoRep,IS,NoRep,T] {
-    def alloc(s: NoRep[Int]): NoRep[IS[T]] = is.companion.
-    def apply(x: NoRep[Array[T]], i: NoRep[Int]): NoRep[T] = IS.
+
+object ArrayOpsUnstaged extends IdendityTypes{
+  class UnstagedArray[T: Manifest]  extends ArrayOps[NoRep,Array,NoRep,T] {
+    def alloc(s: NoRep[Int]): NoRep[Array[T]] = new Array[T](s)
+    def apply(x: NoRep[Array[T]], i: NoRep[Int]): NoRep[T] = x.apply(i)
+    def update(x: NoRep[Array[T]], i: NoRep[Int], y: NoRep[T]) = x.update(i,y)
   }
 
-}*/
+}
 /*
 
 
@@ -248,57 +250,43 @@ trait TypeClassesStagedNumericOps extends VectorOpsExp{
 /* ========================================================================================================= */
 /* ============================================ LiftOps ==================================================== */
 /* ========================================================================================================= */
-/*
-object LiftOps {
 
-  class LifOpsRep extends LiftOps[Rep] {
-    def apply[T: Numeric : Manifest](x: T) = numericToNumericRep(x)
+object UnstagedLiftOps extends IdendityTypes{
 
-    def apply(x: Unit) = fresh[Unit]
-
-    def apply[X[_], T: Numeric : Manifest](exp: X[T])(implicit mE: Manifest[X[Any]]): Rep[T] = exp match {
-      case c: Const[_] => apply(c.x.asInstanceOf[T])
-      case _ if (mA == mE) => exp.asInstanceOf[Rep[T]]
-      case _ => throw new LiftOpsException(exp.toString + " can not be lifted")
-    }
-
-    def staged() = true
-  }
 
   class LifOpsNoRep extends LiftOps[NoRep] {
-    def apply[T: Numeric : Manifest](x: T) = x
-
-    def apply(x: Unit) = Unit
-
-    def apply[X[_], T: Numeric : Manifest](exp: X[T])(implicit mE: Manifest[X[Any]]): NoRep[T] = exp match {
+    def apply[T: TypeTag](x: T) = x
+    /*def apply[X[_], T: Numeric : Manifest](exp: X[T])(implicit mE: Manifest[X[Any]]): NoRep[T] = exp match {
       case c: Const[_] => apply(c.x.asInstanceOf[T])
       case _ if (mA == mE) => exp.asInstanceOf[NoRep[T]]
       case _ => throw new LiftOpsException(exp.toString + " can not be lifted")
-    }
+    }*/
 
     def staged() = false
   }
+}
 
-}*/
-/*
 
-object ImplicitOps {
+object UnstagedImplicitOps extends IdendityTypes{
   /* =========================================== NumericOps ================================================== */
 
-  implicit def numericNoRepOps[T: Numeric : Manifest]: NumericOps[NoRep[Single[T]]] = new NumericOps.NumericNoRepOps[T]
+  implicit def numericNoRepOps[T: Numeric : Manifest]: NumericOps[NoRep[Single[T]]] = new NumericOpsUnstaged.NumericNoRepOps[T]
 
-  implicit def numericRepOps[T: Numeric : Manifest]: NumericOps[Rep[Single[T]]] = new NumericOps.NumericRepOps[T]
+  //implicit def numericRepOps[T: Numeric : Manifest]: NumericOps[Rep[Single[T]]] = new NumericOps.NumericRepOps[T]
 
-  implicit def packedNumericOps[T: Numeric : Manifest]: NumericOps[Rep[Packed[T]]] = new NumericOps.PackedNumericOps[T]
+  //implicit def packedNumericOps[T: Numeric : Manifest]: NumericOps[Rep[Packed[T]]] = new NumericOps.PackedNumericOps[T]
 
   /* =========================================== ElementOps ================================================== */
 
-  implicit def complexOps[T: Manifest](implicit nops: NumericOps[T]): ElementOps[Complex, T] = new ElementOps.ComplexOps[T]()
+  implicit def complexOps[T: Manifest](implicit nops: NumericOps[T]): ElementOps[ElementOpsUnstaged.Complex, T] = new ElementOpsUnstaged.ComplexOps[T]()
 
-  implicit def realOps[T: Manifest](implicit nops: NumericOps[T]): ElementOps[Real, T] = new ElementOps.RealOps[T]()
+  implicit def realOps[T: Manifest](implicit nops: NumericOps[T]): ElementOps[ElementOpsUnstaged.Real, T] = new ElementOpsUnstaged.RealOps[T]()
 
   /* ============================================ ArrayOps =================================================== */
 
+  implicit def unstagedArrayOps[T:Manifest]: ArrayOps[NoRep,Array,NoRep,T]       = new ArrayOpsUnstaged.UnstagedArray[T]
+
+/*
   implicit def stagedPackedArrayOps[T: Manifest]: ArrayOps[Rep, Rep, Packed, NoRep, T] = new ArrayOps.StagedPackedArrayOps[T]
 
   implicit def scalarPackedArrayOps[T: Manifest]: ArrayOps[NoRep, Rep, Packed, Rep, T] = new ArrayOps.ScalarPackedArrayOps[T]
@@ -308,22 +296,18 @@ object ImplicitOps {
   implicit def scalarSingleArrayOps[T: Manifest]: ArrayOps[NoRep, Rep, Single, Rep, T] = new ArrayOps.ScalarSingleArrayOps[T]
 
   implicit def stagedSingleArrayOps[T: Manifest]: ArrayOps[Rep, Rep, Single, NoRep, T] = new ArrayOps.StagedSingleArrayOps[T]
+*/
 
   /* ========================================= VectorElementOps ============================================== */
 
-  implicit def vectorElementOpsSingle[E[_], T: Manifest]
-  (implicit eops: ElementOps[E, Rep[Single[T]]]): VectorElementOps[E, Rep, Single, T] =
-    new VectorElementOps.VectorElementOpsSingle[E, T]()
-
-  implicit def vectorElementOpsPacked[E[_], T: Manifest]
-  (implicit eops: ElementOps[E, Rep[Packed[T]]]): VectorElementOps[E, Rep, Packed, T] =
-    new VectorElementOps.VectorElementOpsPacked[E, T]()
 
   /* ============================================ LiftOps ==================================================== */
 
-  implicit object RepObject extends LiftOps.LifOpsRep
+  implicit object NoRepObject extends UnstagedLiftOps.LifOpsNoRep
 
-  implicit object NoRepObject extends LiftOps.LifOpsNoRep
+/*  implicit object RepObject extends LiftOps.LifOpsRep
+
+  implicit object NoRepObject extends LiftOps.LifOpsNoRep*/
 
   /* ========================================================================================================= */
-}*/
+}

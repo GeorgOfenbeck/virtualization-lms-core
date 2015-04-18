@@ -52,7 +52,6 @@ trait SPL_DSL2Scala extends PureDefaultTraversal {
             }
             case _ => ??? //we dont support anyting else for this tutorial
           }
-
           f_array = f_array + (sym.id -> f)
         }
         //-------------------------------SPl Objects--------------------------------

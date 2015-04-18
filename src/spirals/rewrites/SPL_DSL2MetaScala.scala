@@ -28,7 +28,8 @@ trait SPL_DSL2MetaScala extends PureDefaultTraversal {
         val reifiedIR: ReificationPure {
           val IR: SPL_Exp with PureFunctionsExp}}}
     
-    override def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_], block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit =  {
+    override def emitNode(sym: traversal.cminfo.reifiedIR.IR.Exp[_], rhs: traversal.cminfo.reifiedIR.IR.Def[_],
+                          block_callback: traversal.cminfo.reifiedIR.IR.Block => Unit): Unit =  {
       import traversal.cminfo.reifiedIR.IR._      
       rhs match{
         //--------------------------------Compose -----------------------------

@@ -67,7 +67,7 @@ abstract class ArrayOps[V[_], A[_], R[_], T] {
 }
 
 abstract class LiftOps[R[_]] {
-  def apply[T](x: T)(implicit tag: TypeRep[T]): R[T]
+  def apply[T](x: T)(implicit tag: TypeTag[T]): R[T]
 }
 
 
@@ -84,6 +84,13 @@ abstract class CVector[VectorRep[_], ElementClass[_], R[_], T]
   def create(s: VectorRep[Int]): CVector[VectorRep, ElementClass, R, T]
 
   def update(i: VectorRep[Int], y: ElementClass[R[T]])
+
+  def GT(A: CVector[VectorRep, ElementClass, R, T] => CVector[VectorRep, ElementClass, R, T],
+        g: (Vector[VectorRep[Int]]) => VectorRep[Int],
+        s: (Vector[VectorRep[Int]]) => VectorRep[Int],
+        v: Vector[Int]
+          ): CVector[VectorRep, ElementClass, R, T] => CVector[VectorRep, ElementClass, R, T]
+
 
   def size(): VectorRep[Int]
 }

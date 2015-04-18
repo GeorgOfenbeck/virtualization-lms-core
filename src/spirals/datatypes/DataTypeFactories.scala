@@ -25,6 +25,7 @@
 package ch.ethz.spirals.datatypes
 
 object DataTypeFactories {
+  import UnstagedImplicitOps._
   import ElementOpsUnstaged._
   class SplitComplexArray[V[_], A[_], R[_], T](s: V[Int], d: V[A[T]] = null)
                                                               (implicit
@@ -54,6 +55,57 @@ object DataTypeFactories {
       aops.update(data, i, y._re)
       aops.update(data, irep.plus(s, i), y._im)
     }
+
+    def GT(A: CVector[V, Complex, R, T] => CVector[V, Complex, R, T],
+           g: (Vector[V[Int]]) => V[Int],
+           s: (Vector[V[Int]]) => V[Int],
+           v: Vector[Int]
+            )
+    : CVector[V, Complex, R, T] => CVector[V, Complex, R, T] = (in: CVector[V, Complex, R, T]) => {
+
+      val out = in.create(in.size()) //create a same size element
+
+
+      def helper(loopv: Vector[Int], currv: Vector[V[Int]]): Unit = {
+        if (loopv.tail.isEmpty){ //inner most loop
+          val s0 = loopv.head
+          val int = in.create(irep.fromInt(s0))
+            for ( i <- 0 until s0)
+            {
+              val is: V[Int] = irep.fromInt(i)
+              val newv: Vector[V[Int]] = is +: currv
+              val idx: V[Int] = g(newv)
+              val ele = in.apply(idx)
+              int.update(is,ele)
+            }
+            val outt = A(int)
+            for ( i <- 0 until s0)
+            {
+              val is: V[Int] = irep.fromInt(i)
+              val newv: Vector[V[Int]] = is +: currv
+              val idx: V[Int] = s(newv)
+              val ele = outt.apply(is)
+              out.update(idx,ele)
+            }
+          }
+        else
+        {
+          val sk = loopv.head
+          val rest = loopv.tail
+          for (i <- 0 until sk) {
+            val is: V[Int] = irep.fromInt(i)
+            helper(rest, is +: currv)
+          }
+        }
+      }
+
+      helper(v,Vector.empty)
+      out
+    }
+
+
+
+
 
     def size() = s
 

@@ -22,14 +22,10 @@ trait SPL_DSL2Mat extends PureDefaultTraversal {
         val reifiedIR: ReificationPure {
           val IR: SPL_Exp with PureFunctionsExp}}}
 
-    import scala.reflect._
-    def test[T: ClassTag](defin: traversal.cminfo.reifiedIR.IR.Def[Any]) = {
-      defin match {
-        case traversal.cminfo.reifiedIR.IR.ConstDef(y: T) if (classTag[T].runtimeClass.isInstance(defin)) => println("hae?")
-      }
-    }
 
-    def emitNode(tp: traversal.cminfo.reifiedIR.IR.TP[_], mmap: Map[Int, BlockFieldMatrix[Complex]], block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]]): Map[Int, BlockFieldMatrix[Complex]] =  {
+    def emitNode(tp: traversal.cminfo.reifiedIR.IR.TP[_], mmap: Map[Int, BlockFieldMatrix[Complex]],
+                 block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]]
+                  ): Map[Int, BlockFieldMatrix[Complex]] =  {
       import traversal.cminfo.reifiedIR.IR._      
       tp.rhs match{
         //--------------------------------Compose -----------------------------
