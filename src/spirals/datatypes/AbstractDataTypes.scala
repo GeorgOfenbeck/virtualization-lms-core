@@ -75,7 +75,8 @@ abstract class CVector[VectorRep[_], ElementClass[_], R[_], T]
 (implicit
  val vrep: LiftOps[VectorRep],
  val erep: ElementOps[ElementClass, R[T]],
- val nrep: NumericOps[R[T]]
+ val nrep: NumericOps[R[T]],
+ val irep: NumericOps[VectorRep[Int]]
   )
 {
   self =>
