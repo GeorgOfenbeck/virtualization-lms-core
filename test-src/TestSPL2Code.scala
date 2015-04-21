@@ -34,12 +34,44 @@ class CheckSPL2Code extends Properties("SPL") {
   import ch.ethz.spirals.datatypes.DataTypeFactories._
   import UnstagedImplicitOps._
 
-  val bla = new SplitComplexArray[NoRep, Array, NoRep, Double](4)
+
+  val size = bd.nt.size
+
+  val bla = new SplitComplexArray[NoRep, Array, NoRep, Double](size)
+
+  val inv = new Array[org.apache.commons.math3.complex.Complex](size)
+  val ele = bla.apply(0)
+  for (i <- 0 until size) {
+   val newele  = ele.copy(_re = i.toDouble+1, _im = i.toDouble +1.5)
+   inv.update(i,new org.apache.commons.math3.complex.Complex(i.toDouble+1, i.toDouble + 1.5))
+   bla.update(i,newele)
+  }
+
+  import org.apache.commons.math3.linear._
+  import org.apache.commons.math3.complex._
+  val m = new BlockFieldMatrix[Complex](ComplexField.getInstance(), size, 1)
+  m.setColumn(0,inv)
+
+  val resbydef = bydef.multiply(m)
+  //MathUtilities.printm(resbydef)
+
   val pcall = spltransformation.SPL2Code(spltransformation.bd2spl(bd),bla)
   val res = pcall(bla)
-  println(res)
 
-  true
+  val outv = new Array[org.apache.commons.math3.complex.Complex](size)
+  for (i <- 0 until size) {
+   outv.update(i,new org.apache.commons.math3.complex.Complex(res(i)._re, res(i)._im))
+  }
+  m.setColumn(0,outv)
+  //println("---------------------------------------")
+  //MathUtilities.printm(m)
+
+  val errors = for {
+   j <- 0 until outv.length} yield outv(j).subtract(resbydef.getEntry(j,0))
+
+  val filtered = errors.filter( error => (error.getReal.abs > allowed_error || error.getImaginary.abs > allowed_error))
+  filtered.isEmpty
+
  }
 }
 
@@ -48,21 +80,21 @@ class CheckSPL2Code extends Properties("SPL") {
 
 
 
+
+
+
+
+
+object TestSPL2Code extends org.scalacheck.Properties("WHT") {
+ property("WHT code test") = {
+  val x = new CheckSPL2Code
+  forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkCode)
+ }
+}
 
 
 
 /*
-
-object ValidateSPL extends org.scalacheck.Properties("WHT") {
- property("WHT code test") = {
-  val x = new CheckSPL2Matrix
-  forAll(BreakdownRules.genRandomWHTRuleTree) (x.checkMatrix)
- }
-}
-*/
-
-
-
 import org.scalatest.FunSpec
 
 class dfadsfFunSpec extends FunSpec {
@@ -73,3 +105,4 @@ class dfadsfFunSpec extends FunSpec {
  }
 
 }
+*/

@@ -35,14 +35,15 @@ trait SPL_DSL2Code extends PureDefaultTraversal {
 
 
   def emitNode[V[_],E[_],R[_],T](tp: traversal.cminfo.reifiedIR.IR.TP[_], fmap: Map[Int, CVector[V,E,R,T] => CVector[V,E,R,T]],
-               block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]]
+               block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]],
+               sample: CVector[V,E,R,T]
                 ) : Map[Int, CVector[V,E,R,T] => CVector[V,E,R,T]] =  {
 
    import traversal.cminfo.reifiedIR.IR._
    def getH(in: CVector[V,E,R,T], base: V[Int], strides: Vector[V[Int]]): (Vector[V[Int]]) => V[Int] = {
     val f: (Vector[V[Int]]) => V[Int] = (loopvars: Vector[V[Int]]) => {
      in.irep.plus(base,loopvars.zip(strides).foldLeft(in.vrep(0))({
-      (acc,ele) => in.irep.plus(acc,(in.irep.plus(ele._1, ele._2)))
+      (acc,ele) => in.irep.plus(acc,(in.irep.times(ele._1, ele._2)))
      }))
     }
     f
@@ -50,28 +51,25 @@ trait SPL_DSL2Code extends PureDefaultTraversal {
    tp.rhs match{
     //--------------------------------Compose -----------------------------
     case Compose(Exp(a),Exp(b)) => {
-     val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) => fmap(a)(fmap(b)(in))
+     val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) =>
+     {
+      fmap(a)(fmap(b)(in))
+     }
      fmap + (tp.exp.id -> f)
     }
     //-------------------------------Tensor--------------------------------
     case Tensor(Const(I(k)),Exp(b)) => {
      val n = getSPLMeta(Exp(b)).size
      val A = fmap(b)
-     val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) => {
-      val h = getH(in,in.vrep(0),Vector(in.vrep(1),in.vrep(n)))
-      in.GT(A,h,h,Vector(k))(in)
-     }
+     val h = getH(sample,sample.vrep(0),Vector(sample.vrep(1),sample.vrep(n)))     
+     val f: CVector[V,E,R,T] => CVector[V,E,R,T] = sample.GT(A,h,h,Vector(k,n))
      fmap + (tp.exp.id -> f)
     }
     case Tensor(Exp(a), Const(I(k))) =>{
      val n = getSPLMeta(Exp(a)).size
      val A = fmap(a)
-
-     val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) => {
-      val h = getH(in,in.vrep(0),Vector(in.vrep(k),in.vrep(1)))
-      in.GT(A,h,h,Vector(k))(in)
-     }
-
+     val h = getH(sample,sample.vrep(0),Vector(sample.vrep(k),sample.vrep(1)))
+     val f: CVector[V,E,R,T] => CVector[V,E,R,T] = sample.GT(A,h,h,Vector(k,n))
      fmap + (tp.exp.id -> f)
     }
     //-------------------------------SPl Objects--------------------------------
@@ -102,7 +100,7 @@ trait SPL_DSL2Code extends PureDefaultTraversal {
       //------------------------------default traversal-----------------------------------------
       case Lambda(_,_,block,_,_) => block_callback(block).foldLeft(Map.empty[Int, CVector[V,E,R,T] => CVector[V,E,R,T]]){
        (acc,ele) => {
-        emitNode(ele,acc, block_callback)
+        emitNode(ele,acc, block_callback,sample)
        }
       }
      }
@@ -129,7 +127,7 @@ trait SPL_DSL2Code extends PureDefaultTraversal {
 
   val bydecompmap = col.iterator().foldLeft(Map.empty[Int, CVector[V,E,R,T] => CVector[V,E,R,T]]){
    (acc,ele) => {
-    emit.emitNode(ele,acc, tmp)
+    emit.emitNode(ele,acc, tmp, sample)
    }
   }
 
