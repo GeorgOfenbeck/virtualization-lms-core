@@ -30,7 +30,7 @@ import scala.virtualization.lms.internal._
 
 trait DFTSigmaSPL_Base extends SigmaSPLBase with LiftNumeric {
 
- def infix_SPL_RaderDiag(n: Rep[Int], k: Rep[Int], root: Rep[Int], in : Rep[SigmaSPLVector]) : Rep[SigmaSPLVector]
+ /*def infix_SPL_RaderDiag(n: Rep[Int], k: Rep[Int], root: Rep[Int], in : Rep[SigmaSPLVector]) : Rep[SigmaSPLVector]
  def infix_SPL_S_T(n: Rep[Int], d: Rep[Int], k: Rep[Int], f: Rep[IndexMapping], in: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
  def infix_SPL_S_T3L(n: Rep[Int], d: Rep[Int], k: Rep[Int], f: Rep[IndexMapping], in: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
  def infix_SPL_T(n: Rep[Int], d: Rep[Int], k: Rep[Int], in: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
@@ -49,12 +49,19 @@ trait DFTSigmaSPL_Base extends SigmaSPLBase with LiftNumeric {
  def infix_im_w(g: Rep[Int], range: Rep[Int], domain: Rep[Int]): Rep[IndexMapping]
  def infix_im_wt(phi: Rep[Int], g: Rep[Int], range: Rep[Int], domain: Rep[Int]): Rep[IndexMapping]
  def infix_im_v(m: Rep[Int], k: Rep[Int], range: Rep[Int], domain: Rep[Int]): Rep[IndexMapping]
- def infix_im_z(b: Rep[Int], s: Rep[Int], range: Rep[Int], domain: Rep[Int]): Rep[IndexMapping]
+ def infix_im_z(b: Rep[Int], s: Rep[Int], range: Rep[Int], domain: Rep[Int]): Rep[IndexMapping]*/
+
+  def infix_SPL_F2(): Rep[SigmaSPLVector]
 }
 
 
 trait DFTSigmaSPLExp extends DFTSigmaSPL_Base with SigmaSPLExp {
+  import scala.reflect.runtime.universe._
+  def bla[T]()(implicit tag: TypeTag[T]): TypeTag[T]= tag //RF!
 
+  case class SPL_F2() extends Def[SigmaSPLVector]
+  def infix_SPL_F2(): Exp[SigmaSPLVector] = DefwithMeta(SPL_F2(),new SigmaSPLMeta(2,bla[SigmaSPLVector]()))
+  /*
  def numeric_times(lhs: Exp[Int], rhs: Exp[Int]): Exp[Int] = super.numeric_times(lhs,rhs)
 
  case class IM_Twiddle (d: Exp[Int], n: Exp[Int], override val range: Exp[Int], override val domain: Exp[Int]) extends DefIM(range, domain)
@@ -125,6 +132,7 @@ trait DFTSigmaSPLExp extends DFTSigmaSPL_Base with SigmaSPLExp {
 
  def infix_SPL_Wt(n: Exp[Int], phi : Exp[Int], g: Exp[Int], inr: Exp[SigmaSPLVector]): Exp[SigmaSPLVector]= SPL_Wt(n,phi,g,inr)
 
+  */
  /*  override def mirror[A:Manifest](e: Def[A], f: Transformer): Exp[A] = (e match {
      case SPL_W(n,phi,g,inr)               => infix_SPL_W(f(n),f(phi),f(g),f(inr))
      case SPL_Wt(n,phi,g,inr)              => infix_SPL_Wt(f(n),f(phi),f(g),f(inr))

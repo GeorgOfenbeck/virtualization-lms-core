@@ -32,7 +32,6 @@ import ch.ethz.spirals.dsls._
 trait SPL2SigmaSPL extends PureDefaultTraversal {
 
   val IR: SPL_Exp with PureFunctionsExp
-
   import IR._
 
 
@@ -46,14 +45,23 @@ trait SPL2SigmaSPL extends PureDefaultTraversal {
     def emitNode(tp: traversal.cminfo.reifiedIR.IR.TP[_], fmap: Map[Int, sigmaspl.Rep[sigmaspl.SigmaSPLVector] => sigmaspl.Rep[sigmaspl.SigmaSPLVector]], block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]]):
     Map[Int, sigmaspl.Rep[sigmaspl.SigmaSPLVector] => sigmaspl.Rep[sigmaspl.SigmaSPLVector]] = {
       import traversal.cminfo.reifiedIR.IR._
+
+
+
       val newf = tp.rhs match {
 
         case Compose(a, b) => (in: sigmaspl.Rep[sigmaspl.SigmaSPLVector]) => fmap(a.id)(fmap(b.id)(in))
-        case Tensor(Const(I(n: Int)), b) => (in: sigmaspl.Rep[sigmaspl.SigmaSPLVector]) => {
+        case Tensor(Const(I(k: Int)), b) => (in: sigmaspl.Rep[sigmaspl.SigmaSPLVector]) => {
           val bmeta = getSPLMeta(b)
-          val tensorsize = n * bmeta.size
+          val n = bmeta.size
+          val tensorsize = n * k
           import sigmaspl._
-          val fragsize: sigmaspl.Rep[Int] = tensorsize / n
+
+          val h = imh_h(n,0,Vector(1,n),n,tensorsize)
+          val A = fmap(b.id)
+          gt(in,A(in),h,h,Vector(k))
+
+          /*val fragsize: sigmaspl.Rep[Int] = tensorsize / n
           val loop: sigmaspl.Rep[sigmaspl.SigmaSPLVector] = sigmaspl.sigma(tensorsize, 0, n,
             i => {
               val gattered = gather(im_h(fragsize * i, 1, fragsize, tensorsize), in)
@@ -61,21 +69,19 @@ trait SPL2SigmaSPL extends PureDefaultTraversal {
               val scattered = scatter(im_h(fragsize * i, 1, fragsize, tensorsize), processed)
               scattered
             })
-          loop
+          loop*/
         }
-        case Tensor(a, Const(I(n))) => (in: sigmaspl.Rep[sigmaspl.SigmaSPLVector]) => {
+        case Tensor(a, Const(I(k))) => (in: sigmaspl.Rep[sigmaspl.SigmaSPLVector]) => {
           val ameta = getSPLMeta(a)
-          val tensorsize = n * ameta.size
+          val n = ameta.size
+          val tensorsize = n * k
+
           import sigmaspl._
-          val fragsize: sigmaspl.Rep[Int] = tensorsize / n
-          val loop = sigma(tensorsize, 0, n,
-            i => {
-              val gattered = gather(im_h(i, n, fragsize, tensorsize), in)
-              val processed = fmap(a.id)(gattered)
-              val scattered = scatter(im_h(i, n, fragsize, tensorsize), processed)
-              scattered
-            })
-          loop
+
+          val h = imh_h(n,0,Vector(k,1),n,tensorsize)
+          val A = fmap(a.id)
+          gt(in,A(in),h,h,Vector(k))
+
         }
         case ConstDef(x: SPL) => (in: sigmaspl.Rep[sigmaspl.SigmaSPLVector]) => emitSigmaSPLOperator(x, in)
       }
@@ -86,8 +92,8 @@ trait SPL2SigmaSPL extends PureDefaultTraversal {
       import ch.ethz.spirals.dsls._
       import sigmaspl._
       val out: sigmaspl.Rep[sigmaspl.SigmaSPLVector] = spl match {
-        case I(n) => sigmaspl.infix_SPL_I(n, in)
-        case F_2() => sigmaspl.infix_SPL_F2(in)
+        case I(n) => sigmaspl.infix_SPL_F2()
+        case F_2() => sigmaspl.infix_SPL_F2()
         /*case L(n,k) => sigmaspl.infix_SPL_L(n,k,in)
         case W(n,phi,g) => sigmaspl.infix_SPL_W(n,phi,g,in)
         case Wt(n,phi,g) => sigmaspl.infix_SPL_Wt(n,phi,g,in)
@@ -103,7 +109,7 @@ trait SPL2SigmaSPL extends PureDefaultTraversal {
     }
   }
 
-  def SPL2Mat(splgenf: => IR.Exp[SPL], dsl_sigmaspl: DFTSigmaSPL_Base): Map[Int, dsl_sigmaspl.Rep[dsl_sigmaspl.SigmaSPLVector] => dsl_sigmaspl.Rep[dsl_sigmaspl.SigmaSPLVector]] = {
+  def SPL2SigmaSPL(splgenf: => IR.Exp[SPL], dsl_sigmaspl: DFTSigmaSPL_Base) = {
     val myf: IR.Exp[Unit] => IR.Exp[SPL] = (u: IR.Exp[Unit]) => splgenf
     val expos_u = IR.exposeRepFromRep[Unit]
     val expos_spl = IR.exposeRepFromRep[SPL]
@@ -118,10 +124,14 @@ trait SPL2SigmaSPL extends PureDefaultTraversal {
       x
     }
 
-    col.iterator().foldLeft(Map.empty[Int, dsl_sigmaspl.Rep[dsl_sigmaspl.SigmaSPLVector] => dsl_sigmaspl.Rep[dsl_sigmaspl.SigmaSPLVector]]) {
+    val bydecompmap = col.iterator().foldLeft(Map.empty[Int, dsl_sigmaspl.Rep[dsl_sigmaspl.SigmaSPLVector] => dsl_sigmaspl.Rep[dsl_sigmaspl.SigmaSPLVector]]) {
       (acc, ele) => {
         emit.emitNode(ele, acc, tmp)
       }
     }
+    val finalnode = bydecompmap.map(x => x._1).reduceLeft(_ max _)
+    val finalcall = bydecompmap(finalnode)
+    finalcall
+
   }
 }
