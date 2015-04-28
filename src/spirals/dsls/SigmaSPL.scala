@@ -24,7 +24,7 @@ trait SigmaSPLBase extends Base with NumericOps with SigmaSPLMetaData{
   def gather (im: Rep[IndexMapping], x: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
   def scatter (im: Rep[IndexMapping], x: Rep[SigmaSPLVector]): Rep[SigmaSPLVector]
 
-  def imh_h(fragsize: Int, base: Int, strides: Vector[Int], range: Int, domain: Int): Rep[IndexMapping]
+  def imh_h(fragsize: Rep[Int], base: Rep[Int], strides: Vector[Rep[Int]], range: Rep[Int], domain: Rep[Int]): Rep[IndexMapping]
 
   def gt(
          x: Rep[SigmaSPLVector],
@@ -73,9 +73,9 @@ trait SigmaSPLExp extends SigmaSPLBase with NumericOpsExp { self =>
   def im_compose(x: Exp[IndexMapping], y: Exp[IndexMapping], range: Exp[Int], domain: Exp[Int]): Exp[IndexMapping] = IM_Compose(x, y, range, domain)
 
 
-  case class IMH_H  (fragsize: Int, base: Int, strides: Vector[Int],  override val range: Int, override val domain: Int)       extends DefIM(Const(range), Const(domain))
+  case class IMH_H  (fragsize: Exp[Int], base: Exp[Int], strides: Vector[Exp[Int]], override val range: Exp[Int], override val domain: Exp[Int])       extends DefIM(range,domain)
 
-  def imh_h(fragsize: Int, base: Int, strides: Vector[Int], range: Int, domain: Int) = IMH_H(fragsize,base,strides,range,domain)
+  def imh_h(fragsize: Exp[Int], base: Exp[Int], strides: Vector[Exp[Int]], range: Exp[Int], domain: Exp[Int]) = IMH_H(fragsize,base,strides,range,domain)
   
 
   case class Tag   (body: Exp[SigmaSPLVector], tagType: Exp[Tag]) extends Def[SigmaSPLVector]

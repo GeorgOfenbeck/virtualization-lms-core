@@ -34,10 +34,10 @@ trait SigmaSPL2Code extends PureDefaultTraversal {
   }
 
 
-  def emitNode[V[_],E[_],R[_],T](tp: traversal.cminfo.reifiedIR.IR.TP[_], fmap: Map[Int, CVector[V,E,R,T] => CVector[V,E,R,T]],
+  def emitNode[V[_],E[_],R[_],T](tp: traversal.cminfo.reifiedIR.IR.TP[_], fmap: Map[Int, Either[ (CVector[V,E,R,T] => CVector[V,E,R,T]), (Vector[V[Int]] => V[Int] )]],
                                  block_callback: traversal.cminfo.reifiedIR.IR.Block => Iterator[traversal.cminfo.reifiedIR.IR.TP[_]],
                                  sample: CVector[V,E,R,T]
-                                  ) : Map[Int, CVector[V,E,R,T] => CVector[V,E,R,T]] =  {
+                                  ) : Map[Int, Either[ (CVector[V,E,R,T] => CVector[V,E,R,T]), (Vector[V[Int]] => V[Int] )]] =  {
 
    import traversal.cminfo.reifiedIR.IR._
 
@@ -51,14 +51,12 @@ trait SigmaSPL2Code extends PureDefaultTraversal {
    }
    tp.rhs match{
     //-------------------------------Tensor--------------------------------
-
-
-    case GT(x,a,IMH_H(frag,base,strides,range,domain),s,v) => {
+    /*case GT(x,a,IMH_H(frag,base,strides,range,domain),s,v) => {
      val A = fmap(a.id)
      val h = getH(sample,sample.vrep(base),strides.map( stride => sample.vrep(stride) ))
      val f: CVector[V,E,R,T] => CVector[V,E,R,T] = sample.GT(A,h,h,v)
-     fmap + (tp.exp.id -> f)
-    }
+     fmap + (tp.exp.id -> Left(f))
+    }*/
     //-------------------------------SPl Objects--------------------------------
     case SPL_F2() => {
      val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) => {
@@ -75,13 +73,16 @@ trait SigmaSPL2Code extends PureDefaultTraversal {
       out.update(idx1,res2)
       out
      }
-     fmap + (tp.exp.id -> f)
+     fmap + (tp.exp.id -> Left(f))
     }
 
     //------------------------------default traversal-----------------------------------------
-    case Lambda(_,_,block,_,_) => block_callback(block).foldLeft(Map.empty[Int, CVector[V,E,R,T] => CVector[V,E,R,T]]){
-     (acc,ele) => {
-      emitNode(ele,acc, block_callback,sample)
+    case Lambda(_,_,block,_,_) => {
+     val empt = Map.empty[Int, Either[ (CVector[V,E,R,T] => CVector[V,E,R,T]), (Vector[V[Int]] => V[Int] )]]
+     block_callback(block).foldLeft(empt){
+      (acc,ele) => {
+       emitNode(ele,acc, block_callback,sample)
+      }
      }
     }
    }
@@ -106,7 +107,13 @@ trait SigmaSPL2Code extends PureDefaultTraversal {
    x
   }
 
-  val bydecompmap = col.iterator().foldLeft(Map.empty[Int, CVector[V,E,R,T] => CVector[V,E,R,T]]){
+
+
+  val bydecompmap = col.iterator().foldLeft(Map.empty[Int,
+    Either[
+      (CVector[V,E,R,T] => CVector[V,E,R,T] ),
+  (Vector[V[Int]] => V[Int] )]]
+  ){
    (acc,ele) => {
     emit.emitNode(ele,acc, tmp, sample)
    }
