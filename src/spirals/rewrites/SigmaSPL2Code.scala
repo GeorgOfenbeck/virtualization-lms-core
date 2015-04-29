@@ -50,13 +50,20 @@ trait SigmaSPL2Code extends PureDefaultTraversal {
     f
    }
    tp.rhs match{
+    //-------------------------------Index Mapping--------------------------------
+     case IMH_H(fragsize,base,strides,range,domain) => {
+
+       fmap + (tp.exp.id -> Right(???))
+     }
+
     //-------------------------------Tensor--------------------------------
-    /*case GT(x,a,IMH_H(frag,base,strides,range,domain),s,v) => {
-     val A = fmap(a.id)
-     val h = getH(sample,sample.vrep(base),strides.map( stride => sample.vrep(stride) ))
+    case GT(x,a,im,s,v) => {
+     val A = fmap(a.id).left.get
+      val h = fmap(im.id).right.get
+     //val h = getH(sample,sample.vrep(base),strides.map( stride => sample.vrep(stride) ))
      val f: CVector[V,E,R,T] => CVector[V,E,R,T] = sample.GT(A,h,h,v)
      fmap + (tp.exp.id -> Left(f))
-    }*/
+    }
     //-------------------------------SPl Objects--------------------------------
     case SPL_F2() => {
      val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) => {
