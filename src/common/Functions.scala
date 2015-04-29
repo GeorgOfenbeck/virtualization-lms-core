@@ -345,22 +345,23 @@ trait CGenFunctions extends CGenEffect with BaseGenFunctions {
   val IR: FunctionsExp
   import IR._
 
-  // Nested functions are not allowed in standard C.
-  // TODO: Either emit the function other place or use C++11 (or only gcc)
-  /*
+  // Case for functions with a single argument (therefore, not tupled)
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
     case e@Lambda(fun, x, y) =>
-      stream.println(remap(y.tp)+" "+quote(sym)+"("+remap(x.tp)+" "+quote(x)+") {")
+      val retType = remap(getBlockResult(y).tp)
+      stream.println("function<"+retType+"("+
+    		  remap(x.tp)+")> "+quote(sym)+
+    		  " = [&]("+remap(x.tp)+" "+quote(x)+") {")
       emitBlock(y)
       val z = getBlockResult(y)
-      if (remap(z.tp) != "void")
+      if (retType != "void")
         stream.println("return " + quote(z) + ";")
-      stream.println("}")
+      stream.println("};")
     case Apply(fun, arg) =>
       emitValDef(sym, quote(fun) + "(" + quote(arg) + ")")
     case _ => super.emitNode(sym, rhs)
   }
-  */
+  
 }
 
 trait CGenTupledFunctions extends CGenFunctions with GenericGenUnboxedTupleAccess {
@@ -375,12 +376,15 @@ trait CGenTupledFunctions extends CGenFunctions with GenericGenUnboxedTupleAcces
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
     case Lambda(fun, UnboxedTuple(xs), y) =>
-      stream.println(remap(y.tp)+" "+quote(sym)+"("+xs.map(s=>remap(s.tp)+" "+quote(s)).mkString(",")+") {")
+      val retType = remap(getBlockResult(y).tp)
+      stream.println("function<"+retType+"("+
+    		  xs.map(s=>remap(s.tp)).mkString(",")+")> "+quote(sym)+
+    		  " = [&]("+xs.map(s=>remap(s.tp)+" "+quote(s)).mkString(",")+") {")
       emitBlock(y)
       val z = getBlockResult(y)
-      if (remap(z.tp) != "void")
+      if (retType != "void")
         stream.println("return " + quote(z) + ";")
-      stream.println("}")
+      stream.println("};")
     case Apply(fun, UnboxedTuple(args)) =>
       emitValDef(sym, quote(fun) + args.map(quote).mkString("(", ",", ")"))
     case _ => super.emitNode(sym,rhs)

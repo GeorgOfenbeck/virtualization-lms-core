@@ -192,7 +192,7 @@ trait ScalaGenArrayOps extends BaseGenArrayOps with ScalaGenBase {
   val ARRAY_LITERAL_MAX_SIZE = 1000
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case a@ArrayNew(n) => emitValDef(sym, src"new Array[${a.m}]($n)")
+    case a@ArrayNew(n) => emitValDef(sym, src"new Array[${remap(a.m)}]($n)")
     case e@ArrayFromSeq(xs) => {
       emitData(sym, xs)
       emitValDef(sym,
@@ -216,7 +216,7 @@ trait ScalaGenArrayOps extends BaseGenArrayOps with ScalaGenBase {
     case ArrayUpdate(x,n,y) => emitValDef(sym, src"$x($n) = $y")
     case ArrayLength(x) => emitValDef(sym, src"$x.length")
     case ArrayForeach(a,x,block) =>
-      gen"""val $sym = $a.foreach{"
+      gen"""val $sym = $a.foreach{
            |$x => 
            |${nestedBlock(block)}
            |$block
@@ -224,7 +224,7 @@ trait ScalaGenArrayOps extends BaseGenArrayOps with ScalaGenBase {
     case ArrayCopy(src,srcPos,dest,destPos,len) => emitValDef(sym, src"System.arraycopy($src,$srcPos,$dest,$destPos,$len)")
     case a@ArraySort(x) =>
       gen"""val $sym = {
-           |val d = new Array[${a.m}]($x.length)
+           |val d = new Array[${remap(a.m)}]($x.length)
            |System.arraycopy($x, 0, d, 0, $x.length)
            |scala.util.Sorting.quickSort(d)
            |d

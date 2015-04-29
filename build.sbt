@@ -53,3 +53,7 @@ libraryDependencies ++= (
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _ % "compile")
 
 addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
+
+// code coverage
+
+scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageHighlighting := false

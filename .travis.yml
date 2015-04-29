@@ -5,3 +5,8 @@ scala:
 before_install:
     - git clone https://github.com/scala-lms/summer-of-lms-2014.git
     - (cd summer-of-lms-2014; git checkout scala-virtualized; sbt publish-local)
+script:
+    - sbt clean coverage test && sbt coverageAggregate
+
+after_success:
+    - sbt coveralls

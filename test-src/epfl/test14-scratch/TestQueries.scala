@@ -801,8 +801,8 @@ trait Shallow extends Util {
 
     case (Empty(),Empty())       => List()
     case (IfThen(c,a),Empty())   => if (cond && c) a else List[T]()
-    //case (For(l,f),Empty())      => for (x <- l if cond; y <- f(x)) yield y // FIXME(trans)
-    case (For(l,f),Empty())      => l.flatMap(x => if (cond) f(x) else List[Any]())
+    case (For(l,f),Empty())      => implicit def unsafe[T] = manifest[Any].asInstanceOf[Manifest[T]] // FIXME: get manifest (for result type) from somewhere else
+                                    for (x <- l if cond; y <- f(x)) yield y
     case (Concat(a,b),Empty())   => (if (cond) a else List[T]()) ++ (if (cond) b else List[T]())
     case _                       => super.ifThenElse(cond,thenp,elsep)
   }).asInstanceOf[Exp[T]]
