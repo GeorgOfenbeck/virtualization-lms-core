@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 package internal
 
@@ -33,3 +34,4 @@ trait GenericFatCodegen extends GenericNestedCodegen with FatBlockTraversal {
 
 }
 
+*/

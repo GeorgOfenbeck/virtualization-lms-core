@@ -1,3 +1,4 @@
+
 package scala.virtualization.lms
 package internal
 
@@ -23,7 +24,6 @@ trait GraphTraversal extends Scheduling {
   def getDependentStuff(st: Sym[Any]): List[Stm] = {
     getDependentStuff(List(st))
   }
-
 }
 
 
@@ -150,3 +150,4 @@ trait NestedGraphTraversal extends GraphTraversal with CodeMotion {
   }
 
 }
+

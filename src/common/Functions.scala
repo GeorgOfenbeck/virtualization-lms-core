@@ -131,11 +131,12 @@ trait FunctionsExp extends Functions with EffectExp {
   }
 
 }
+/*
 
 trait TupledFunctionsExp extends TupledFunctions with FunctionsExp with TupleOpsExp {
   // used to represent unboxed tuples by a list of vars
   // T will be a tuple of a specified arity
-  case class UnboxedTuple[T: Manifest](val vars: List[Exp[Any]]) extends Exp[T]
+  case class UnboxedTuple[T: Manifest](val vars: List[Exp[Any]]) //extends Exp[T]
 
   private def tupledManifest[T](m: Manifest[T]): Boolean = m.erasure.getName startsWith "scala.Tuple"
   private def tupledManifestOf[T](m: Manifest[T], arity: Int): Boolean = m.erasure.getName == "scala.Tuple" + arity
@@ -143,7 +144,7 @@ trait TupledFunctionsExp extends TupledFunctions with FunctionsExp with TupleOps
   override def unboxedFresh[A:Manifest] : Exp[A] = {
     val mA = implicitly[Manifest[A]]
     if (mA == implicitly[Manifest[Unit]] || tupledManifest(mA))
-      UnboxedTuple[A](mA.typeArguments.map(fresh(_)))
+      ??? //UnboxedTuple[A](mA.typeArguments.map(fresh(_))) //RF!
     else fresh[A]
   }
 
@@ -152,7 +153,7 @@ trait TupledFunctionsExp extends TupledFunctions with FunctionsExp with TupleOps
     x match {
       case _ : UnboxedTuple[A] => x
       case _ if mA == implicitly[Manifest[Unit]] =>
-        UnboxedTuple[A](List())
+        ??? //UnboxedTuple[A](List())
       case _ if tupledManifestOf(mA, 2) =>
         x match { case t : Rep[(a1,a2)] =>
           UnboxedTuple[A](List(
@@ -197,6 +198,7 @@ trait TupledFunctionsExp extends TupledFunctions with FunctionsExp with TupleOps
     case _ => super.mirror(e,f)
   }).asInstanceOf[Exp[A]]
 }
+*/
 
 trait FunctionsRecursiveExp extends FunctionsExp with ClosureCompare {
   var funTable: List[(Sym[_], Any)] = List()
@@ -215,6 +217,7 @@ trait FunctionsRecursiveExp extends FunctionsExp with ClosureCompare {
 
 }
 
+/*
 trait TupledFunctionsRecursiveExp extends FunctionsRecursiveExp with TupledFunctionsExp
 
 trait GenericGenUnboxedTupleAccess extends GenericNestedCodegen {
@@ -230,6 +233,8 @@ trait GenericGenUnboxedTupleAccess extends GenericNestedCodegen {
     case _ => super.emitNode(sym, rhs)
   }
 }
+*/
+
 
 trait BaseGenFunctions extends GenericNestedCodegen {
   val IR: FunctionsExp
@@ -253,6 +258,7 @@ trait ScalaGenFunctions extends ScalaGenEffect with BaseGenFunctions {
     case _ => super.emitNode(sym, rhs)
   }
 }
+/*
 
 trait ScalaGenTupledFunctions extends ScalaGenFunctions with GenericGenUnboxedTupleAccess {
   val IR: TupledFunctionsExp
@@ -293,6 +299,7 @@ trait ScalaGenTupledFunctions extends ScalaGenFunctions with GenericGenUnboxedTu
     case _ => super.remap(m)
   }
 }
+*/
 
 trait CudaGenFunctions extends CudaGenEffect with BaseGenFunctions {
   val IR: FunctionsExp
@@ -363,6 +370,7 @@ trait CGenFunctions extends CGenEffect with BaseGenFunctions {
   }
   
 }
+/*
 
 trait CGenTupledFunctions extends CGenFunctions with GenericGenUnboxedTupleAccess {
   val IR: TupledFunctionsExp
@@ -406,3 +414,4 @@ trait CGenTupledFunctions extends CGenFunctions with GenericGenUnboxedTupleAcces
     case _ => super.remap(m)
   }*/
 }
+*/

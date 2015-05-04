@@ -167,7 +167,7 @@ trait CLikeCodegen extends GenericCodegen {
     case Const(s: Float) => s+"f"
     case Const(null) => "NULL"
     case Const(z) => CLikeConsts(x, z.toString)
-    case Sym(-1) => "_"
+    case Exp(-1) => "_"
     case _ => super.quote(x)
   }
 }
@@ -177,8 +177,10 @@ trait CLikeNestedCodegen extends GenericNestedCodegen with CLikeCodegen {
   import IR._
 }
 
+/*
 trait CLikeFatCodegen extends GenericFatCodegen with CLikeCodegen {
   val IR: Expressions with Effects with FatExpressions
   import IR._
 }
+*/
 

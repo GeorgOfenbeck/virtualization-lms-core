@@ -7,7 +7,7 @@ import org.scala_lang.virtualized.RefinedManifest
 
 import util.OverloadHack
 import java.io.PrintWriter
-import internal.{GenericNestedCodegen, GenericFatCodegen}
+import internal.GenericNestedCodegen
 
 abstract class Record extends Struct
 
@@ -88,7 +88,7 @@ trait StructExp extends StructOps with StructTags with BaseExp with EffectExp wi
   def field_update[T:Manifest](struct: Exp[Any], index: String, rhs: Exp[T]): Exp[Unit] = reflectWrite(struct)(FieldUpdate(struct, index, rhs))
 
   def record_new[T : Manifest](fields: Seq[(String, Boolean, Rep[T] => Rep[_])]) = {
-    val x: Sym[T] = Sym[T](-99) // self symbol -- not defined anywhere, so make it obvious!! (TODO)
+    val x: Sym[T] = Exp[T](-99) // self symbol -- not defined anywhere, so make it obvious!! (TODO)
     val fieldSyms = fields map {
       case (index, false, rhs) => (index, rhs(x))
       case (index, true, rhs) => (index, var_new(rhs(x)).e)
@@ -351,6 +351,7 @@ trait StructFatExpOptCommon extends StructFatExp with StructExpOptCommon with If
   }
 
 }
+/*
 
 trait BaseGenFatStruct extends GenericFatCodegen {
   val IR: StructFatExpOptCommon // TODO: restructure traits, maybe move this to if then else codegen?
@@ -395,6 +396,8 @@ trait BaseGenFatStruct extends GenericFatCodegen {
     r
   }
 }
+*/
+/*
 
 trait ScalaGenFatStruct extends ScalaGenStruct with BaseGenFatStruct {
   val IR: StructFatExpOptCommon // TODO: restructure traits, maybe move this to if then else codegen?
@@ -406,6 +409,7 @@ trait ScalaGenFatStruct extends ScalaGenStruct with BaseGenFatStruct {
     case _ => super.emitNode(sym, rhs)
   }
 }
+*/
 
 trait BaseGenStruct extends GenericNestedCodegen {
   val IR: StructExp
@@ -450,6 +454,8 @@ trait CGenStruct extends CGenBase with BaseGenStruct
 trait CudaGenStruct extends CudaGenBase with BaseGenStruct
 trait OpenCLGenStruct extends OpenCLGenBase with BaseGenStruct
 
+/*
 trait CudaGenFatStruct extends CudaGenStruct with BaseGenFatStruct
 trait OpenCLGenFatStruct extends OpenCLGenStruct with BaseGenFatStruct
 trait CGenFatStruct extends CGenStruct with BaseGenFatStruct
+*/

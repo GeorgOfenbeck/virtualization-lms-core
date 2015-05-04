@@ -135,7 +135,7 @@ trait ScalaNestedCodegen extends GenericNestedCodegen with ScalaCodegen {
   
 }
 
-
+/*
 trait ScalaFatCodegen extends GenericFatCodegen with ScalaCodegen {
   val IR: Expressions with Effects with FatExpressions
   import IR._
@@ -153,4 +153,4 @@ trait ScalaFatCodegen extends GenericFatCodegen with ScalaCodegen {
   override def emitNodeKernelExtra(syms: List[Sym[Any]], rhs: Def[Any]): Unit = emitKernelExtra(syms)
 
 
-}
+}*/

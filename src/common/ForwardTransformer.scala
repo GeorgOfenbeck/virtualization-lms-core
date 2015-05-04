@@ -1,10 +1,11 @@
+/* RF!!
 package scala.virtualization.lms
 package common
 
 import scala.collection.{immutable,mutable}
 import org.scala_lang.virtualized.SourceContext
 
-trait ForwardTransformer extends internal.AbstractSubstTransformer with internal.FatBlockTraversal { self =>
+trait ForwardTransformer extends internal.AbstractSubstTransformer with internal.BlockTraversal { self =>
   val IR: BaseFatExp with EffectExp //LoopsFatExp with IfThenElseFatExp
   import IR._
   
@@ -41,11 +42,11 @@ trait ForwardTransformer extends internal.AbstractSubstTransformer with internal
     }
   }
 
-  override def traverseStm(stm: Stm): Unit = stm match {
-    case TP(sym, rhs) => 
+  override def traverseTP(tp: TP[_]): Unit = {
+      val sym = tp.sym
       val sym2 = apply(sym)
       if (sym2 == sym) {
-        val replace = transformStm(stm)
+        val replace = transformTP(tp)
         // printlog("registering forward transformation: " + sym + " to " + replace)
         // printlog("while processing stm: " + stm)          
         assert(!subst.contains(sym) || subst(sym) == replace)
@@ -54,17 +55,16 @@ trait ForwardTransformer extends internal.AbstractSubstTransformer with internal
         }
       } else {
         if (recursive.contains(sym)) { // O(n) since recursive is a list!
-          transformStm(stm)
+          transformTP(tp)
         } else {
-          printerr("warning: transformer already has a substitution " + sym + "->" + sym2 + " when encountering stm " + stm)
+          printerr("warning: transformer already has a substitution " + sym + "->" + sym2 + " when encountering tp " + tp)
           // what to do? bail out? lookup def and then transform???
         }
       }
   }
   
   
-  def transformStm(stm: Stm): Exp[Any] = stm match { // override this to implement custom transform
-    case TP(sym,rhs) =>
+  def transformTP(tp: TP[_]): Exp[Any] = self_mirror(tp.sym, tp.rhs) // override this to implement custom transform
       /*
        TBD: optimization from MirrorRetainBlockTransformer in TestMiscTransform -- is it worth doing??        
        // we want to skip those statements that don't have symbols that need substitution
@@ -74,8 +74,6 @@ trait ForwardTransformer extends internal.AbstractSubstTransformer with internal
        return sym
        }
        */
-      self_mirror(sym, rhs)
-  }
 
   def self_mirror[A](sym: Sym[A], rhs : Def[A]): Exp[A] = {
     try {
@@ -93,42 +91,45 @@ trait ForwardTransformer extends internal.AbstractSubstTransformer with internal
 }
 
 
-trait RecursiveTransformer extends ForwardTransformer { self =>
+trait RecursiveTransformer extends ForwardTransformer {
+  self =>
+
   import IR._
 
-  def run[A:Manifest](s: Block[A]): Block[A] = {
+  def run[A: Manifest](s: Block[A]): Block[A] = {
     transformBlock(s)
   }
 
   def transformDef[A](lhs: Sym[A], rhs: Def[A]): Option[() => Def[A]] = None
 
-  override def traverseStmsInBlock[A](stms: List[Stm]): Unit = {
+  override def traverseTPsInBlock[A](tps: Vector[TP[_]]): Unit = {
     for (sym <- recursive) {
       subst += (sym -> fresh(mtype(sym.tp)))
     }
-    super.traverseStmsInBlock(stms)
+    super.traverseTPsInBlock(tps)
   }
 
-  override def transformStm(stm: Stm): Exp[Any] = stm match {
-    case TP(s, rhs) => transformDef(s, rhs) match {
+  override def transformTP(tp: TP[_]): Exp[Any] = {
+    val s = tp.sym
+    val rhs = tp.rhs
+    transformDef(tp.sym, tp.rhs) match {
       case Some(rhsThunk) =>
         val s2 = subst.get(s) match {
-          case Some(s2@Sym(_)) => assert(recursive.contains(s)); s2
+          case Some(s2@Exp(_)) => assert(recursive.contains(s)); s2
           case _ => assert(!recursive.contains(s)); fresh(mtype(s.tp))
         }
         createDefinition(s2, rhsThunk())
         s2
       case None => subst.get(s) match {
-        case Some(s2@Sym(_)) =>
+        case Some(s2@Exp(_)) =>
           assert(recursive.contains(s))
           createDefinition(s2, Def.unapply(self_mirror(s, rhs)).get)
           s2
         case None =>
           assert(!recursive.contains(s))
-          super.transformStm(stm)
+          super.transformTP(tp)
       }
     }
-    case _ => super.transformStm(stm)
   }
 }
 
@@ -156,17 +157,18 @@ trait WorklistTransformer extends ForwardTransformer { // need backward version,
   def run[A:Manifest](s: Block[A]): Block[A] = {
     if (isDone) s else run(runOnce(s))
   }
-  override def transformStm(stm: Stm): Exp[Any] = stm match {
-    case TP(sym, rhs) => 
-      curSubst.get(sym) match {
-        case Some(replace) =>
-          printdbg("install replacement for " + sym)
-          //val b = reifyEffects(replace())
-          //reflectBlock(b)
-          replace()
-        case None => 
-          super.transformStm(stm)
-      }
+  override def transformTP(tp: TP[_]): Exp[Any] = {
+    val sym = tp.sym
+    val rhs = tp.rhs
+    curSubst.get(sym) match {
+      case Some(replace) =>
+        printdbg("install replacement for " + sym)
+        //val b = reifyEffects(replace())
+        //reflectBlock(b)
+        replace()
+      case None =>
+        super.transformTP(tp)
+    }
   }
-
 }
+*/

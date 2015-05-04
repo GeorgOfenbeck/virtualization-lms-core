@@ -68,32 +68,32 @@ trait NumericOpsExpOpt extends NumericOpsExp {
   this: PrimitiveOpsExp =>
   
   override def numeric_plus[T:Numeric:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = (lhs,rhs) match {
-    case (Const(x), Const(y)) => Const(implicitly[Numeric[T]].plus(x,y))
-    case (Const(x), y) if x == implicitly[Numeric[T]].zero => y
-    case (x, Const(y)) if y == implicitly[Numeric[T]].zero => x
+    case (Const(x: T), Const(y: T)) => Const(implicitly[Numeric[T]].plus(x,y))
+    case (Const(x: T), y) if x == implicitly[Numeric[T]].zero => y
+    case (x, Const(y: T)) if y == implicitly[Numeric[T]].zero => x
     case _ => super.numeric_plus(lhs,rhs)
   }
   override def numeric_minus[T:Numeric:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = (lhs,rhs) match {
-    case (Const(x), Const(y)) => Const(implicitly[Numeric[T]].minus(x,y))
+    case (Const(x: T), Const(y: T)) => Const(implicitly[Numeric[T]].minus(x,y))
     case _ => super.numeric_minus(lhs,rhs)
   }
   override def numeric_times[T:Numeric:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = (lhs,rhs) match {
-    case (Const(x), Const(y)) => Const(implicitly[Numeric[T]].times(x,y))
-    case (Const(x), y) if x == implicitly[Numeric[T]].zero => Const(x)
-    case (x, Const(y)) if y == implicitly[Numeric[T]].zero => Const(y)
-    case (Const(x), y) if x == implicitly[Numeric[T]].one => y
-    case (x, Const(y)) if y == implicitly[Numeric[T]].one => x
+    case (Const(x: T), Const(y: T)) => Const(implicitly[Numeric[T]].times(x,y))
+    case (Const(x: T), y) if x == implicitly[Numeric[T]].zero => Const(x)
+    case (x, Const(y: T)) if y == implicitly[Numeric[T]].zero => Const(y)
+    case (Const(x: T), y) if x == implicitly[Numeric[T]].one => y
+    case (x, Const(y: T)) if y == implicitly[Numeric[T]].one => x
     case _ => super.numeric_times(lhs,rhs)
   }
   override def numeric_divide[T:Numeric:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = (lhs,rhs) match {
     // CAVEAT: Numeric doesn't have .div, Fractional has
-    case (Const(x), Const(y)) => Const(implicitly[Numeric[T]].asInstanceOf[Fractional[T]].div(x,y))
+    case (Const(x: T), Const(y: T)) => Const(implicitly[Numeric[T]].asInstanceOf[Fractional[T]].div(x,y))
     case _ => super.numeric_divide(lhs,rhs)
   }
 }
 
 
-trait ScalaGenNumericOps extends ScalaGenFat {
+trait ScalaGenNumericOps extends ScalaGenBase {
   val IR: NumericOpsExp
   import IR._
   

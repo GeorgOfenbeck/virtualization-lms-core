@@ -1,3 +1,4 @@
+
 package scala.virtualization.lms
 package internal
 
@@ -23,7 +24,7 @@ trait BlockTraversal extends GraphTraversal {
   def getBlockResultFull[A](s: Block[A]): Exp[A] // = s.res
   
   def traverseBlock[A](block: Block[A]): Unit
-  def traverseStm(stm: Stm): Unit
+  def traverseTP(tp: TP[_]): Unit
   
   def reset: Unit = ()
 }
@@ -49,22 +50,22 @@ trait NestedBlockTraversal extends BlockTraversal with NestedGraphTraversal {
 
   
   def focusBlock[A](result: Block[Any])(body: => A): A = 
-    focusFatBlock(List(result))(body)
+    focusFatBlock(Vector(result))(body)
     
-  def focusFatBlock[A](result: List[Block[Any]])(body: => A): A = 
+  def focusFatBlock[A](result: Vector[Block[Any]])(body: => A): A =
     focusSubGraph[A](result.map(getBlockResultFull))(body)
 
 
-  def focusExactScope[A](resultB: Block[Any])(body: List[Stm] => A): A = 
-    focusExactScopeFat(List(resultB))(body)
+  def focusExactScope[A](resultB: Block[Any])(body: Vector[TP[_]] => A): A =
+    focusExactScopeFat(Vector(resultB))(body)
   
-  def focusExactScopeFat[A](resultB: List[Block[Any]])(body: List[Stm] => A): A = 
+  def focusExactScopeFat[A](resultB: Vector[Block[Any]])(body: Vector[TP[_]] => A): A =
     focusExactScopeSubGraph[A](resultB.map(getBlockResultFull))(body)
   
   // ---- bound and free vars
 
-  def boundInScope(x: List[Exp[Any]]): List[Sym[Any]] = {
-    (x.flatMap(syms):::innerScope.flatMap(t => t.lhs:::boundSyms(t.rhs))).distinct
+  def boundInScope(x: Vector[Exp[Any]]): Vector[Sym[Any]] = {
+    //(x.flatMap(syms):::innerScope.flatMap(t => t.lhs:::boundSyms(t.rhs))).distinct
   }
   
   def usedInScope(y: List[Exp[Any]]): List[Sym[Any]] = {
@@ -109,16 +110,16 @@ trait NestedBlockTraversal extends BlockTraversal with NestedGraphTraversal {
 
   def traverseBlockFocused[A](block: Block[A]): Unit = {
     focusExactScope(block) { levelScope =>
-      traverseStmsInBlock(levelScope)
+      traverseTPsInBlock(levelScope)
     }
   }
 
-  def traverseStmsInBlock[A](stms: List[Stm]): Unit = {
+  def traverseTPsInBlock[A](stms: Vector[TP[_]]): Unit = {
     stms foreach traverseStm
   }
 
-  def traverseStm(stm: Stm): Unit = { // override this to implement custom traversal
-    blocks(stm.rhs) foreach traverseBlock
+  def traverseStm(tp: TP[_]): Unit = { // override this to implement custom traversal
+    blocks(tp.rhs) foreach traverseBlock
   }
 
   // ----- reset
@@ -130,4 +131,5 @@ trait NestedBlockTraversal extends BlockTraversal with NestedGraphTraversal {
     super.reset
   }
 }
+
 

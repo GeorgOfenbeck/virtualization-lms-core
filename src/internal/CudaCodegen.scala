@@ -73,7 +73,7 @@ trait CudaNestedCodegen extends CLikeNestedCodegen with CudaCodegen {
   import IR._
 }
 
-trait CudaFatCodegen extends CLikeFatCodegen with CudaCodegen {
+/*trait CudaFatCodegen extends CLikeFatCodegen with CudaCodegen {
   val IR: Expressions with Effects with FatExpressions
   import IR._
-}
+}*/

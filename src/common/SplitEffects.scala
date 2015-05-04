@@ -1,9 +1,12 @@
+/*
+//RF!!
+
 package scala.virtualization.lms
 package common
 
 import java.io.PrintWriter
 import org.scala_lang.virtualized.SourceContext
-import scala.virtualization.lms.internal.{GenericNestedCodegen, GenericFatCodegen, GenerationFailedException}
+import scala.virtualization.lms.internal.{GenericNestedCodegen, GenericCodegen, GenerationFailedException}
 
 
 trait SplitEffectsExpFat extends IfThenElseFatExp with WhileExp with PreviousIterationDummyExp { this: BooleanOpsExp with EqualExpBridge =>
@@ -286,3 +289,4 @@ trait ScalaGenPreviousIterationDummy extends ScalaGenFat {
   }
 
 }
+*/

@@ -3,7 +3,7 @@ package common
 
 import java.io.PrintWriter
 import org.scala_lang.virtualized.SourceContext
-import scala.virtualization.lms.internal.{GenericNestedCodegen, GenericFatCodegen, GenerationFailedException}
+import scala.virtualization.lms.internal.{GenericNestedCodegen, GenerationFailedException}
 
 trait IfThenElse extends Base {
   def __ifThenElse[T:Manifest](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext): Rep[T]
@@ -208,6 +208,8 @@ trait BaseGenIfThenElse extends GenericNestedCodegen {
 
 }
 
+/*
+//RF!
 trait BaseGenIfThenElseFat extends BaseGenIfThenElse with GenericFatCodegen {
   val IR: IfThenElseFatExp
   import IR._
@@ -224,6 +226,7 @@ trait BaseGenIfThenElseFat extends BaseGenIfThenElse with GenericFatCodegen {
     case _ => super.fatten(e)
   }
 }
+*/
 
 
 trait ScalaGenIfThenElse extends ScalaGenEffect with BaseGenIfThenElse {
@@ -241,7 +244,8 @@ trait ScalaGenIfThenElse extends ScalaGenEffect with BaseGenIfThenElse {
     case _ => super.emitNode(sym, rhs)
   }
 }
-
+/*
+//RF!
 trait ScalaGenIfThenElseFat extends ScalaGenIfThenElse with ScalaGenFat with BaseGenIfThenElseFat {
   import IR._
 
@@ -260,6 +264,7 @@ trait ScalaGenIfThenElseFat extends ScalaGenIfThenElse with ScalaGenFat with Bas
   }
 
 }
+*/
 
 trait CudaGenIfThenElse extends CudaGenEffect with BaseGenIfThenElse {
   import IR._
@@ -309,7 +314,8 @@ trait CudaGenIfThenElse extends CudaGenEffect with BaseGenIfThenElse {
       }
     }
 }
-
+/*
+//RF!
 trait CudaGenIfThenElseFat extends CudaGenIfThenElse with CudaGenFat with BaseGenIfThenElseFat {
   import IR._
 
@@ -318,6 +324,7 @@ trait CudaGenIfThenElseFat extends CudaGenIfThenElse with CudaGenFat with BaseGe
     case _ => super.emitFatNode(symList, rhs)
   }
 }
+*/
 
 trait OpenCLGenIfThenElse extends OpenCLGenEffect with BaseGenIfThenElse {
   import IR._
@@ -361,7 +368,8 @@ trait OpenCLGenIfThenElse extends OpenCLGenEffect with BaseGenIfThenElse {
       }
     }
 }
-
+/*
+//RF!
 trait OpenCLGenIfThenElseFat extends OpenCLGenIfThenElse with OpenCLGenFat with BaseGenIfThenElseFat {
   import IR._
 
@@ -370,6 +378,7 @@ trait OpenCLGenIfThenElseFat extends OpenCLGenIfThenElse with OpenCLGenFat with 
     case _ => super.emitFatNode(symList, rhs)
   }
 }
+*/
 
 trait CGenIfThenElse extends CGenEffect with BaseGenIfThenElse {
   import IR._
@@ -419,7 +428,8 @@ trait CGenIfThenElse extends CGenEffect with BaseGenIfThenElse {
     }
   }
 }
-
+/*
+//RF!
 trait CGenIfThenElseFat extends CGenIfThenElse with CGenFat with BaseGenIfThenElseFat {
   import IR._
 
@@ -428,3 +438,4 @@ trait CGenIfThenElseFat extends CGenIfThenElse with CGenFat with BaseGenIfThenEl
     case _ => super.emitFatNode(symList, rhs)
   }
 }
+*/

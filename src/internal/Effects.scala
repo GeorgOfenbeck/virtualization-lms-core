@@ -395,7 +395,7 @@ trait Effects extends Expressions with Blocks with Utils {
     }
   }
   
-  def isWritableSym[A](w: Sym[A]): Boolean = {
+  def isWritableSym(w: Exp[_]): Boolean = {
     findDefinition(w) match {
       case Some(TP(_, Reflect(_, u, _))) if mustMutable(u) => true // ok
       case o => globalMutableSyms.contains(w)

@@ -3,7 +3,8 @@ package common
 
 import java.io.PrintWriter
 import org.scala_lang.virtualized.SourceContext
-import scala.virtualization.lms.internal.{FatBlockTraversal,GenericNestedCodegen,GenericFatCodegen}
+//import scala.virtualization.lms.internal.{FatBlockTraversal,GenericNestedCodegen,GenericFatCodegen}
+import scala.virtualization.lms.internal.GenericNestedCodegen
 
 trait Loops extends Base { // no surface constructs for now
 
@@ -131,6 +132,7 @@ trait LoopsFatExp extends LoopsExp with BaseFatExp {
   }
 }
 
+/*
 
 trait BaseLoopsTraversalFat extends FatBlockTraversal {
   val IR: LoopsFatExp
@@ -146,18 +148,21 @@ trait BaseLoopsTraversalFat extends FatBlockTraversal {
   }
   
 }
+*/
 
 trait BaseGenLoops extends GenericNestedCodegen {
   val IR: LoopsExp
   import IR._
 
 }
+/*
 
 trait BaseGenLoopsFat extends BaseGenLoops with BaseLoopsTraversalFat with GenericFatCodegen {
   val IR: LoopsFatExp
   import IR._
 
 }
+*/
 
 trait ScalaGenLoops extends ScalaGenBase with BaseGenLoops {
   import IR._
@@ -166,24 +171,24 @@ trait ScalaGenLoops extends ScalaGenBase with BaseGenLoops {
 
 }
 
-trait ScalaGenLoopsFat extends ScalaGenLoops with ScalaGenFat with BaseGenLoopsFat {
+/*trait ScalaGenLoopsFat extends ScalaGenLoops with ScalaGenFat with BaseGenLoopsFat {
   import IR._
 
   //TODO
 
-}
+}*/
 
 trait CLikeGenLoops extends CLikeGenBase with BaseGenLoops
-trait CLikeGenLoopsFat extends CLikeGenLoops with CLikeGenFat with BaseGenLoopsFat
+//trait CLikeGenLoopsFat extends CLikeGenLoops with CLikeGenFat with BaseGenLoopsFat
 
 trait CGenLoops extends CGenBase with CLikeGenLoops
-trait CGenLoopsFat extends CGenLoops with CGenFat with CLikeGenLoopsFat
+//trait CGenLoopsFat extends CGenLoops with CGenFat with CLikeGenLoopsFat
 
 trait GPUGenLoops extends GPUGenBase with CLikeGenLoops
-trait GPUGenLoopsFat extends GPUGenLoops with GPUGenFat with CLikeGenLoopsFat 
+//trait GPUGenLoopsFat extends GPUGenLoops with GPUGenFat with CLikeGenLoopsFat
 
 trait CudaGenLoops extends CudaGenBase with GPUGenLoops
-trait CudaGenLoopsFat extends CudaGenLoops with CudaGenFat with GPUGenLoopsFat
+//trait CudaGenLoopsFat extends CudaGenLoops with CudaGenFat with GPUGenLoopsFat
 
 trait OpenCLGenLoops extends OpenCLGenBase with GPUGenLoops
-trait OpenCLGenLoopsFat extends OpenCLGenLoops with OpenCLGenFat with GPUGenLoopsFat
+//trait OpenCLGenLoopsFat extends OpenCLGenLoops with OpenCLGenFat with GPUGenLoopsFat

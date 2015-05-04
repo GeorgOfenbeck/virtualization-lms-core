@@ -4,7 +4,7 @@ version := "0.3-SNAPSHOT"
 
 organization := "EPFL"
 
-scalaVersion := "2.11.2"
+scalaVersion := "2.11.6"
 
 scalaSource in Compile <<= baseDirectory(_ / "src")
 

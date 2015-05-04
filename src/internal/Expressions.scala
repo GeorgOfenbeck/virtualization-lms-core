@@ -15,89 +15,105 @@ import java.lang.{StackTraceElement,Thread}
  */
 trait Expressions extends Utils {
 
-  abstract class Exp[+T:Manifest] { // constants/symbols (atomic)
-    def tp: Manifest[T @uncheckedVariance] = manifest[T] //invariant position! but hey...
-    def pos: List[SourceContext] = Nil
+  case class Exp[+T](id: Int) { // constants/symbols (atomic)
+    var sourceContexts: Vector[SourceContext] = Vector.empty
+    def pos = sourceContexts
+    def withPos(pos: Vector[SourceContext]) = { sourceContexts :+ pos; this }
+    def tp[T] : Manifest[T] = {
+      getTP(this) match {
+        case Some(ftp) => ftp.tag
+        case None => assert(false, "tried to get Manifest of a symbol which apparently does not have an assoziated TP"); ???
+      }
+    }
+
   }
 
-  case class Const[+T:Manifest](x: T) extends Exp[T]
+  type Sym[T] = Exp[T]
 
-  case class Sym[+T:Manifest](val id: Int) extends Exp[T] {
-    var sourceContexts: List[SourceContext] = Nil
-    override def pos = sourceContexts
-    def withPos(pos: List[SourceContext]) = { sourceContexts :::= pos; this }
-  }
+  case class ConstDef[T:Manifest](x: T) extends Def[T]
 
   case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
 
   var nVars = 0
-  def fresh[T:Manifest]: Sym[T] = Sym[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
+  def fresh[T:Manifest]: Exp[T] = Exp[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
+  def fresh[T:Manifest](pos: Vector[SourceContext]): Exp[T] = fresh[T].withPos(pos)
 
-  def fresh[T:Manifest](pos: List[SourceContext]): Sym[T] = fresh[T].withPos(pos)
+  var exp2tp: Map[Exp[_], TP[_]] = Map.empty
+  var def2tp: Map[Def[_], TP[_]] = Map.empty
+  var id2tp: Map[Int, TP[_]] = Map.empty
 
-  def quotePos(e: Exp[Any]): String = e.pos match {
-    case Nil => "<unknown>"
-    case cs => 
-      def all(cs: SourceContext): List[SourceContext] = cs.parent match {
-        case None => List(cs)
-        case Some(p) => cs::all(p)
+
+  def quotePos(e: Exp[Any]): String = {
+    if(e.pos.isEmpty)
+      "<unknown>"
+    else
+    {
+      def all(cs: SourceContext): Vector[SourceContext] = cs.parent match {
+        case None => Vector(cs)
+        case Some(p) => cs +: all(p)
       }
-    cs.map(c => all(c).reverse.map(c => c.fileName.split("/").last + ":" + c.line).mkString("//")).mkString(";")
+      e.pos.reverse.map(c => all(c).reverse.map(c => c.fileName.split("/").last + ":" + c.line).mkString("//")).mkString(";")
+    }
   }
-
 
   abstract class Def[+T] { // operations (composite)
     override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
   }
 
   // statement (links syms and definitions)
-  abstract class Stm {
+/*  abstract class Stm {
     def lhs: List[Sym[Any]] = infix_lhs(this)
     def rhs: Any = infix_rhs(this)
     def defines[A](sym: Sym[A]): Option[Def[A]] = infix_defines(this, sym)
     def defines[A](rhs: Def[A]): Option[Sym[A]] = infix_defines(this, rhs)
+  }*/
+
+
+
+  case class TP[T](sym: Exp[T], rhs: Def[T], val tag: Manifest[T]){
+    def lhs: Vector[Exp[_]] = infix_lhs(this)
+    def defines(sym: Exp[T]): Option[Def[T]] = infix_defines(this, sym)
+    def defines(rhs: Def[T]): Option[Exp[T]] = infix_defines(this, rhs)
   }
+
+
+
   
-  def infix_lhs(stm: Stm): List[Sym[Any]] = stm match {
-    case TP(sym, rhs) => sym::Nil
+  def infix_lhs[T](tp: TP[T]): Vector[Exp[_]] = Vector(tp.sym)
+  def infix_rhs[T](tp: TP[T]): Any = tp.rhs
+
+
+  def infix_defines[A](tp: TP[A], sym: Exp[A]): Option[Def[A]] = Some(tp.rhs)
+  def infix_defines[A](tp: TP[A], rhs: Def[A]): Option[Exp[A]] = Some(tp.sym)
+
+
+  def storeTP[T: Manifest](tp: TP[T]): Unit = {
+    def2tp = def2tp + (tp.rhs -> tp)
+    exp2tp = exp2tp + (tp.sym -> tp)
+    id2tp = id2tp + (tp.sym.id -> tp)
   }
 
-  def infix_rhs(stm: Stm): Any = stm match { // clients use syms(e.rhs), boundSyms(e.rhs) etc.
-    case TP(sym, rhs) => rhs
+  def getTP[T: Manifest](d: Def[T]): Option[TP[T]] = {
+    def2tp.get(d).asInstanceOf[Option[TP[T]]] //TODO - get rid of the type cast
   }
 
-  def infix_defines[A](stm: Stm, sym: Sym[A]): Option[Def[A]] = stm match {
-    case TP(`sym`, rhs: Def[A]) => Some(rhs)
-    case _ => None
+  def getTP[T: Manifest](exp: Exp[T]): Option[TP[T]] = {
+    exp2tp.get(exp).asInstanceOf[Option[TP[T]]] //TODO - get rid of the type cast
   }
-
-  def infix_defines[A](stm: Stm, rhs: Def[A]): Option[Sym[A]] = stm match {
-    case TP(sym: Sym[A], `rhs`) => Some(sym)
-    case _ => None
-  }
-  
-  case class TP[+T](sym: Sym[T], override val rhs: Def[T]) extends Stm
 
   // graph construction state
   
-  var globalDefs: List[Stm] = Nil
+  /*var globalDefs: List[Stm] = Nil
   var localDefs: List[Stm] = Nil
-  var globalDefsCache: Map[Sym[Any],Stm] = Map.empty
+  var globalDefsCache: Map[Sym[Any],Stm] = Map.empty*/
 
-  def reifySubGraph[T](b: =>T): (T, List[Stm]) = {
-    val saveLocal = localDefs
-    val saveGlobal = globalDefs
-    val saveGlobalCache = globalDefsCache
-    localDefs = Nil
-    val r = b
-    val defs = localDefs
-    localDefs = saveLocal
-    globalDefs = saveGlobal
-    globalDefsCache = saveGlobalCache
-    (r, defs)
+  def reflectSubGraph(tp: TP[_]): Unit = {
+    assert(getTP(tp.rhs).isEmpty, "already defined" + tp)
+    storeTP(tp)
   }
 
-  def reflectSubGraph(ds: List[Stm]): Unit = {
+
+  /*def reflectSubGraph(ds: List[Stm]): Unit = {
     val lhs = ds.flatMap(_.lhs)
     assert(lhs.length == lhs.distinct.length, "multiple defs: " + ds)
     // equivalent to: globalDefs filter (_.lhs exists (lhs contains _))
@@ -108,40 +124,53 @@ trait Expressions extends Utils {
     for (stm <- ds; s <- stm.lhs) {      
       globalDefsCache += (s->stm)
     }
-  }
+  }*/
 
-  def findDefinition[T](s: Sym[T]): Option[Stm] =
-    globalDefsCache.get(s)
-    //globalDefs.find(x => x.defines(s).nonEmpty)
 
-  def findDefinition[T](d: Def[T]): Option[Stm] =
-    globalDefs.find(x => x.defines(d).nonEmpty)
 
-  def findOrCreateDefinition[T:Manifest](d: Def[T], pos: List[SourceContext]): Stm =
-    findDefinition[T](d) map { x => x.defines(d).foreach(_.withPos(pos)); x } getOrElse {
-      createDefinition(fresh[T](pos), d)
-    }
+  def findDefinition[T: Manifest](s: Exp[T]): Option[TP[T]] = getTP(s)
 
-  def findOrCreateDefinitionExp[T:Manifest](d: Def[T], pos: List[SourceContext]): Exp[T] =
-    findOrCreateDefinition(d, pos).defines(d).get
+  def findDefinition[T: Manifest](d: Def[T]): Option[TP[T]] = getTP(d)
 
-  def createDefinition[T](s: Sym[T], d: Def[T]): Stm = {
-    val f = TP(s, d)
-    reflectSubGraph(List(f))
+  def findOrCreateDefinition[T:Manifest](d: Def[T], pos: Vector[SourceContext]): TP[T] = getTP(d).getOrElse(createDefinition(fresh[T](pos), d))
+
+  def findOrCreateDefinitionExp[T:Manifest](d: Def[T], pos: Vector[SourceContext]): Exp[T] = findOrCreateDefinition(d,pos).sym
+
+  def createDefinition[T](s: Exp[T], d: Def[T]) (implicit tag: Manifest[T]): TP[T] = {
+    val f = TP(s, d, tag)
+    reflectSubGraph(f)
     f
   }
-  
 
   protected implicit def toAtom[T:Manifest](d: Def[T])(implicit pos: SourceContext): Exp[T] = {
-    findOrCreateDefinitionExp(d, List(pos)) // TBD: return Const(()) if type is Unit??
+    findOrCreateDefinitionExp(d, Vector(pos))
   }
 
+
   object Def {
-    def unapply[T](e: Exp[T]): Option[Def[T]] = e match {
-      case s @ Sym(_) =>
-        findDefinition(s).flatMap(_.defines(s))
-      case _ =>
-        None
+    def unapply[T: Manifest](e: Exp[T]): Option[Def[T]] = getTP(e) match {
+      case Some(x) => Some(x.rhs)
+      case None => scala.None
+    }
+  }
+
+  object Const{
+    def apply[T:Manifest](x: T): Exp[T] = {
+      toAtom(ConstDef(x))
+    }
+    def unapply[T](exp: Exp[_]) = getTP(exp) match {
+      case Some(x) => x.rhs match {
+        case ConstDef(y) => Some(y)
+        case _ => scala.None
+      }
+      case None => scala.None
+    }
+    def unapply[T](rhs: Def[_]) = getTP(rhs) match {
+      case Some(x) => x.rhs match {
+        case ConstDef(y) => Some(y)
+        case _ => scala.None
+      }
+      case None => scala.None
     }
   }
 
@@ -153,7 +182,7 @@ trait Expressions extends Utils {
     case s: Sym[Any] => List(s)
     case ss: Iterable[Any] => ss.toList.flatMap(syms(_))
     // All case classes extend Product!
-    case p: Product => 
+    case p: Product =>
       // performance hotspot: this is the same as
       // p.productIterator.toList.flatMap(syms(_))
       // but faster
@@ -225,9 +254,9 @@ trait Expressions extends Utils {
 
   def reset { // used by delite?
     nVars = 0
-    globalDefs = Nil
-    localDefs = Nil
-    globalDefsCache = Map.empty
+    exp2tp = Map.empty
+    def2tp = Map.empty
+    id2tp = Map.empty
   }
 
 }

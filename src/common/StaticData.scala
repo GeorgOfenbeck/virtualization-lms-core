@@ -24,8 +24,8 @@ trait StaticDataExp extends EffectExp {
     case _ => super.toAtom(d)
   }
 
-  override def isWritableSym[A](w: Sym[A]): Boolean = findDefinition(w) match {
-    case Some(TP(_, StaticData(_))) => true
+  override def isWritableSym(w: Exp[_]): Boolean = findDefinition(w) match {
+    case Some(TP(_, StaticData(_), _)) => true
     case _ => super.isWritableSym(w)
   }
   
@@ -47,7 +47,7 @@ trait BaseGenStaticData extends GenericNestedCodegen {
   override def getFreeDataBlock[A](start: Block[A]): List[(Sym[Any],Any)] = {
     focusBlock(start) {
       innerScope flatMap {
-        case TP(sym, rhs) =>
+        case TP(sym, rhs,_) =>
           getFreeDataExp(sym, rhs)
         case _ => Nil //static data is never fat
       }

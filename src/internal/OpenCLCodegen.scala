@@ -70,7 +70,7 @@ trait OpenCLNestedCodegen extends CLikeNestedCodegen with OpenCLCodegen {
   
 }
 
-trait OpenCLFatCodegen extends CLikeFatCodegen with OpenCLCodegen {
+/*trait OpenCLFatCodegen extends CLikeFatCodegen with OpenCLCodegen {
   val IR: Expressions with Effects with FatExpressions
 	import IR._
-}
+}*/

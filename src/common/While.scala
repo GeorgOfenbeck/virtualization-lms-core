@@ -39,6 +39,7 @@ trait WhileExp extends While with EffectExp {
 
 }
 
+/*
 
 trait WhileExpOptSpeculative extends WhileExp with PreviousIterationDummyExp {
   
@@ -69,7 +70,7 @@ trait WhileExpOptSpeculative extends WhileExp with PreviousIterationDummyExp {
     val cer = ce2
     val aer = ae2
     
-/*  
+/*
     val c = reifyEffects(cond)
     val a = reifyEffects(body)
     val ce = summarizeEffects(c)
@@ -80,6 +81,7 @@ trait WhileExpOptSpeculative extends WhileExp with PreviousIterationDummyExp {
 
 }
 
+*/
 
 trait BaseGenWhile extends GenericNestedCodegen {
   val IR: WhileExp
@@ -104,9 +106,11 @@ trait ScalaGenWhile extends ScalaGenEffect with BaseGenWhile {
 }
 
 
+/*
 trait ScalaGenWhileOptSpeculative extends ScalaGenWhile with ScalaGenPreviousIterationDummy {
   val IR: WhileExpOptSpeculative
 }
+*/
 
 
 trait CLikeGenWhile extends CLikeGenBase with BaseGenWhile {

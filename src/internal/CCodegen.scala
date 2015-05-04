@@ -214,9 +214,8 @@ trait CNestedCodegen extends CLikeNestedCodegen with CCodegen {
   
 }
 
-trait CFatCodegen extends CLikeFatCodegen with CCodegen {
+/*trait CFatCodegen extends CLikeFatCodegen with CCodegen {
   val IR: Expressions with Effects with FatExpressions
   import IR._
-
-}
+}*/
 

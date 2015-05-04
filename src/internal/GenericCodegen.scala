@@ -235,7 +235,6 @@ trait GenericCodegen extends BlockTraversal {
 }
 
 
-
 trait GenericNestedCodegen extends NestedBlockTraversal with GenericCodegen {
   val IR: Expressions with Effects
   import IR._

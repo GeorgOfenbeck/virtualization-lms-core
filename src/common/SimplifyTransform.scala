@@ -1,3 +1,4 @@
+/*
 package scala.virtualization.lms
 package common
 
@@ -31,7 +32,7 @@ trait SimplifyTransform extends internal.FatScheduling {
     case TP(s, d) =>
       val (res, stms) = reifySubGraph(transformOne(s,d,t))
   }
-*/  
+*/
 
   def transformOne[A](s: Sym[A], x: Def[A], t: SubstTransformer): Exp[A] = {
     if (t.subst.contains(s)) return t(s) // should continue transforming t(s)?
@@ -169,12 +170,12 @@ trait SimplifyTransform extends internal.FatScheduling {
         // might need to translate f(i), but looking up VectorSum will not be changed at all!!!
         // --> change rhs nonetheless???
         
-  /*      
+  /*
         // potential problem here: calling toAtom on a SimpleCollect (which does not have any symbol so far!)
         val lhs2 = (lhs zip rhs).map(p=>transformOne(p._1,p._2,t)).map { case s: Sym[Any] => s }.distinct.asInstanceOf[List[Sym[Any]]]
         val rhs2 = lhs2 map (findDefinition(_).get.rhs) //FIXME: will lookup old sym (ie VectorTrans) in case of AbstractCollect
         List(TTP(lhs2, SimpleFatLoop(t(s),t(x).asInstanceOf[Sym[Int]],rhs2)))
-  */      
+  */
     }
   }
 
@@ -242,3 +243,4 @@ trait SimplifyTransform extends internal.FatScheduling {
     (scope2, results2)
   }
 }
+*/
