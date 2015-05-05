@@ -1,14 +1,14 @@
 name := "macro-LMS"
 
-version := "0.3-SNAPSHOT"
+version := "0.5"
 
 organization := "EPFL"
 
 scalaVersion := "2.11.6"
 
-scalaSource in Compile <<= baseDirectory(_ / "src")
+scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
-scalaSource in Test <<= baseDirectory(_ / "test-src")
+scalaSource in Test <<= baseDirectory(_ / "src/test")
 
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _ % "compile")
 
