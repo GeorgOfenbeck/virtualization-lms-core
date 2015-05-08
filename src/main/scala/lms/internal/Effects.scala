@@ -584,7 +584,7 @@ trait Effects extends InternalFunctions with Blocks with Logging {
 
  // reify the effects of a block that is executed 'here' (if it is executed at all).
  // all assumptions about the current context carry over unchanged.
- def reifyEffectsHere[A:Manifest](block: => Exp[A], controlScope: Boolean = false): Block = {
+ def reifyEffectsHere[A:TypeRep](block: => Exp[A], controlScope: Boolean = false): Block = {
   val save = context
   if (save eq null)
    context = Vector.empty
