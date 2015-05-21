@@ -5,6 +5,8 @@ package ops
 import java.io.PrintWriter
 import org.scala_lang.virtualized.SourceContext
 
+import scala.lms.internal.Effects
+
 
 trait IfThenElse extends Base {
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext): Rep[T]
@@ -21,7 +23,7 @@ trait IfThenElsePureExp extends IfThenElse with BaseExp {
 }
 
 
-trait IfThenElseExp extends IfThenElse with BaseExp  {
+trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
 
   abstract class AbstractIfThenElse[T] extends Def[T] {
     val cond: Exp[Boolean]

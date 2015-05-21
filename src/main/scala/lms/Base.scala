@@ -61,7 +61,7 @@ import scala.lms.internal._
  *
  * @since 0.1
  */
-trait BaseExp extends Base with InternalFunctions with Blocks with Effects{
+trait BaseExp extends Base with InternalFunctions with Blocks { //with Effects{
   type Rep[T] = Exp[T]
   def unit[T:TypeRep](x: T) = Const(x)
 

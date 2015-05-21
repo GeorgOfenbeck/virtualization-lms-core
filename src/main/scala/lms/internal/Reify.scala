@@ -32,3 +32,38 @@ trait ReificationPure{
   }
  }
 }
+
+
+trait ReifyPure{
+ self =>
+ val IR: BaseExp with InternalFunctionsExp
+ import IR._
+
+ def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ReificationPure{ val IR: self.IR.type} = {
+  IR.reset()
+  val lambda = fun(f)
+  reifyProgram(lambda)
+ }
+
+ def reifyProgram(lambda: Exp[_ => _]): ReificationPure{ val IR: self.IR.type} = {
+  val tp = exp2tp(lambda)
+  val lam: InternalLambda[_,_] = tp.rhs match{
+   case x@InternalLambda(_,_,block,_,_) => x
+   case _ => {
+    assert(false, "This should not be possible")
+    ???
+   }
+  }
+
+  val immutable_out = new ReificationPure {
+   val IR: self.IR.type = self.IR
+   val sym2tp: Map[IR.Exp[_], IR.TP[_]] = self.IR.exp2tp
+   val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
+   val id2tp: Map[Int,IR.TP[_]] = self.IR.id2tp
+
+   //val rootblock = lam.y
+   val rootlambda = lam
+  }
+  immutable_out
+ }
+}
