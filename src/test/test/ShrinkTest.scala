@@ -1,3 +1,4 @@
+/*
 package test
 object GenFs{
  //def default() : (Int => Int) = (in: Int) => in
@@ -82,4 +83,4 @@ class ShrinkTest  extends Properties("bitstuff") {
    x > 0
   }
  }
-}
+}*/

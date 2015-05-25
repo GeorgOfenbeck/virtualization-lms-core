@@ -1,3 +1,4 @@
+/*
 package test
 
 package ethz.scheduling
@@ -710,3 +711,4 @@ class RandomDSLTest extends Properties("bitstuff") {
   }
  }
 }
+*/

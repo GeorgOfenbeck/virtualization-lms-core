@@ -18,12 +18,14 @@ trait Emit[C]{
 
 
 
- def emitF(tp: self.IR.TP[_], acc: C,
+
+ def emitNode(tp: self.IR.TP[_], acc: C,
               block_callback: (self.IR.Block,C) => C): C = {
   val ret: C = tp match{
    case _ => {
-    assert(false, "no translation for " + tp)
-    ???
+    //assert(false, "no translation for " + tp)
+    //???
+     acc
    }
   }
   ret
@@ -62,7 +64,7 @@ trait Emit[C]{
  def emitc(start: C, it: Iterator[self.IR.TP[_]], block_callback: (self.IR.Block,C) => C ): C = {
   it.foldLeft(start){
    (acc,ele) => {
-    val t: C = emitF(ele,acc,block_callback)
+    val t: C = emitNode(ele,acc,block_callback)
     t
    }
   }
