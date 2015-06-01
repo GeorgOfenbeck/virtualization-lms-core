@@ -5,8 +5,23 @@ import internal._
 import scala.reflect._
 
 trait GenericCodegen extends Emit[String]{
+  self =>
   val IR: BaseExp with InternalFunctionsExp
   import IR._
+
+  def emitDataStructures(): String = {""}
+
+
+  override def emitc(start: String,
+                     it: Iterator[self.IR.TP[_]],
+                     block_callback: (self.IR.Block,String) => String ): String = {
+    it.foldLeft(start){
+      (acc,ele) => {
+        val t: String = emitNode(ele,acc,block_callback)
+        acc + t
+      }
+    }
+  }
 
 
   def quote(x: TP[_]) : String = x.sym match {
@@ -29,7 +44,8 @@ trait GenericCodegen extends Emit[String]{
 
     def quoteOrRemap(arg: Any): String = arg match {
       case xs: Seq[_] => xs.map(quoteOrRemap).mkString(",")
-      case tp: TP[_] => quote(tp)
+      //case tp: TP[_] => quote(tp)
+      case exp: Exp[_] => quote(id2tp(exp.id))
       case m: Manifest[_] => remap(m)
       case s: String => s
       case _ => throw new RuntimeException(s"Could not quote or remap $arg")

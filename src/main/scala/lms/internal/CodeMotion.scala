@@ -283,9 +283,13 @@ trait CodeMotion {
           case _ => {
             val out = node.productIterator.toSet
             val id = sym.id
-            val precessors = syms(node).map(x => x.id).toSet
+            val nsyms = syms(node)
+            val precessors = nsyms.map(x => x.id).toSet
             val embedded_blocks = blocks(defentry.rhs).toSet
+            val blocksyms = embedded_blocks.flatMap(x => x.res.map(exp => exp.id))
+            val precessors_without_blocks = precessors -- blocksyms
             val successors = Set.empty[Int] // we will fill this in a next step
+            //(id,EnrichedGraphNode(sym.id,precessors_without_blocks,successors,Set.empty[Int],embedded_blocks))
             (id,EnrichedGraphNode(sym.id,precessors,successors,Set.empty[Int],embedded_blocks))
           }
         }

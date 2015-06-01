@@ -45,6 +45,14 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp{
   ???
  }
 
+ override def syms(e: Any): Vector[Exp[_]] = e match {
+  case InternalLambda(f,x,y,args,returns) => {
+   Vector.empty
+  }
+  case _ => {
+   super.syms(e)
+  }
+ }
 
  override def boundExps(e: Any): Vector[Exp[_]] = e match {
   case l@InternalLambda(f, x, y,_,_) => {

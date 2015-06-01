@@ -23,9 +23,8 @@ trait Emit[C]{
               block_callback: (self.IR.Block,C) => C): C = {
   val ret: C = tp match{
    case _ => {
-    //assert(false, "no translation for " + tp)
-    //???
-     acc
+    assert(false, "no translation for " + tp)
+    ???
    }
   }
   ret
@@ -65,7 +64,7 @@ trait Emit[C]{
   it.foldLeft(start){
    (acc,ele) => {
     val t: C = emitNode(ele,acc,block_callback)
-    t
+     t
    }
   }
  }
