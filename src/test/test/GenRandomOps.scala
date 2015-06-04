@@ -1,5 +1,7 @@
 package test
 
+import scala.annotation.tailrec
+
 /**
  * Georg Ofenbeck
  First created:
@@ -9,12 +11,17 @@ package test
 trait GenRandomOps {
 
 
+
  type GenTypes = String
- type Op = (String, Vector[GenTypes], Vector[GenTypes],PartialFunction[Any,Any],PartialFunction[Any,Any])
+ type Op = (String, OpDescription)
  type AvailOps = Map[Set[GenTypes], Op]
  type AvailUniqueTypes = Set[GenTypes]
  type AvailTypeTuples = Set[AvailUniqueTypes]
 
+ case class OpDescription(args: Vector[GenTypes],
+                          returns:Vector[GenTypes],
+                          rf: _ => _,
+                          sf: _ => _)
 
  def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = availTypes
  def ops (availOps: AvailOps): AvailOps = availOps
@@ -31,12 +38,30 @@ trait GenRandomOps {
   currops
  }
 
+ def findAllIndex(targettype: GenTypes, options: Vector[GenTypes]): Vector[Int] = {
+  options.zipWithIndex.filter(p => p._1 == targettype).map(e => e._2)
+ }
 
- def chooseParams(avInputs: Vector[GenTypes], op: Op) = {
-  //continue here:
-  // pick random inputs for each slot of op
-  // call the op
-  //op._2
+ def chooseRandomParam(targettype: GenTypes, options: Vector[GenTypes]): Gen[Int] = {
+  val tmatches = findAllIndex(targettype,options)
+  Gen.oneOf(tmatches).map(choice => choice)
+ }
+
+ def chooseParams(avInputs: Vector[GenTypes], op: Op): Gen[Vector[Int]] = {
+  val mapping = op._2.args.foldLeft(Vector.empty[Gen[Int]]) {
+   (acc,ele) => { acc :+ chooseRandomParam(ele,avInputs) }}
+  sequence(mapping)
+  ???
+ }
+
+
+ def genNextNode(avInputs: Vector[GenTypes], op: Op): Gen[Vector[GenTypes]] = {
+  val randomparas = chooseParams(avInputs,op)
+
+/*  randomparas.map(x => {
+   op._2.rf()
+  })*/
+  ???
  }
 
 
@@ -59,7 +84,6 @@ trait GenRandomOps {
 
  def genTypeTuple(): Gen[Set[GenTypes]] = {
   val all = supported_types(Set.empty)
-
   val t = for {
    i <- Gen.oneOf(all.toSeq)
   } yield i

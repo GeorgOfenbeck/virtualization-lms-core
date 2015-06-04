@@ -22,7 +22,12 @@ object RandomClass extends GenRandomBooleanOps{
  }
 }*/
 
-class MRandomClass extends BooleanOpsExp with InternalFunctionsExp with GenRandomBooleanOps{
+class MRandomClass extends BooleanOpsExp
+with PurePrimitiveOpsExp
+with ImplicitOpsExp
+with InternalFunctionsExp
+with GenRandomBooleanOps
+with GenRandomPrimitiveOps{
 
  type avail = Boolean
 
@@ -41,9 +46,12 @@ class MRandomClass extends BooleanOpsExp with InternalFunctionsExp with GenRando
    inputs <- genF
    avOps <- filterOps(inputs.toSet)
   } yield{
-    //
+
   }
  }
+
+ def
+
 
 
  def genF() = {
@@ -72,14 +80,18 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
  val x = new MRandomClass
 
 
- /*val p1 = forAll { n:Int =>
-  2*n == n+n
- }*/
+ val gen = x.genF()
 
- property("mult"){
-  forAll(x.genF()) {
-   cha => println(cha)
+ println(gen.sample.get)
+
+ /*property("mult"){
+
+  forAll(gen) {
+   cha => {
+    println(cha)
+    true
+   }
   }
- }
 
+ }*/
 }
