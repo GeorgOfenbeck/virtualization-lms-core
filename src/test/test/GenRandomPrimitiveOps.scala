@@ -10,9 +10,6 @@ trait GenRandomPrimitiveOps extends GenRandomOps{
  this: PurePrimitiveOpsExp =>
 
 
-
-
-
  val plus: AvailOps = {
   val f: Function1[(Int,Int),Int] = (pair: (Int,Int)) => pair._1 + pair._2
   val op = OpDescription(Vector("Int", "Int"),Vector("Int"),f,f)

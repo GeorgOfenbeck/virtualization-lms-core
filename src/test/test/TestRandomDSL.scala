@@ -32,7 +32,7 @@ with GenRandomPrimitiveOps{
  type avail = Boolean
 
 
- def rNrArgs = Gen.chooseNum(0,24)
+ def rNrArgs = Gen.chooseNum(1,24)
 
 
  //what types we want to operate on?
@@ -40,7 +40,7 @@ with GenRandomPrimitiveOps{
  //what are the operations accessible given the set of types
 
 
-
+/*
  def genF1() = {
   for {
    inputs <- genF
@@ -48,9 +48,9 @@ with GenRandomPrimitiveOps{
   } yield{
 
   }
- }
+ }*/
 
- def
+
 
 
 
@@ -58,10 +58,9 @@ with GenRandomPrimitiveOps{
   for {
    nrArgs <- rNrArgs
    inputs <- genTypes(nrArgs)
+   froot <- GenF(inputs)
   } yield {
-    //val x = filterOps(inputs.toSet)
-    //println(x)
-   inputs
+   froot
   }
  }
 
@@ -78,11 +77,12 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
 
  println("hello")
  val x = new MRandomClass
-
-
  val gen = x.genF()
 
- println(gen.sample.get)
+ val sample = gen.sample.get
+ println(sample)
+ val empt = x.Instructions(Vector.empty)
+ sample.regularf(empt)
 
  /*property("mult"){
 

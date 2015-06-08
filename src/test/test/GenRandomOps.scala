@@ -12,6 +12,8 @@ trait GenRandomOps {
 
 
 
+ case class cTP(sym: Any, tag: GenTypes)
+
  type GenTypes = String
  type Op = (String, OpDescription)
  type AvailOps = Map[Set[GenTypes], Op]
@@ -22,6 +24,35 @@ trait GenRandomOps {
                           returns:Vector[GenTypes],
                           rf: _ => _,
                           sf: _ => _)
+
+
+ case class Instructions(val syms: Vector[cTP])
+
+
+ /*case class FNestRoot(
+                     val body: FNest,
+                     val cregular: FNest => (Instructions => Instructions)
+                       )
+ {
+  val regularf: Instructions => Instructions = cregular(body)
+ }*/
+
+ case class FNestRoot(
+                    val body: FNest,
+                    val cregular: FNest => (Instructions => Instructions)
+                      )
+{
+ val regularf: Instructions => Instructions = cregular(body)
+}
+
+ case class FNest(
+                 val next: Option[FNest],
+                 val cregular: Option[FNest] => (Instructions => Instructions)
+                   )
+ {
+  val regularf: Instructions => Instructions = cregular(next)
+ }
+
 
  def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = availTypes
  def ops (availOps: AvailOps): AvailOps = availOps
@@ -89,6 +120,59 @@ trait GenRandomOps {
   } yield i
   t
  }
+
+
+ def createInitalTP(args: Vector[GenTypes]): Vector[cTP] = for (a <- args) yield cTP(null,a)
+
+ //syms: Vector[cTP]
+
+ def GenBase(): Gen[FNest] = {
+  val regular: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
+   val f: Instructions => Instructions = (in: Instructions) => {
+    println("doing stuff - base case")
+    in
+   }
+   f
+  }
+  FNest(None,regular)
+ }
+
+ def GenRandomInstr(nr: Int): Gen[FNest] = {
+
+  for {
+   recurse <- if (nr > 0) GenRandomInstr(nr-1) else GenBase()
+  }
+   yield{
+    val regular: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
+     val f: Instructions => Instructions = (in: Instructions) => {
+      println("doing stuff " + nr)
+      in
+     }
+     f
+    }
+    FNest(Some(recurse),regular)
+   }
+ }
+
+ //createInitalTP(args)
+ def GenF(args: Vector[GenTypes]): Gen[FNestRoot] = {
+  for {
+   instr <- GenRandomInstr(5)
+  }
+   yield{
+    val empty = Instructions(Vector.empty)
+    val regular: (FNest => (Instructions => Instructions)) = (body: FNest) => {
+     val f: Instructions => Instructions = (in: Instructions) => {
+       val ini = empty.copy(syms = in.syms)
+       val body = instr.regularf(ini)
+       body
+     }
+     f
+    }
+    FNestRoot(instr,regular)
+   }
+ }
+
 
 
 }
