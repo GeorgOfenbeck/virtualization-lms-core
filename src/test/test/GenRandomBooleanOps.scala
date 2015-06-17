@@ -12,13 +12,18 @@ trait GenRandomBooleanOps extends GenRandomOps{
  this: BooleanOpsExp =>
 
 
- val f: PartialFunction[Any, Any] = {    case x: Boolean => !x  }
-
- val negate: AvailOps = {
-  val f: Function1[Boolean,Boolean] = (x: Boolean) => !x
-  val op = OpDescription(Vector("Boolean"),Vector("Boolean"),f,f)
-  Map(Set("Boolean") -> ("boolean_negate", op))
- }
+  val negate: AvailOps = {
+    val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
+      val t = x.head.asInstanceOf[Boolean]
+      Vector(!t)
+    }
+    val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
+      val t = x.head.asInstanceOf[Rep[Boolean]]
+      Vector(boolean_negate(t))
+    }
+    val op = OpDescription(Vector("Boolean"),Vector("Boolean"),f,sf)
+    Map(Set("Boolean") -> Op("boolean_negate", op))
+  }
 
  //val or = Map(Vector("Boolean","Boolean") -> Vector("Boolean"))
  //val and = Map(Vector("Boolean","Boolean") -> Vector("Boolean"))
@@ -27,25 +32,17 @@ trait GenRandomBooleanOps extends GenRandomOps{
   super.supported_types(availTypes + (Set("Boolean")))
  }
 
-
  override def ops(map: AvailOps) = {
-
-  //map ++ negate ++ or ++ and
   super.ops(map ++ negate)
  }
 
-
- def randomConst(): Gen[Exp[Boolean]] = {
-  for { choice <- Gen.oneOf(true,false)} yield Const(choice)
- }
-
- def randomInstr(x: Exp[Boolean], y: Exp[Boolean]): Gen[Exp[Boolean]] ={
+ /*def randomInstr(x: Exp[Boolean], y: Exp[Boolean]): Gen[Exp[Boolean]] ={
   for { choice <-
         Gen.oneOf(
          boolean_and(x,y),
          boolean_or(x,y)
         )} yield choice
- }
+ }*/
 
 
  /*def randomInstr(): Gen[(Exp[Boolean],Exp[Boolean]) => Exp[Boolean]] = {

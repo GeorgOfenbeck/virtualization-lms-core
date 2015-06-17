@@ -115,6 +115,10 @@ class TestMind extends PropSpec with PropertyChecks {
       val t = x.head.asInstanceOf[Boolean]
       Vector(!t)
     }
+    val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
+      val t = x.head.asInstanceOf[Boolean]
+      Vector(!t)
+    }
     val op = OpDescription(Vector("Boolean"),Vector("Boolean"),f)
     Map(Set("Boolean") -> Op("boolean_negate", op))
   }
