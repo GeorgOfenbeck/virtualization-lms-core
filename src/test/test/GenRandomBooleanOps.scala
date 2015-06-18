@@ -12,6 +12,7 @@ trait GenRandomBooleanOps extends GenRandomOps{
  this: BooleanOpsExp =>
 
 
+
   val negate: AvailOps = {
     val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
       val t = x.head.asInstanceOf[Boolean]
@@ -21,15 +22,17 @@ trait GenRandomBooleanOps extends GenRandomOps{
       val t = x.head.asInstanceOf[Rep[Boolean]]
       Vector(boolean_negate(t))
     }
-    val op = OpDescription(Vector("Boolean"),Vector("Boolean"),f,sf)
-    Map(Set("Boolean") -> Op("boolean_negate", op))
+    val op = OpDescription(Vector(manifest[Boolean]),Vector(manifest[Boolean]),f,sf)
+    val con: GenTypes = manifest[Boolean]
+    val key: Set[GenTypes] = Set(con)
+    Map(key -> Op("boolean_negate", op))
   }
 
  //val or = Map(Vector("Boolean","Boolean") -> Vector("Boolean"))
  //val and = Map(Vector("Boolean","Boolean") -> Vector("Boolean"))
 
  override def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = {
-  super.supported_types(availTypes + (Set("Boolean")))
+  super.supported_types(availTypes + (Set(manifest[Boolean])))
  }
 
  override def ops(map: AvailOps) = {

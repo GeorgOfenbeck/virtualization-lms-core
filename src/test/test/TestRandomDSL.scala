@@ -9,6 +9,7 @@ import org.scalacheck._
 import scala.lms._
 import scala.lms.internal._
 import scala.lms.ops._
+import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
 
@@ -23,6 +24,9 @@ with ScalaCompile {
  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps{
   val IR: self.type = self
  }
+ val emitGraph = new GraphVizExport {
+  override val IR: self.type = self
+ }
 }
 
 import org.scalacheck.Gen.{choose, numChar, alphaChar}
@@ -32,22 +36,30 @@ import prop._
 class TestRandomDSL extends PropSpec with PropertyChecks {
 
 
- val bla = new MRandomClass
+ val dsl = new MRandomClass
 
  println("hello dude")
 
- val desc = CodeDescriptor(10,10)
+ val desc = CodeDescriptor(100,10)
 
- val test1 = bla.genCode(desc).sample.get
+ val test1 = dsl.genCode(desc).sample.get
  val inisyms = test1.head.syms
- val rargs = bla.genArgInstances(inisyms).sample.get
+ val resultsyms = test1.last.syms
+ val rargs = dsl.genArgInstances(inisyms).sample.get
 
- val callstack = bla.chainHeadf(test1)
+ val callstack = dsl.chainHeadf(test1)
 
- val callstack_staged = bla.chainHeadsf(test1)
+ val callstack_staged = dsl.chainHeadsf(test1)
 
- val expose = bla.genExposeRep(inisyms)
- bla.compile(callstack_staged)(expose,expose)
+ val exposeargs = dsl.genExposeRep(inisyms)
+ val exposeres = dsl.genExposeRep(resultsyms)
+
+ val (code, cm) = dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs,exposeres)
+ val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check.dot"))
+ stream.println(code)
+ stream.flush()
+ stream.close()
+ //dsl.compile(callstack_staged)
 
 
  println("args!")

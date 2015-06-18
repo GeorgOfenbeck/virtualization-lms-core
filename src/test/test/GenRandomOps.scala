@@ -17,7 +17,7 @@ trait GenRandomOps extends ExposeRepBase{
 
   case class cTP(sym: Any, tag: GenTypes)
 
-  type GenTypes = String
+  type GenTypes = Manifest[_]
 
   type AvailOps = Map[Set[GenTypes], Op]
   type AvailUniqueTypes = Set[GenTypes]
@@ -153,7 +153,7 @@ trait GenRandomOps extends ExposeRepBase{
   }
   @tailrec
   private def chainsf(v: Vector[FNest], res: Vector[cTP]): Vector[cTP] =
-    if (v.isEmpty) res else chainsf(v.tail, v.head.f(res))
+    if (v.isEmpty) res else chainsf(v.tail, v.head.sf(res))
 
 
   def chainHeadf(v: Vector[FNest]): (Vector[cTP] => Vector[cTP]) = {
@@ -169,12 +169,19 @@ trait GenRandomOps extends ExposeRepBase{
     if (v.isEmpty) res else chainf(v.tail, v.head.f(res))
 
 
-  def genTypeInstance(targetcTP: cTP): Gen[cTP] =
-    targetcTP.tag match {
-      case "Boolean" => for {
-        choice <- Gen.oneOf(true, false)
-      } yield targetcTP.copy(sym = choice)
-      case "Int" => for {
+  def genTypeInstance(targetcTP: cTP): Gen[cTP] = {
+    val boolm: String = manifest[Boolean].toString()
+    val intm: String = manifest[Int].toString()
+    println(boolm + intm)
+    val target:String = targetcTP.tag.toString()
+    target match {
+      case `boolm` => {
+        println("this is supposed to be bool: " + boolm + " " + target)
+        for {
+          choice <- Gen.oneOf(true, false)
+        } yield targetcTP.copy(sym = choice)
+      }
+      case `intm` => for {
         choice <- Arbitrary.arbitrary[Int]
       } yield targetcTP.copy(sym = choice)
       case _ => {
@@ -182,7 +189,7 @@ trait GenRandomOps extends ExposeRepBase{
         ???
       }
     }
-
+    }
   def genArgInstances(v: Vector[cTP]): Gen[Vector[cTP]] = {
     val t = v.map(e => {
       for {
@@ -197,14 +204,19 @@ trait GenRandomOps extends ExposeRepBase{
 
 
 
+
   def genExposeRep(v: Vector[cTP]): ExposeRep[Vector[cTP]] = {
+    val tags = v.map(e => e.tag)
     new ExposeRep[Vector[cTP]]{
-      val freshExps = (u: Unit) => Vector.empty
-      val vec2t = (v: Vector[Exp[_]]) => Vector.empty
-      val t2vec = (x: Vector[cTP]) => Vector.empty
+      val freshExps = (u: Unit) => tags.foldLeft(Vector.empty[Exp[_]])((acc,ele) => acc :+ Arg(ele))
+      val vec2t: Vector[Exp[_]] => Vector[cTP] =
+      //(v: Vector[Exp[_]]) => Vector.empty
+        (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[cTP])( (acc,ele) => acc :+ cTP(ele,exp2tp(ele).tag.mf))
+      val t2vec: Vector[cTP] => Vector[Exp[_]] =
+          //(x: Vector[cTP]) => Vector.empty
+        (x: Vector[cTP]) => x.foldLeft(Vector.empty[Exp[_]])( (acc,ele) => acc :+ ele.sym.asInstanceOf[Exp[_]])
     }
   }
-
 }
 
 

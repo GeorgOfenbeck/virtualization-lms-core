@@ -16,23 +16,26 @@ trait GenRandomPrimitiveOps extends GenRandomOps{
    Vector(r+l)
   }
   val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
-   val t = x.head.asInstanceOf[Int]
-   Vector(t)
+   val l = x.head.asInstanceOf[Rep[Int]]
+   val r = x.tail.head.asInstanceOf[Rep[Int]]
+   Vector(int_plus(l,r))
   }
-  val op = OpDescription(Vector("Int","Int"),Vector("Int"),f,sf)
-  Map(Set("Int") -> Op("boolean_negate", op))
+  val op = OpDescription(Vector(manifest[Int],manifest[Int]),Vector(manifest[Int]),f,sf)
+  val con: GenTypes = manifest[Int]
+  val key: Set[GenTypes] = Set(con)
+  Map(key -> Op("int_plus", op))
  }
 
 
 
- /*override def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = {
-  super.supported_types(availTypes + (Set("Int")))
+ override def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = {
+  super.supported_types(availTypes + (Set(manifest[Int])))
  }
 
 
  override def ops(map: AvailOps) = {
   super.ops(map ++ plus)
- }*/
+ }
 
 
 }

@@ -28,6 +28,7 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp{
    val container = args.vec2t(in)
    val tres = f(container)
    val hres = returns.t2vec(tres)
+   println(hres)
    hres
   }
   val explist = vecf(freshexps)
