@@ -30,7 +30,9 @@ class TestCompile extends Suite {
 
       def mystagedf(x: Rep[Boolean]): Rep[Boolean] = {
         def innerf(u: Rep[Unit]): Rep[Boolean] = !x
-        val bla: Rep[Boolean] = ifThenElseLambda(x,innerf,innerf)
+        val f = innerf _
+        println("same function: " + sameFunction(f,f ))
+        val bla: Rep[Boolean] = ifThenElseLambda(x,f,f)
         bla
       }
 
