@@ -15,13 +15,16 @@ import scala.lms.targets.scalalike._
 
 class MRandomClass extends BooleanOpsExp
 with PurePrimitiveOpsExp
+with IfThenElseExp
 with ImplicitOpsExp
 with InternalFunctionsExp
+
 with GenRandomBooleanOps
 with GenRandomPrimitiveOps
+with GenRandomIFThenElse
 with ScalaCompile {
  self =>
- override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps{
+ override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenIfThenElse{
   val IR: self.type = self
  }
  val emitGraph = new GraphVizExport {
@@ -37,11 +40,8 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
 
 
  val dsl = new MRandomClass
-
  println("hello dude")
-
  val desc = CodeDescriptor(100,10)
-
  val test1 = dsl.genCode(desc).sample.get
  val inisyms = test1.head.syms
  val resultsyms = test1.last.syms

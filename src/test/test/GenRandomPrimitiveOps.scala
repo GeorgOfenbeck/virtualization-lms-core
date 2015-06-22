@@ -9,7 +9,7 @@ import scala.lms.ops._
 trait GenRandomPrimitiveOps extends GenRandomOps{
  this: PurePrimitiveOpsExp =>
 
- val plus: AvailOps = {
+ val plus: Op = {
   val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
    val l = x.head.asInstanceOf[Int]
    val r = x.tail.head.asInstanceOf[Int]
@@ -21,9 +21,7 @@ trait GenRandomPrimitiveOps extends GenRandomOps{
    Vector(int_plus(l,r))
   }
   val op = OpDescription(Vector(manifest[Int],manifest[Int]),Vector(manifest[Int]),f,sf)
-  val con: GenTypes = manifest[Int]
-  val key: Set[GenTypes] = Set(con)
-  Map(key -> Op("int_plus", op))
+  Op("int_plus", op)
  }
 
 
@@ -34,7 +32,7 @@ trait GenRandomPrimitiveOps extends GenRandomOps{
 
 
  override def ops(map: AvailOps) = {
-  super.ops(map ++ plus)
+  super.ops(registerOp(plus,map))
  }
 
 

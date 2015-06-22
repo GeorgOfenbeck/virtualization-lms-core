@@ -23,6 +23,17 @@ trait GenericCodegen extends Emit[String]{
     }
   }
 
+  //
+  def getBlockResults[A](s: Block): Vector[Exp[_]] = s match {
+    case Block(x) => x
+  }
+
+
+
+  def quote(x: Exp[_]) : String = {
+    val tp: TP[_] = id2tp(x.id)
+    quote(tp)
+  }
 
   def quote(x: TP[_]) : String = x.sym match {
     case Const(s: String) => "\""+s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")+"\"" // TODO: more escapes?
@@ -45,7 +56,7 @@ trait GenericCodegen extends Emit[String]{
     def quoteOrRemap(arg: Any): String = arg match {
       case xs: Seq[_] => xs.map(quoteOrRemap).mkString(",")
       //case tp: TP[_] => quote(tp)
-      case exp: Exp[_] => quote(id2tp(exp.id))
+      case exp: Exp[_] => quote(exp)
       case m: Manifest[_] => remap(m)
       case s: String => s
       case _ => throw new RuntimeException(s"Could not quote or remap $arg")

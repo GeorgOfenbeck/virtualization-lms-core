@@ -13,7 +13,7 @@ trait GenRandomBooleanOps extends GenRandomOps{
 
 
 
-  val negate: AvailOps = {
+  val negate: Op = {
     val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
       val t = x.head.asInstanceOf[Boolean]
       Vector(!t)
@@ -23,9 +23,7 @@ trait GenRandomBooleanOps extends GenRandomOps{
       Vector(boolean_negate(t))
     }
     val op = OpDescription(Vector(manifest[Boolean]),Vector(manifest[Boolean]),f,sf)
-    val con: GenTypes = manifest[Boolean]
-    val key: Set[GenTypes] = Set(con)
-    Map(key -> Op("boolean_negate", op))
+    Op("boolean_negate", op)
   }
 
  //val or = Map(Vector("Boolean","Boolean") -> Vector("Boolean"))
@@ -36,7 +34,7 @@ trait GenRandomBooleanOps extends GenRandomOps{
  }
 
  override def ops(map: AvailOps) = {
-  super.ops(map ++ negate)
+  super.ops(registerOp(negate,map))
  }
 
  /*def randomInstr(x: Exp[Boolean], y: Exp[Boolean]): Gen[Exp[Boolean]] ={

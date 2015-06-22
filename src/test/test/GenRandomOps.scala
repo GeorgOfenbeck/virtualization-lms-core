@@ -17,16 +17,24 @@ trait GenRandomOps extends ExposeRepBase{
 
   case class cTP(sym: Any, tag: GenTypes)
 
+  class Wildcard1 //using this for generic Types e.g. foo[T](x : T)
+  class Wildcard2 //using this for generic Types e.g. foo[T](x : T)
+  class Wildcard3 //using this for generic Types e.g. foo[T](x : T)
+  class Wildcard4 //using this for generic Types e.g. foo[T](x : T)
+  class Wildcard5 //using this for generic Types e.g. foo[T](x : T)
+  class Wildcard6 //using this for generic Types e.g. foo[T](x : T)
+  class Wildcard7 //using this for generic Types e.g. foo[T](x : T)
+
+
+
   type GenTypes = Manifest[_]
 
-  type AvailOps = Map[Set[GenTypes], Op]
+  type AvailOps = Map[Set[GenTypes], Set[Op]]
   type AvailUniqueTypes = Set[GenTypes]
   type AvailTypeTuples = Set[AvailUniqueTypes]
 
 
-  case class Op(name: String, desc: OpDescription)
-
-
+  case class Op(name: String, desc: OpDescription, instanciate: Option[Vector[Int] => Op] = None)
   case class OpDescription(args: Vector[GenTypes],
                            returns: Vector[GenTypes],
                            rf: Vector[Any] => Vector[Any],
@@ -34,15 +42,27 @@ trait GenRandomOps extends ExposeRepBase{
 
 
   case class Instructions(val syms: Vector[cTP])
-
   case class FNest(syms: Vector[cTP], f: Vector[cTP] => Vector[cTP], sf: Vector[cTP] => Vector[cTP])
-
   def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = availTypes
 
   def ops(availOps: AvailOps): AvailOps = availOps
 
+  def registerOp(newop: Op, sofar: AvailOps): AvailOps = {
+    val uniqueArgs = newop.desc.args.toSet
+    val withoutWildcards = uniqueArgs.filter(t => !isWildCard(t))
+    val entrysofar = sofar.get(withoutWildcards)
+    val newentry = if (entrysofar.isDefined) entrysofar.get + newop else Set(newop)
+    sofar + (withoutWildcards -> newentry)
+  }
+
   lazy val allops = ops(Map.empty)
 
+
+  /**
+   * This takes the list of all available ops and filters out those that can be called with the current set of variables
+   * @param availTypes the types of the currently existing variables
+   * @return returns a Map of all Ops that could be called
+   */
   def filterOps(availTypes: AvailUniqueTypes): AvailOps = {
     val currops = allops.filter(x => x._1.subsetOf(availTypes))
     currops
@@ -52,9 +72,13 @@ trait GenRandomOps extends ExposeRepBase{
     options.zipWithIndex.filter(p => p._1 == targettype).map(e => e._2)
   }
 
-  //create a Vector of random cTPs
-  //its a vector cause we might require a certain type combination so that our ops work
-  //e.g. if we only have the plus(l: T, r: Q) operation we require that we have a T and a Q in the args
+
+  /**
+   * create a Vector of random cTPs
+   * its a vector cause we might require a certain type combination so that our ops work
+   * e.g. if we only have the plus(l: T, r: Q) operation we require that we have a T and a Q in the args
+   * @return
+   */
   def genArg(): Gen[Vector[cTP]] = for {
     typechoice <- Gen.oneOf(supported_types(Set.empty).toSeq)
   } yield typechoice.map(c => cTP(null, c)).toVector
@@ -80,21 +104,99 @@ trait GenRandomOps extends ExposeRepBase{
   def genOp(fnest: FNest): Gen[Op] = {
     val availTypes: AvailUniqueTypes = fnest.syms.map(e => e.tag).toSet
     val availOps = filterOps(availTypes)
+    val flattened = availOps.flatMap(opset => opset._2)
+    println("bla")
     for {
-      randomop <- Gen.oneOf(availOps.toSeq)
-    } yield randomop._2
+      randomop <- Gen.oneOf(flattened.toSeq)
+    } yield randomop
+  }
+
+
+  private def isWildCard(targetType: GenTypes): Boolean = {
+      targetType == manifest[Wildcard1] ||
+      targetType == manifest[Wildcard2] ||
+      targetType == manifest[Wildcard3] ||
+      targetType == manifest[Wildcard4] ||
+      targetType == manifest[Wildcard5] ||
+      targetType == manifest[Wildcard6] ||
+      targetType == manifest[Wildcard7]
+  }
+
+  private def WildCardNr(targetType: GenTypes): Int = {
+    if (targetType == manifest[Wildcard1]) 1
+    else if(targetType == manifest[Wildcard2]) 2
+    else if(targetType == manifest[Wildcard3]) 3
+    else if(targetType == manifest[Wildcard4]) 4
+    else if(targetType == manifest[Wildcard5]) 5
+    else if(targetType == manifest[Wildcard6]) 6
+    else if(targetType == manifest[Wildcard7]) 7
+    else { assert(false, "invalid wildcard")
+    0
+    }
+  }
+
+
+  private def checkTypeCompatibility(ctype: GenTypes, targetType: GenTypes): Boolean = {
+    ctype == targetType || isWildCard(targetType)
   }
 
   def genAssignment(fNest: FNest, targetType: GenTypes): Gen[Int] = {
-    val possible_targets = fNest.syms.map(e => e.tag).zipWithIndex.filter(e => e._1 == targetType)
+    val possible_targets = fNest.syms.map(e => e.tag).zipWithIndex.filter(e => checkTypeCompatibility(e._1,targetType))
     for {
       choice <- Gen.oneOf(possible_targets)
     } yield choice._2
   }
 
+
+
+  def removeWildCards(op: Op, fNest: FNest): Op = {
+    val (wassign, newargs) = op.desc.args.foldLeft((Map.empty[GenTypes,GenTypes],Vector.empty[GenTypes]))((acc,ele) => {
+      val (wcards,assigns) = acc
+      if (isWildCard(ele)){ //to we deal with a wild car
+        val wassin = wcards.get(ele)
+        if (wassin.isDefined) //if so - did we assign a type to it already
+        {
+          val assignedwildcard: GenTypes = wcards(ele)
+          (wcards,assigns :+ assignedwildcard) //use the assigned type
+        }
+        else{
+          val assignedwildcard: GenTypes = genAssignment(fNest,ele).map(symnr => fNest.syms(symnr).tag).sample.get
+          //not so nice to sample here....
+          (wcards + (ele -> assignedwildcard),assigns :+ assignedwildcard) //use the assigned type
+        }
+      }
+      else
+      {
+        (wcards,assigns :+ ele)
+      }
+    })
+    //at this point we removed all Wildcards in the Args - now we also need to assign them in the returns
+    val rassigns = op.desc.returns.foldLeft(Vector.empty[GenTypes])((acc,ele) => {
+      if (isWildCard(ele)){ //to we deal with a wild car
+      val wassin = wassign.get(ele)
+        if (wassin.isDefined)        {
+          val assignedwildcard: GenTypes = wassign(ele)
+          acc :+ assignedwildcard //use the assigned type
+        }
+        else{
+          assert(false,"Wildcard in Return Type that was not assigned in Args!")
+          ???
+        }
+      }
+      else {
+        acc :+ ele
+      }
+    })
+
+    val newdesc = op.desc.copy(args = newargs, returns = rassigns)
+    val newop = op.copy(desc = newdesc)
+    newop
+  }
+
   def genFNest(fnest: FNest): Gen[FNest] = {
     for {
-      op <- genOp(fnest)
+      wop <- genOp(fnest)
+      op <- removeWildCards(wop, fnest)
       assign <- Gen.sequence[Vector[Int], Int](op.desc.args.map(arg => genAssignment(fnest, arg)))
     } yield {
       val f: (Vector[cTP] => Vector[cTP]) = (in: Vector[cTP]) => {
@@ -218,108 +320,6 @@ trait GenRandomOps extends ExposeRepBase{
     }
   }
 }
-
-
-/*def chooseRandomParam(targettype: GenTypes, options: Vector[GenTypes]): Gen[Int] = {
-  val tmatches = findAllIndex(targettype, options)
-  Gen.oneOf(tmatches).map(choice => choice)
-}
-
-def chooseParams(avInputs: Vector[GenTypes], op: Op): Gen[Vector[Int]] = {
-  val mapping = op._2.args.foldLeft(Vector.empty[Gen[Int]]) {
-    (acc, ele) => {
-      acc :+ chooseRandomParam(ele, avInputs)
-    }
-  }
-  sequence(mapping)
-  ???
-}
-
-
-def genNextNode(avInputs: Vector[GenTypes], op: Op): Gen[Vector[GenTypes]] = {
-  val randomparas = chooseParams(avInputs, op)
-
-  /*  randomparas.map(x => {
-     op._2.rf()
-    })*/
-  ???
-}
-
-
-def genTypes(max: Int): Gen[Vector[GenTypes]] = {
-  for {
-    longlist <- Gen.listOfN(max, genTypeTuple())
-  } yield {
-    val cc = longlist.foldLeft(Vector.empty[GenTypes])((acc, ele) => {
-      if (acc.length + ele.size > max)
-        acc
-      else {
-        val t1: Vector[GenTypes] = ele.toVector
-        val t: Vector[GenTypes] = acc ++ t1
-        t
-      }
-    })
-    cc
-  }
-}
-
-def genTypeTuple(): Gen[Set[GenTypes]] = {
-  val all = supported_types(Set.empty)
-  val t = for {
-    i <- Gen.oneOf(all.toSeq)
-  } yield i
-  t
-}
-
-
-def createInitalTP(args: Vector[GenTypes]): Vector[cTP] = for (a <- args) yield cTP(null, a)
-
-def GenBase(): Gen[FNest] = {
-  val regular: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
-    val f: Instructions => Instructions = (in: Instructions) => {
-      println("doing stuff - base case")
-      in
-    }
-    f
-  }
-  FNest(None, regular)
-}
-
-def GenRandomInstr(nr: Int): Gen[FNest] = {
-
-  for {
-    recurse <- if (nr > 0) GenRandomInstr(nr - 1) else GenBase()
-  }
-    yield {
-      val regular: (Option[FNest] => (Instructions => Instructions)) = (body: Option[FNest]) => {
-        val f: Instructions => Instructions = (in: Instructions) => {
-          println("doing stuff " + nr)
-          in
-        }
-        f
-      }
-      FNest(Some(recurse), regular)
-    }
-}
-
-//createInitalTP(args)
-def GenF(args: Vector[GenTypes]): Gen[FNestRoot] = {
-  for {
-    instr <- GenRandomInstr(5)
-  }
-    yield {
-      val empty = Instructions(Vector.empty)
-      val regular: (FNest => (Instructions => Instructions)) = (body: FNest) => {
-        val f: Instructions => Instructions = (in: Instructions) => {
-          val ini = empty.copy(syms = in.syms)
-          val body = instr.regularf(ini)
-          body
-        }
-        f
-      }
-      FNestRoot(instr, regular)
-    }
-}*/
 
 
 

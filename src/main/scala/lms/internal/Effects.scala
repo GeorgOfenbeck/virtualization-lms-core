@@ -310,7 +310,8 @@ trait Effects extends InternalFunctions with Blocks with Logging {
 
  def getActuallyReadSyms[A](d: Def[A]) = {
   val bound = boundSyms(d)
-  val r = readSyms(d).map{case Def(Reify(x,_,_)) => x case x => x} filterNot (bound contains _)
+  val r = readSyms(d).map{case Def(Reify(x,_,_)) => x case x => x} filterNot (bound contains _) //before RF
+
   //if (d.isInstanceOf[Reify[Any]] && r.nonEmpty) {
   //  println("** actually read: "+readSyms(d)+"\\"+bound+"="+r)
   //  println("** transitive shallow: " + shallowAliases(r))

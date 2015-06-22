@@ -220,10 +220,16 @@ trait Expressions extends TypeRepBase with Logging{
  // graph construction state
  object Def {
   def unapply[T: TypeRep](e: Exp[T]): Option[Def[T]] = e match { // really need to test for sym?
-   case s @ Exp(_) =>
+   case s @ Exp(_) => {
+     val t = exp2tp.get(s)
+     val t1: Option[Def[_]] = t.map(e => e.rhs)
+     t1.asInstanceOf[Option[Def[T]]] //RF! get rid of cast if possible (or at least check the tag)
+   }
+
+
     //findDefinition(s).flatMap(_.defines(s))
     //findDefinition(s).map( x => x.rhs.asInstanceOf[Def[T]]) //get rid of the cast
-    ??? //TODO
+
    case _ =>
     None
   }

@@ -8,6 +8,7 @@ import org.scala_lang.virtualized.SourceContext
 import scala.lms.internal.Effects
 
 
+
 trait IfThenElse extends Base {
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext): Rep[T]
 
@@ -20,6 +21,7 @@ trait IfThenElsePureExp extends IfThenElse with BaseExp {
 
   case class IfThenElse[T:TypeRep](cond: Exp[Boolean], thenp: Exp[T], elsep: Exp[T]) extends Def[T]
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = IfThenElse(cond, thenp, elsep)
+
 }
 
 
@@ -33,7 +35,18 @@ trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
   
   case class IfThenElse[T:TypeRep](cond: Exp[Boolean], thenp: Block, elsep: Block) extends AbstractIfThenElse[T]
 
-  override def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = {
+  case class IfThenElseLamda[R](cond: Exp[Boolean], thenp: Exp[_ => _], elsep: Exp[_ => _]) extends Def[R]
+
+  def ifThenElseLambda[R: TypeRep](cond: Rep[Boolean], thenpf: Function1[Rep[Unit],Exp[R]], elsepf: Function1[Rep[Unit],Exp[R]])
+                         (implicit pos: SourceContext, returns: ExposeRep[Exp[R]]): Exp[R] = {
+    val f1 = doLambda(thenpf)
+    val f2 = doLambda(elsepf)
+    val t: Def[R] = IfThenElseLamda(cond,f1,f2)
+    toAtom(t)
+  }
+
+  override def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])
+                                      (implicit pos: SourceContext) = {
     val a = reifyEffectsHere(thenp)
     val b = reifyEffectsHere(elsep)
     ifThenElse(cond,a,b)
