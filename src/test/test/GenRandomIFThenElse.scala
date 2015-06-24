@@ -22,8 +22,11 @@ trait GenRandomIFThenElse extends GenRandomOps{
    val conditional = x(0).asInstanceOf[Rep[Boolean]]
    val ifbranch = x(1).asInstanceOf[Rep[Any]]
    val elsebranch = x(2).asInstanceOf[Rep[Any]]
-   //val res = ifThenElse(conditional,ifbranch,elsebranch)
-   Vector(ifbranch) //RF!
+   val f = (u: Rep[Unit]) => ifbranch
+   val g = (u: Rep[Unit]) => elsebranch
+   val res = ifThenElseLambda(conditional,f,g)
+   //Vector(ifbranch)
+   Vector(res) //RF!
   }
   val op = OpDescription(Vector(manifest[Boolean],manifest[Wildcard1],manifest[Wildcard1]),Vector(manifest[Wildcard1]),f,sf)
   Op("ifthenelse", op)

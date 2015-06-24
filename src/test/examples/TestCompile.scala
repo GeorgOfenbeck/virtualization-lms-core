@@ -27,16 +27,13 @@ class TestCompile extends Suite {
         override val IR: self.type = self
       }
 
+      val innerf = (b: Rep[Boolean]) =>  b
 
       def mystagedf(x: Rep[Boolean]): Rep[Boolean] = {
-        def innerf(u: Rep[Unit]): Rep[Boolean] = !x
-        val f = innerf _
-        println("same function: " + sameFunction(f,f ))
-        val bla: Rep[Boolean] = ifThenElseLambda(x,f,f)
-        bla
+        val sf = doLambda(innerf)
+        val ret = sf(x)
+        ret
       }
-
-
 
       val iarg = exposeRepFromRep[Boolean]
       val iret = exposeRepFromRep[Boolean]

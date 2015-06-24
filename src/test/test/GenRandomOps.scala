@@ -105,7 +105,6 @@ trait GenRandomOps extends ExposeRepBase{
     val availTypes: AvailUniqueTypes = fnest.syms.map(e => e.tag).toSet
     val availOps = filterOps(availTypes)
     val flattened = availOps.flatMap(opset => opset._2)
-    println("bla")
     for {
       randomop <- Gen.oneOf(flattened.toSeq)
     } yield randomop
@@ -274,11 +273,10 @@ trait GenRandomOps extends ExposeRepBase{
   def genTypeInstance(targetcTP: cTP): Gen[cTP] = {
     val boolm: String = manifest[Boolean].toString()
     val intm: String = manifest[Int].toString()
-    println(boolm + intm)
     val target:String = targetcTP.tag.toString()
     target match {
       case `boolm` => {
-        println("this is supposed to be bool: " + boolm + " " + target)
+        //println("this is supposed to be bool: " + boolm + " " + target)
         for {
           choice <- Gen.oneOf(true, false)
         } yield targetcTP.copy(sym = choice)

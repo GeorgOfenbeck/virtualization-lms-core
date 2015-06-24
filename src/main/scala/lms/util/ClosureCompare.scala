@@ -24,6 +24,14 @@ trait ClosureCompare extends Externalizable {
 
  def sameFunction(f: Function[_,_], g: Function[_,_]): Boolean = {
 
+  val s1 = canonicalize(f)
+  val s2 = canonicalize(g)
+
+  println(s1)
+  println("---")
+  println(s2)
+  println("diff: "+ s1.diff(s2))
+
   def ser(f: Function[_,_]) = f.isInstanceOf[java.io.Serializable]
 
   if (f.getClass != g.getClass)

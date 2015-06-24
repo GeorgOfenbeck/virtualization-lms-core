@@ -41,7 +41,7 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
 
  val dsl = new MRandomClass
  println("hello dude")
- val desc = CodeDescriptor(100,10)
+ val desc = CodeDescriptor(10,2)
  val test1 = dsl.genCode(desc).sample.get
  val inisyms = test1.head.syms
  val resultsyms = test1.last.syms

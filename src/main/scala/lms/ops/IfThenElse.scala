@@ -35,14 +35,18 @@ trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
   
   case class IfThenElse[T:TypeRep](cond: Exp[Boolean], thenp: Block, elsep: Block) extends AbstractIfThenElse[T]
 
-  case class IfThenElseLamda[R](cond: Exp[Boolean], thenp: Exp[_ => _], elsep: Exp[_ => _]) extends Def[R]
+  case class IfThenElseLamda[R](cond: Exp[Boolean], thenp: R, elsep: R) extends Def[_ => _]
 
-  def ifThenElseLambda[R: TypeRep](cond: Rep[Boolean], thenpf: Function1[Rep[Unit],Exp[R]], elsepf: Function1[Rep[Unit],Exp[R]])
-                         (implicit pos: SourceContext, returns: ExposeRep[Exp[R]]): Exp[R] = {
-    val f1 = doLambda(thenpf)
+  def ifThenElseLambda[R](cond: Rep[Boolean], thenpf: Function1[Rep[Unit],R], elsepf: Function1[Rep[Unit],R])
+                         (implicit pos: SourceContext, returns: ExposeRep[R]): R = {
+    /*val f1 = doLambda(thenpf)
     val f2 = doLambda(elsepf)
-    val t: Def[R] = IfThenElseLamda(cond,f1,f2)
-    toAtom(t)
+    val applythen: R = doApply(f1,unitToRepUnit())
+    val applyelse: R = doApply(f2,unitToRepUnit())
+    val t: Def[_] = IfThenElseLamda(cond,applythen,applyelse)
+    val sf = toAtom(t) //create the function
+    sf*/
+    ???
   }
 
   override def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])
