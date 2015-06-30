@@ -10,7 +10,8 @@ import scala.lms.internal._
 
 case class CodeDescriptor(
                            nodes_per_block: Int,
-                           max_args: Int
+                           max_args: Int,
+                           max_nest_depth: Int
                            )
 
 trait GenRandomOps extends ExposeRepBase{
@@ -101,12 +102,19 @@ trait GenRandomOps extends ExposeRepBase{
       }
     }
 
-  def genOp(fnest: FNest): Gen[Op] = {
+  //override in traits that would nest to check if its a valid op in the context
+  def filterNestDepth(desc: CodeDescriptor, fnest: FNest, op: Op): Boolean = {
+    true
+  }
+
+
+  def genOp(desc: CodeDescriptor, fnest: FNest): Gen[Op] = {
     val availTypes: AvailUniqueTypes = fnest.syms.map(e => e.tag).toSet
     val availOps = filterOps(availTypes)
     val flattened = availOps.flatMap(opset => opset._2)
+    val nestcheck = flattened.filter(p => filterNestDepth(desc,fnest,p))
     for {
-      randomop <- Gen.oneOf(flattened.toSeq)
+      randomop <- Gen.oneOf(nestcheck.toSeq)
     } yield randomop
   }
 
@@ -146,6 +154,14 @@ trait GenRandomOps extends ExposeRepBase{
     } yield choice._2
   }
 
+
+
+  //this checks if the op we randomly selected the creation of a function literal and then replaces the placeholder with an actual symbol
+  //we do this cause we want the function to only take parameters that are also currently available to increase the liklyhood of it being used
+  //the actual implemention is within the GenRandomFunctions trait
+  def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[Op] = {
+    op
+  }
 
 
   def removeWildCards(op: Op, fNest: FNest): Op = {
@@ -192,10 +208,11 @@ trait GenRandomOps extends ExposeRepBase{
     newop
   }
 
-  def genFNest(fnest: FNest): Gen[FNest] = {
+  def genFNest(desc: CodeDescriptor, fnest: FNest): Gen[FNest] = {
     for {
-      wop <- genOp(fnest)
-      op <- removeWildCards(wop, fnest)
+      wop <- genOp(desc,fnest)
+      fop <- createFunction(desc,wop,fnest)
+      op <- removeWildCards(fop, fnest)
       assign <- Gen.sequence[Vector[Int], Int](op.desc.args.map(arg => genAssignment(fnest, arg)))
     } yield {
       val f: (Vector[cTP] => Vector[cTP]) = (in: Vector[cTP]) => {
@@ -232,7 +249,7 @@ trait GenRandomOps extends ExposeRepBase{
   def genNodes(desc: CodeDescriptor, ini: Vector[FNest]): Gen[Vector[FNest]] = {
     if (desc.nodes_per_block > 0) {
       for {
-        next <- genFNest(ini.last)
+        next <- genFNest(desc, ini.last)
         tail <- genNodes(desc.copy(nodes_per_block = desc.nodes_per_block - 1), ini :+ next)
       } yield tail
     }

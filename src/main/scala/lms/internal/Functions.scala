@@ -11,12 +11,7 @@ trait ExposeRepBase extends Expressions{
     val t2vec: T=> Vector[Exp[_]]
   }
 }
-
 trait InternalFunctions extends Base with ExposeRepBase{
-
-
-
-
  def doLambda[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ( A => R)
  implicit def fun[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): (A => R) = doLambda(f)
  def doApply[A,R](fun: Rep[_ => _], arg: A)(implicit args: ExposeRep[A], returns: ExposeRep[R]): R

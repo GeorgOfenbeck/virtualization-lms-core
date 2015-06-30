@@ -27,11 +27,26 @@ class TestCompile extends Suite {
         override val IR: self.type = self
       }
 
-      val innerf = (b: Rep[Boolean]) =>  b
+      def f (x: Int) = x
+      sameFunction(f _, f _)
 
+
+      implicit val exposeComplex = new ExposeRep[Complex](){
+        val freshExps = (u: Unit) => Vector(Arg[Boolean],Arg[Boolean])
+        val vec2t: Vector[Exp[_]] => Complex = (in: Vector[Exp[_]]) => Complex(in.head.asInstanceOf[Rep[Boolean]],in.tail.head.asInstanceOf[Rep[Boolean]])
+        val t2vec: Complex => Vector[Exp[_]] = (in: Complex) => Vector(in.re,in.im)
+      }
+
+
+      case class Complex(re: Rep[Boolean], im: Rep[Boolean])
+      val innerf = (b: Rep[Boolean]) =>  b
+      val FunctionOnComplex = (in: Complex) => Complex(in.im,in.re)
       def mystagedf(x: Rep[Boolean]): Rep[Boolean] = {
+        val complex = Complex(x,x)
         val sf = doLambda(innerf)
-        val ret = sf(x)
+        val stageFunctiononComplex = doLambda(FunctionOnComplex)
+        val retcomplex = stageFunctiononComplex(complex)
+        val ret = sf(retcomplex.im)
         ret
       }
 

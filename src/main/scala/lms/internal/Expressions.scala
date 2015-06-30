@@ -125,9 +125,9 @@ trait Expressions extends TypeRepBase with Logging{
 
  def findDefinition[T](d: Def[T]): Option[TP[T]] = getTP(d)
 
-  def findOrCreateDefinition[T:TypeRep](d: Def[T], pos: Vector[SourceContext]): TP[T] = getTP(d).getOrElse(createDefinition(fresh[T](pos), d))
+ def findOrCreateDefinition[T:TypeRep](d: Def[T], pos: Vector[SourceContext]): TP[T] = getTP(d).getOrElse(createDefinition(fresh[T](pos), d))
 
-  def findOrCreateDefinitionExp[T:TypeRep](d: Def[T], pos: Vector[SourceContext]): Exp[T] = findOrCreateDefinition(d,pos).sym
+ def findOrCreateDefinitionExp[T:TypeRep](d: Def[T], pos: Vector[SourceContext]): Exp[T] = findOrCreateDefinition(d,pos).sym
 
  def createDefinition[T](s: Exp[T], d: Def[T]) (implicit tag: TypeRep[T]): TP[T] = {
   val f = TP(s, d, tag)
