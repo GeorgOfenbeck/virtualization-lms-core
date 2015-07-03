@@ -34,7 +34,7 @@ trait ScalaCodegen extends GenericCodegen with Config {
       val context = tp.sym.pos(0)
       "      // " + relativePath(context.fileName) + ":" + context.line
     }
-    "val " + quote(tp) + " = " + rhs + extra
+    "val " + quote(tp) + " = " + rhs + extra + "\n"
   }
 
   def relativePath(fileName: String): String = {
@@ -44,7 +44,7 @@ trait ScalaCodegen extends GenericCodegen with Config {
 }
 
 
-trait EmitHeadInternalFunctionAsClass extends GenericCodegen {
+trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   self =>
 
   var head: IR.TP[_] = null
@@ -66,8 +66,8 @@ trait EmitHeadInternalFunctionAsClass extends GenericCodegen {
             " extends (("+x.map(a => remap(a.tag.mf)).mkString(", ")+")=>("+y.res.map(a => remap(IR.exp2tp(a).tag.mf)).mkString(", ") + ")) {" +
             "\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): "+y.res.map(a => remap(IR.exp2tp(a).tag.mf)).mkString(", ")+" = {\n"
 
-        val res = acc + block_callback(y,stringheader) +
-          "\n"+ quote(IR.exp2tp(y.res.head)) + "\n" +
+        val res = stringheader + block_callback(y,"") +
+          "\n ("+ y.res.map(r => quote(r)).mkString(", ") +  ")\n" +
           "}" +
           "}" +
           "\n/*****************************************\n"+
@@ -76,12 +76,21 @@ trait EmitHeadInternalFunctionAsClass extends GenericCodegen {
         res
       }
       else {
-        assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
-        ???
+          "val " + quote(tp) + ": " +
+          "(" + x.map(a => remap(a.tag.mf)).mkString(", ")+")=>("+y.res.map(a => remap(IR.exp2tp(a).tag.mf)).mkString(", ") + ") = " +
+           "("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+") =>{\n" +
+          block_callback(y,"") +
+          "\n ("+ y.res.map(r => quote(r)).mkString(", ") +  ")\n" +
+          "}\n"
+
+        //emitValDef(tp,string)
+        //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
       }
-
-
     }
+    case IR.InternalApply(f,arg,res) => {
+      "val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
+    }
+    case IR.ReturnArg(f,arg) => emitValDef(tp,quote(arg))
     case IR.ArgDef(id) => "" //args are handled in the according lambda
     case _ => super.emitNode(tp,acc,block_callback)
   }

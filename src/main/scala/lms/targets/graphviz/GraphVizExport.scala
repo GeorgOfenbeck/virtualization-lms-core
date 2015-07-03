@@ -56,7 +56,7 @@ trait GraphVizExport {
 
    val graphstring = cm.block_cache.blockinfo.foldLeft(Vector.empty[String])( (acc,ele) => {
      val (block, blockinfo) = ele
-     val blockres = blockinfo.children.foldLeft(acc) {
+     val blockres = blockinfo.children.foldLeft(Vector.empty[String]) {
       (iacc,iele) => {
        val (id, node) = iele
        iacc :+ emitNode(node)

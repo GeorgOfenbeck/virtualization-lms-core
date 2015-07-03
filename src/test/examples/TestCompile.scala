@@ -39,20 +39,21 @@ class TestCompile extends Suite {
 
 
       case class Complex(re: Rep[Boolean], im: Rep[Boolean])
-      val innerg = (b: Rep[Boolean]) =>  b
+      val innerg = (b: Rep[Boolean]) =>  boolean_negate(b)
       val innerf = (b: Rep[Boolean]) =>  {
         val sf = doLambda(innerg)
         sf(b)
       }
       val FunctionOnComplex = (in: Complex) => Complex(in.im,in.re)
       def mystagedf(x: Rep[Boolean]): Rep[Boolean] = {
-        val complex = Complex(x,x)
+        /*val complex = Complex(x,x)
         val sf = doLambda(innerf)
-        val sg = doLambda(innerg)
+
         val stageFunctiononComplex = doLambda(FunctionOnComplex)
         val retcomplex = stageFunctiononComplex(complex)
-        val ret = sf(retcomplex.im)
-        sg(ret)
+        val ret = sf(retcomplex.im)*/
+        val sg = doLambda(innerg)
+        sg(x)
       }
 
       val iarg = exposeRepFromRep[Boolean]
@@ -61,7 +62,7 @@ class TestCompile extends Suite {
     val dsl = new DSL
     //val (code, esc) = dsl.emitString.emit("",dsl.mystagedf)(dsl.iarg,dsl.iret)
 
-    //val esc = dsl.emitString.emitSource(dsl.mystagedf,"testClass",new PrintWriter(System.out))(dsl.iarg,dsl.iret)
+
     //val esc = dsl.codegen.emitSource(dsl.mystagedf,"testClass",new PrintWriter(System.out))(dsl.iarg,dsl.iret)
 
     val (code, cm) = dsl.emitGraph.emitDepGraphf(dsl.mystagedf)(dsl.iarg,dsl.iret)
@@ -70,6 +71,10 @@ class TestCompile extends Suite {
     stream.flush()
     stream.close()
 
+    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("compile.txt"))
+    val esc = dsl.codegen.emitSource(dsl.mystagedf,"testClass",stream2)(dsl.iarg,dsl.iret)
+    stream2.flush()
+    stream2.close()
     //dsl.compile(dsl.mystagedf)(dsl.iarg,dsl.iret)
     /*val (code, esc) =
     println(code)*/

@@ -80,7 +80,7 @@ trait CodeMotion {
         }
 
       //val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rfullscope,stack,uplinks,roots))
-      val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rfullscope,stack,uplinks,roots))
+      val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rscope,stack,uplinks,roots))
       bcache = bcache + cache_entry
     }
     else{
@@ -183,7 +183,9 @@ trait CodeMotion {
     bcache = bcache + cache_entry
     //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
     val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
-    (curr + entry,rfullscope + entry)
+
+    val tscope = curr + entry
+    (tscope -- children.map(k => k._1),rfullscope + entry)
   }
 
   /**

@@ -16,9 +16,14 @@ trait ScheduleChoice {
   val ir = cminfo.reifiedIR
   val tp = ir.id2tp(root)
   val onblocks = ir.IR.blocks(tp)
+  if (!block.children.contains(root))
+   println("bla")
   val nexts = block.children(root).successors //get all successors
   val withoutprev = nexts flatMap (
      next => { //for each successors
+
+      if(!block.children.contains(next))
+       println("bla")
      val allprev = block.children(next).predecessors //get its predecessors
      val withoutroot = allprev - root -- done
       val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
@@ -101,7 +106,7 @@ trait ExposeScheduleChoice {
 
   val newfs: Vector[(Int , Unit => MyScheduleChoice)] = roots.toVector map (
     node => {
-     val block = t.cminfo.block_cache.getHead()
+     val block = binfo //t.cminfo.block_cache.getHead()
      val f: (Unit => MyScheduleChoice) = (u: Unit) => t.getNewScheduleChoice(block,block.roots,node, Set.empty)
      (node,f)
     }
