@@ -21,7 +21,8 @@ with InternalFunctionsExp
 
 with GenRandomBooleanOps
 with GenRandomPrimitiveOps
-with GenRandomIFThenElse
+//with GenRandomIFThenElse
+with GenRandomFunctions
 with ScalaCompile {
  self =>
  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenIfThenElse{
@@ -41,7 +42,7 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
 
  val dsl = new MRandomClass
  println("hello dude")
- val desc = CodeDescriptor(10,2,2)
+ val desc = CodeDescriptor(10,2,1)
  val test1 = dsl.genCode(desc).sample.get
  val inisyms = test1.head.syms
  val resultsyms = test1.last.syms
@@ -65,7 +66,7 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
  println("args!")
  println(rargs)
  println("args + result")
- println(callstack(rargs))
+// println(callstack(rargs))
 
 
 

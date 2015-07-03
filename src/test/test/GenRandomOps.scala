@@ -9,9 +9,11 @@ import scala.lms.internal._
 
 
 case class CodeDescriptor(
-                           nodes_per_block: Int,
+                           max_nodes_per_block: Int,
                            max_args: Int,
-                           max_nest_depth: Int
+                           max_nest_depth: Int,
+                           cur_nodes_per_block: Int = 0,
+                           cur_nest_depth: Int = 0
                            )
 
 trait GenRandomOps extends ExposeRepBase{
@@ -26,7 +28,7 @@ trait GenRandomOps extends ExposeRepBase{
   class Wildcard6 //using this for generic Types e.g. foo[T](x : T)
   class Wildcard7 //using this for generic Types e.g. foo[T](x : T)
 
-
+  class FunctionMarker
 
   type GenTypes = Manifest[_]
 
@@ -233,6 +235,7 @@ trait GenRandomOps extends ExposeRepBase{
         }
         val ret: Vector[Any] = op.desc.sf(argsyms)
         val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
+        println(retctp)
         in ++ retctp
       }
       FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,sf)
@@ -247,11 +250,12 @@ trait GenRandomOps extends ExposeRepBase{
   }
 
   def genNodes(desc: CodeDescriptor, ini: Vector[FNest]): Gen[Vector[FNest]] = {
-    if (desc.nodes_per_block > 0) {
+    if (desc.cur_nodes_per_block < desc.max_nodes_per_block) {
       for {
         next <- genFNest(desc, ini.last)
-        tail <- genNodes(desc.copy(nodes_per_block = desc.nodes_per_block - 1), ini :+ next)
-      } yield tail
+        tail <- genNodes(desc.copy(cur_nodes_per_block = desc.cur_nodes_per_block + 1), ini :+ next)
+      }
+        yield tail
     }
     else ini
   }

@@ -39,15 +39,20 @@ class TestCompile extends Suite {
 
 
       case class Complex(re: Rep[Boolean], im: Rep[Boolean])
-      val innerf = (b: Rep[Boolean]) =>  b
+      val innerg = (b: Rep[Boolean]) =>  b
+      val innerf = (b: Rep[Boolean]) =>  {
+        val sf = doLambda(innerg)
+        sf(b)
+      }
       val FunctionOnComplex = (in: Complex) => Complex(in.im,in.re)
       def mystagedf(x: Rep[Boolean]): Rep[Boolean] = {
         val complex = Complex(x,x)
         val sf = doLambda(innerf)
+        val sg = doLambda(innerg)
         val stageFunctiononComplex = doLambda(FunctionOnComplex)
         val retcomplex = stageFunctiononComplex(complex)
         val ret = sf(retcomplex.im)
-        ret
+        sg(ret)
       }
 
       val iarg = exposeRepFromRep[Boolean]
