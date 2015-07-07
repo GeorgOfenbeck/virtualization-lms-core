@@ -87,10 +87,16 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
       }
     }
-    case IR.InternalApply(f,arg,res) => {
-      "val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
+    case IR.InternalApply(f,arg) => {
+      //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
+      emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
     }
-    case IR.ReturnArg(f,arg) => emitValDef(tp,quote(arg))
+    case IR.ReturnArg(f,sym,pos,tuple) => {
+      if (tuple)
+        emitValDef(tp,quote(f) + "._" + (pos+1).toInt)
+      else
+        emitValDef(tp,quote(f))
+    }
     case IR.ArgDef(id) => "" //args are handled in the according lambda
     case _ => super.emitNode(tp,acc,block_callback)
   }

@@ -15,12 +15,46 @@ import scala.lms.targets.scalalike._
 
 import scala.lms.targets.graphviz.GraphVizExport
 
+
+trait TestExp extends BooleanOpsExp{
+
+  case class Nest(b: Block) extends Def[Boolean]
+  def nest(b: Exp[Boolean]) = Nest(Block(Vector(b)))
+
+  override def boundExps(e: Any): Vector[Exp[_]] = e match{
+    case Nest(b) => b.res
+    case _ => {
+      super.boundExps(e)
+    }
+  }
+}
+
+trait ScalaGenTest extends ScalaCodegen {
+  val IR: TestExp
+
+  import IR._
+
+  override def emitNode(tp: TP[_], acc: String,
+                        block_callback: (Block, String) => String): String = {
+    val ma = tp.rhs match {
+      case Nest(b) => "<Nest" + quote(tp) + ">\n" + block_callback(b, "") + "</Nest" + quote(tp) + ">\n"
+      case _ => super.emitNode(tp, acc, block_callback)
+    }
+    ma
+  }
+}
+
 class TestCompile extends Suite {
   def testdsl(): Unit =  {
 
-    class DSL extends BooleanOpsExp with InternalFunctionsExp with IfThenElseExp with ScalaCompile{
+    class DSL extends BooleanOpsExp with InternalFunctionsExp with IfThenElseExp with ScalaCompile with TestExp{
       self =>
-      override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenIfThenElse{
+      override val codegen = new ScalaCodegen
+        with EmitHeadInternalFunctionAsClass
+        with ScalaGenBooleanOps
+        with ScalaGenIfThenElse
+        with ScalaGenTest
+      {
         val IR: self.type = self
       }
       val emitGraph = new GraphVizExport {
@@ -52,8 +86,9 @@ class TestCompile extends Suite {
         val stageFunctiononComplex = doLambda(FunctionOnComplex)
         val retcomplex = stageFunctiononComplex(complex)
         val ret = sf(retcomplex.im)*/
-        val sg = doLambda(innerg)
-        sg(x)
+        //val sg = doLambda(innerf)
+        //sg(x)
+        nest(nest(boolean_negate(x)))
       }
 
       val iarg = exposeRepFromRep[Boolean]

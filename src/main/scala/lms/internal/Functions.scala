@@ -21,21 +21,24 @@ trait InternalFunctions extends Base with ExposeRepBase{
 trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCompare{
  implicit def liftFunction2[T, R](implicit t: TypeRep[T], r: TypeRep[R]): TypeRep[T => R] = typeRep[T => R]
 
- case class ReturnArg(f: Exp[_], arg: Exp[_]) extends Def[Any]
+ case class ReturnArg(f: Exp[_], newsym: Exp[_], pos: Int, tuple: Boolean) extends Def[Any]
  case class InternalLambda[CA, CR](f: Function1[Vector[Exp[_]],Vector[Exp[_]]], x: Vector[TP[_]], y: Block, args: ExposeRep[CA], returns: ExposeRep[CR]) extends Def[_ => _] {
    def createApply(lambda: Exp[_ => _]): CA => CR = {
      val f = (applyargs: CA) => {
        val newsyms = returns.freshExps()
-       val applynode = InternalApply(lambda, args.t2vec(applyargs), Block(newsyms))
+       val applynode = InternalApply(lambda, args.t2vec(applyargs) )//, Block(newsyms))
        val applynodeexp = toAtom(applynode)
-       val returnNodes = newsyms.map(fsym => toAtom(ReturnArg(applynodeexp,fsym)))
+       val returnNodes = if (newsyms.size > 1)
+         newsyms.zipWithIndex.map(fsym => toAtom(ReturnArg(applynodeexp,fsym._1,fsym._2,true)))
+        else
+         newsyms.zipWithIndex.map(fsym => toAtom(ReturnArg(applynodeexp,fsym._1,fsym._2,false)))
        //returns.vec2t(newsyms)
        returns.vec2t(returnNodes)
      }
      f
    }
  }
- case class InternalApply[CA, CR](f: Exp[_ => _], arg: Vector[Exp[_]], results: Block) extends Def[Any] //RF (any?)
+ case class InternalApply[CA, CR](f: Exp[_ => _], arg: Vector[Exp[_]]) extends Def[Any] //RF (any?)
 
 
 /*
@@ -97,6 +100,9 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCo
  }
 
  override def boundExps(e: Any): Vector[Exp[_]] = e match {
+   case a@InternalApply(f,arg) => {
+     ???
+   }
   case l@InternalLambda(f, x, y,_,_) => {
    val exps = l.x map (tp => tp.sym)
    val t = syms(exps)

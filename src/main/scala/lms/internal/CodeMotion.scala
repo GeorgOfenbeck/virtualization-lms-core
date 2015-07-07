@@ -73,15 +73,24 @@ trait CodeMotion {
 
     if (true) {//TODO - RF!
       //if (!bcache.contains(resid)) { //this should always be true
-
+      if (block.res.size > 1)
+        assert(false, "fix me")
       val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = //calling visited_nested with the empty status variables and the full graph to start things off
         res.foldLeft( (Set.empty[Int],Set.empty[Int],Vector.empty[Int],enriched_graph,enriched_graph,Set.empty[Int],Set.empty[Int]) ) {
-          (acc,ele) =>  visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
+          (acc,ele) =>  {
+            val blocksym = ele.id
+            val focused = enriched_graph(blocksym)
+            val children = depGraph(blocksym,focused.bounds,Map.empty[Int,EnrichedGraphNode],enriched_graph) //get the subgraph that depends on that bounds
+
+            val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
+            val cache_entry: (Block, BlockInfo) = (block,BlockInfo(children,stack,uplinks,roots))
+            bcache = bcache + cache_entry
+            (mark,pmark,stack,rscope,rfullscope,uplinks,roots)
+          }
         }
 
       //val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rfullscope,stack,uplinks,roots))
-      val cache_entry: (Block, BlockInfo) = (block,BlockInfo(rscope,stack,uplinks,roots))
-      bcache = bcache + cache_entry
+
     }
     else{
       assert(false,"in the current setup getBlockInfo should only be callable from the root block - therefore we should" +
@@ -123,6 +132,8 @@ trait CodeMotion {
 
       val (allnext, curr_nscope, full_nscope) =
         if (!focused.blocks.isEmpty) {//we have a block
+          if (focused.blocks.size > 1)
+            assert(false, "implement this!")
         val (curr_uscope, full_uscope): (Map[Int,EnrichedGraphNode],Map[Int,EnrichedGraphNode]) =
           if (!bcache.contains(focused.blocks.head))
             update_nest(n,curr_scope, full_scope)
@@ -174,7 +185,7 @@ trait CodeMotion {
     //val centry: (Int, EnrichedGraphNode)  = (blockhead,focused)
     //val children = children_dep + centry //depgraph doesnt include the root
     val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks,roots) =
-      blockhead.res.foldLeft(Set.empty[Int],Set.empty[Int],Vector.empty[Int],children, full,Set.empty[Int],Set.empty[Int]){
+      blockhead.res.foldLeft(Set.empty[Int],Set.empty[Int],Vector.empty[Int],curr, full,Set.empty[Int],Set.empty[Int]){
         (acc,ele) => visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
       }
 
@@ -184,8 +195,11 @@ trait CodeMotion {
     //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
     val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
 
-    val tscope = curr + entry
-    (tscope -- children.map(k => k._1),rfullscope + entry)
+    //val tscope = curr + entry
+    //val ret = curr -- children.map(k => k._1)
+    //(ret,rfullscope)// + entry)
+    //(curr + entry ,rfullscope + entry)
+    (curr,full)
   }
 
   /**
@@ -291,8 +305,8 @@ trait CodeMotion {
             val blocksyms = embedded_blocks.flatMap(x => x.res.map(exp => exp.id))
             val precessors_without_blocks = precessors -- blocksyms
             val successors = Set.empty[Int] // we will fill this in a next step
-            //(id,EnrichedGraphNode(sym.id,precessors_without_blocks,successors,Set.empty[Int],embedded_blocks))
-            (id,EnrichedGraphNode(sym.id,precessors,successors,Set.empty[Int],embedded_blocks))
+            (id,EnrichedGraphNode(sym.id,precessors_without_blocks,successors,Set.empty[Int],embedded_blocks))
+            //(id,EnrichedGraphNode(sym.id,precessors,successors,Set.empty[Int],embedded_blocks))
           }
         }
         out
