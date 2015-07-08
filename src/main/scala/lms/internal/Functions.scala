@@ -101,7 +101,7 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCo
 
  override def boundExps(e: Any): Vector[Exp[_]] = e match {
    case a@InternalApply(f,arg) => {
-     ???
+     Vector.empty
    }
   case l@InternalLambda(f, x, y,_,_) => {
    val exps = l.x map (tp => tp.sym)

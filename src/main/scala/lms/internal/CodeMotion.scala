@@ -30,11 +30,17 @@ trait CodeMotion {
   case class BlockInfo(children: Map[Int,EnrichedGraphNode], child_schedule: Vector[Int], uplinks: Set[Int], roots: Set[Int])
 
   /**
-   * @param head
+   * @param root
    * @param blockinfo
    */
-  case class IRBlockInfo(val head: Block, val blockinfo: Map[Block,BlockInfo]){
-    def getHead(): BlockInfo = blockinfo(head)
+  case class IRBlockInfo(val root: TP[_], val blockinfo: Map[Block,BlockInfo]){
+    def getHead(): BlockInfo = {
+      root.rhs match {
+        case InternalLambda(f,x,y,args,returns) => blockinfo(y)
+        case _ => assert(false, "a IRBlockInfo was created that did not have a Internal Lambda as root"); ???
+      }
+
+    }
   }
 
   /**
@@ -80,10 +86,11 @@ trait CodeMotion {
           (acc,ele) =>  {
             val blocksym = ele.id
             val focused = enriched_graph(blocksym)
-            val children = depGraph(blocksym,focused.bounds,Map.empty[Int,EnrichedGraphNode],enriched_graph) //get the subgraph that depends on that bounds
-
+            val rootids = block.res.map(r => r.id).toSet
+            val children = depGraph(rootids,rootids ++ focused.bounds,Map.empty[Int,EnrichedGraphNode],enriched_graph) //get the subgraph that depends on that bounds
+            val childrenwithroot = children + (blocksym -> focused)
             val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
-            val cache_entry: (Block, BlockInfo) = (block,BlockInfo(children,stack,uplinks,roots))
+            val cache_entry: (Block, BlockInfo) = (block,BlockInfo(childrenwithroot,stack,uplinks,roots))
             bcache = bcache + cache_entry
             (mark,pmark,stack,rscope,rfullscope,uplinks,roots)
           }
@@ -97,7 +104,7 @@ trait CodeMotion {
         "never end up here!")
     }
     assert(bcache.contains(block),"sanity check fails?")
-    IRBlockInfo(block,bcache)
+    IRBlockInfo(reifiedIR.def2tp(reifiedIR.rootlambda),bcache)
   }
 
   /**
@@ -135,11 +142,12 @@ trait CodeMotion {
           if (focused.blocks.size > 1)
             assert(false, "implement this!")
         val (curr_uscope, full_uscope): (Map[Int,EnrichedGraphNode],Map[Int,EnrichedGraphNode]) =
-          if (!bcache.contains(focused.blocks.head))
-            update_nest(n,curr_scope, full_scope)
+          if (!bcache.contains(focused.blocks.head)) {
+
+            update_nest(focused.blocks.head,focused.bounds, curr_scope, full_scope)
+          }
           else
             (curr_scope, full_scope) //we update the scope to have the blockinfo
-
 
           val nfocused = focused //curr_uscope(n) //refresh the focused
           if (!bcache.contains(focused.blocks.head)) assert(false, "this should just not happen")
@@ -177,23 +185,28 @@ trait CodeMotion {
    * @param full The full scope of the DAG - stays full always
    * @return Returns the updated (curr,full) tuple
    */
-  protected def update_nest(blocksym: Int, curr: Map[Int,EnrichedGraphNode], full: Map[Int,EnrichedGraphNode]): (Map[Int,EnrichedGraphNode], Map[Int,EnrichedGraphNode])  = {
-    val focused = curr(blocksym)
-    val blockhead = focused.blocks.head
-    if (!focused.blocks.tail.isEmpty) assert(false, "we are not handling this yet (multiple blocks in one symbol")
-    val children = depGraph(blocksym,focused.bounds,Map.empty[Int,EnrichedGraphNode],full) //get the subgraph that depends on that bounds
+  protected def update_nest(blockhead: Block, boundsyms: Set[Int], curr: Map[Int,EnrichedGraphNode], full: Map[Int,EnrichedGraphNode]): (Map[Int,EnrichedGraphNode], Map[Int,EnrichedGraphNode])  = {
+    //val focused = curr(blocksym)
+    //val blockhead = focused.blocks.head
+    //if (!focused.blocks.tail.isEmpty) assert(false, "we are not handling this yet (multiple blocks in one symbol")
+    val blockrestail = blockhead.res.tail.map(r => r.id).toSet
+    val roots = blockhead.res.map(r => r.id).toSet
+    val children = depGraph(roots,roots ++ boundsyms,Map.empty[Int,EnrichedGraphNode],full) //get the subgraph that depends on that bounds
     //val centry: (Int, EnrichedGraphNode)  = (blockhead,focused)
     //val children = children_dep + centry //depgraph doesnt include the root
-    val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks,roots) =
+    val  (mark,pmark,stack,rcurrscope,rfullscope,uplinks,rroots) =
       blockhead.res.foldLeft(Set.empty[Int],Set.empty[Int],Vector.empty[Int],curr, full,Set.empty[Int],Set.empty[Int]){
         (acc,ele) => visit_nested(ele.id,acc._1,acc._2,acc._3,acc._4,acc._5,acc._6 - ele.id,acc._7)
       }
 
-    val binfo = BlockInfo(children,stack,uplinks,roots)
+
+    //val childrenwithroot = children + (root -> enriched_graph(root))
+    val binfo = BlockInfo(children,stack,uplinks,rroots)
+    //val binfo = BlockInfo(children,stack,uplinks,roots)
     val cache_entry: (Block, BlockInfo) = (blockhead,binfo)
     bcache = bcache + cache_entry
     //val newfocused: EnrichedGraphNode = focused.copy( blockinfo = Some(binfo))
-    val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
+    //val entry: (Int, EnrichedGraphNode)  = (blocksym,focused)
 
     //val tscope = curr + entry
     //val ret = curr -- children.map(k => k._1)
@@ -206,26 +219,27 @@ trait CodeMotion {
    * Called by update_nest - finds all symbols that are transitively bound within the current block
    * Doing this is crucial for code motion - symbols that are not bound within the current block will recognized as "uplinks" in the current
    * scope
-   * @param root the block result symbol from which we backtrack
+   * @param roots the block result symbols from which we backtrack
    * @param backtrack used while recursively calling itself to keep track of where to backtrack (branches in DAG)
    * @param currentmap what we discovered so far
    * @param full the full graph
    * @return the final discovered graph that is bound within the block
    **/
 
-  private def depGraph(root: Int, backtrack: Set[Int], currentmap: Map[Int,EnrichedGraphNode], full: Map[Int,EnrichedGraphNode]): (Map[Int,EnrichedGraphNode])  = { //private for tailrec
+  private def depGraph(roots: Set[Int], backtrack: Set[Int], currentmap: Map[Int,EnrichedGraphNode], full: Map[Int,EnrichedGraphNode]): (Map[Int,EnrichedGraphNode])  = { //private for tailrec
     if (backtrack.isEmpty)
       (currentmap)
     else {
       val track: Int = backtrack.head //backtrack is a stack of nodes we still not to go through
       val tracknode: EnrichedGraphNode = full(track) //get the head and traverse from there
-      val newtrack = tracknode.successors filter ( e => !(currentmap.contains(e)) && e != root) //make sure we didnt visit that path already and that we are not at the origin of the subgraph
+      val tpredessors = tracknode.predecessors
+      val newtrack =  tpredessors filter ( e => !(currentmap.contains(e)) && !roots.contains(e)) //make sure we didnt visit that path already and that we are not at the origin of the subgraph
       //val local_uplink = tracknode.out.filter( x => !full.contains(x))
       //val newuplink = uplink ++ local_uplink
       val newbacktrack = backtrack.tail ++ newtrack //add the alternative paths to the stack
       val entry : (Int,EnrichedGraphNode) = (track,tracknode)
       val newcurrent = currentmap + entry //add the new node of the path to the result
-      depGraph(root,newbacktrack,newcurrent,full) //recurse on this path
+      depGraph(roots,newbacktrack,newcurrent,full) //recurse on this path
     }
   }
 
@@ -282,8 +296,10 @@ trait CodeMotion {
         val tp = id2tp(content.irdef)
         val predecessors = content.predecessors
         val successors = merged.get(key).getOrElse(Set.empty[Int])
-        val bound = boundExps(tp.rhs).map( x => x.id).toSet
         val blocks = content.blocks
+        val blocksyms = blocks.flatMap(b => b.res.map(r => r.id))         //we remove all symbols from blocks from being bound
+        val bound = boundExps(tp.rhs).map( x => x.id).toSet -- blocksyms
+
         val entry : (Int,EnrichedGraphNode) = (key,EnrichedGraphNode(content.irdef,predecessors,successors,bound,blocks))
         acc + entry
       }

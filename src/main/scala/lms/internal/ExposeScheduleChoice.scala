@@ -14,16 +14,16 @@ trait ScheduleChoice {
  protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int, done : Set[Int]): Set[Int] = {
   //val onblocks =
   val ir = cminfo.reifiedIR
-  val tp = ir.id2tp(root)
-  val onblocks = ir.IR.blocks(tp)
+  //val tp = ir.id2tp(root)
+  //val onblocks = ir.IR.blocks(tp)
   if (!block.children.contains(root))
-   println("bla")
+   assert(false, "bla")
   val nexts = block.children(root).successors //get all successors
   val withoutprev = nexts flatMap (
      next => { //for each successors
 
       if(!block.children.contains(next))
-       println("bla")
+       assert(false,"bla")
      val allprev = block.children(next).predecessors //get its predecessors
      val withoutroot = allprev - root -- done
       val onlyfromblock = withoutroot.filter(x => block.children.contains(x))
@@ -79,7 +79,16 @@ trait ExposeScheduleChoice {
    val id = cminfo.reifiedIR.def2tp(lam).sym.id
    val cache = cminfo.block_cache
    val f: (Unit => MyScheduleChoice) = (u: Unit) => {
-    t.getNewScheduleChoice(cache.blockinfo(lam.y),Set.empty,id, Set.empty)
+    val blockinfo = cache.blockinfo(lam.y)
+    //t.getNewScheduleChoice(blockinfo,blockinfo.roots.tail,blockinfo.roots.head, Set.empty)
+
+    //this is under the assumption that at the top level the only choice is the lambda
+    val newtrav: MyScheduleChoice = new ScheduleChoice {
+     val cminfo: self.cminfo.type = self.cminfo
+     val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice2)] = Vector.empty
+     val explored: Vector[Int] = Vector()
+    }
+    newtrav
    }
    Vector((id,f))
   }
