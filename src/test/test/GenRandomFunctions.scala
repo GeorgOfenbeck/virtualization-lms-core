@@ -33,7 +33,8 @@ trait GenRandomFunctions extends GenRandomOps{
  //this is a version of GenRandomOps GenArg - the difference is that this one will only consider Symbols that already
  //exist (to increase the liklyhood that the function is actually called)
  def genExistingArg(symssofar: Vector[cTP]): Gen[Vector[cTP]] = for {
-  typechoice <- Gen.oneOf(symssofar.map(x => x.tag))
+  typechoice <- Gen.oneOf(symssofar.map(x => x.tag).filter(p => p.mf != manifest[FunctionMarker]))
+  //don't allow passing functions for now
  } yield Vector(cTP(null, typechoice))
 
 

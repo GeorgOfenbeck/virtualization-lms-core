@@ -63,11 +63,14 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     res
   }
 
-  private def tupleaccesshelper(pos: Int, acc: String): String = {
+  private def tupleaccesshelper(pos: Int, acc: String, lastele: Boolean): String = {
     if (pos < tuplesize)
-      acc + "._" + (pos + 1).toInt
+      if (pos == 0 && lastele)
+        acc //its not a tuple
+      else
+        acc + "._" + (pos + 1).toInt
     else{
-      tupleaccesshelper(pos - tuplesize,acc + "._" + tuplesize)
+      tupleaccesshelper(pos - tuplesize,acc + "._" + (tuplesize+1), lastele)
     }
   }
   private def tupledeclarehelper(rest: Vector[String], acc: String): String = {
@@ -75,7 +78,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       acc + "(" + rest.mkString(",") + ")"
     else
     {
-      val start = acc + "(" + rest.take(tuplesize).mkString(",\n") + ","
+      val start = acc + "(" + rest.take(tuplesize).mkString(",") + ","
       tupledeclarehelper(rest.drop(tuplesize),start) + ")"
     }
   }
@@ -83,19 +86,25 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   override def emitNode(tp: self.IR.TP[_], acc: String,
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
+      val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag.mf)),"")
+      val argtuple = tupledeclarehelper(x.map(a => remap(a.tag.mf)),"")
+      val restuple: Vector[String] = y.res.map(r => quote(r))
+      val helper = if (x.size > 1) {
+        x.zipWithIndex.map(a => {
+          val (tp,index) = a
+          val typ = remap(tp.tag.mf)
+          "val " + quote(tp) + " : " + typ + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
+        }).mkString("\n")
+      } else {
+        "val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+      }
+
       if (head == null || head == tp) {
         head = tp
         /*if (y.res.size > 1)
           assert(false, "still need to implement multiy result unparsing")*/
 
-        val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag.mf)),"")
-        val argtuple = tupledeclarehelper(x.map(a => remap(a.tag.mf)),"")
 
-        val helper = x.zipWithIndex.map(a => {
-          val (tp,index) = a
-          val typ = remap(tp.tag.mf)
-          quote(tp) + " : " + typ + " = helper" + tupleaccesshelper(index,"")
-        }).mkString("\n")
 
         val stringheader =
           "/*****************************************\n"+
@@ -106,7 +115,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
             //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
             "\ndef apply( helper: "+ argtuple +"): ("+returntuple+") = {\n" + helper + "\n"
 
-        val restuple: Vector[String] = y.res.map(r => quote(r))
+
         val res = stringheader + block_callback(y,"") +
           "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}" +
@@ -118,10 +127,10 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       }
       else {
           "val " + quote(tp) + ": " +
-          "(" + x.map(a => remap(a.tag.mf)).mkString(", ")+")=>("+y.res.map(a => remap(IR.exp2tp(a).tag.mf)).mkString(", ") + ") = " +
-           "("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+") =>{\n" +
+          "("+ argtuple +") => " + returntuple + " = " +
+           "(helper: "+ argtuple+") =>{\n" + helper + "\n" +
           block_callback(y,"") +
-          "\n ("+ y.res.map(r => quote(r)).mkString(", ") +  ")\n" +
+            "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}\n"
 
         //emitValDef(tp,string)
@@ -136,7 +145,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       if (tuple) {
         //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
         val start = "val " + quote(tp) + " = " + quote(f)
-        tupleaccesshelper(posx,start)
+        tupleaccesshelper(posx,start,false) //RF
       }
       else
         emitValDef(tp,quote(f))
