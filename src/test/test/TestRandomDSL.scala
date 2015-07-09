@@ -46,7 +46,7 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
 
  val dsl = new MRandomClass
  println("hello dude")
- val desc = CodeDescriptor(10,1,10,1)
+ val desc = CodeDescriptor(10,1,10,1,1)
  val test1 = dsl.genCode(desc).sample.get
  val inisyms = test1.head.syms
  val resultsyms = test1.last.syms
@@ -64,10 +64,10 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
  stream.println(code)
  stream.flush()
  stream.close()
- /*val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+ val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
  val esc = dsl.codegen.emitSource(callstack_staged,"testClass",stream2)(exposeargs,exposeres)
  stream2.flush()
- stream2.close()*/
+ stream2.close()
  //val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs,exposeres)
 
 

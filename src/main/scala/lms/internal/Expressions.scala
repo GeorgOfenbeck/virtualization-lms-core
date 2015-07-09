@@ -237,6 +237,10 @@ trait Expressions extends TypeRepBase with Logging{
  }
 
  def reset() =  {
+  if (!id2tp.isEmpty)
+  {
+    println("WARNING! You are resetting the IR and it contained already symbols - that might not be intended")
+  }
   nVars = 0
   nArgs = 0
   exp2tp = Map.empty

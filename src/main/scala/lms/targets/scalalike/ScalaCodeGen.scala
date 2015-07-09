@@ -72,7 +72,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   }
   private def tupledeclarehelper(rest: Vector[String], acc: String): String = {
     if (rest.size < tuplesize)
-      acc + "(" + rest.mkString(",\n") + ")"
+      acc + "(" + rest.mkString(",") + ")"
     else
     {
       val start = acc + "(" + rest.take(tuplesize).mkString(",\n") + ","
@@ -89,15 +89,22 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
           assert(false, "still need to implement multiy result unparsing")*/
 
         val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag.mf)),"")
+        val argtuple = tupledeclarehelper(x.map(a => remap(a.tag.mf)),"")
 
+        val helper = x.zipWithIndex.map(a => {
+          val (tp,index) = a
+          val typ = remap(tp.tag.mf)
+          quote(tp) + " : " + typ + " = helper" + tupleaccesshelper(index,"")
+        }).mkString("\n")
 
         val stringheader =
           "/*****************************************\n"+
             "  Emitting Generated Code                  \n"+
             "*******************************************/\n" +
             "class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tag).mkString(",")+")")+
-            " extends (("+x.map(a => remap(a.tag.mf)).mkString(", ")+")=>" + returntuple + ") {" +
-            "\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
+            " extends (("+ argtuple +")=>" + returntuple + ") {" +
+            //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
+            "\ndef apply( helper: "+ argtuple +"): ("+returntuple+") = {\n" + helper + "\n"
 
         val restuple: Vector[String] = y.res.map(r => quote(r))
         val res = stringheader + block_callback(y,"") +

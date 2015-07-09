@@ -13,8 +13,10 @@ case class CodeDescriptor(
                            max_toplevel_args: Int,
                            max_args: Int,
                            max_nest_depth: Int,
+                           max_functions: Int,
                            cur_nodes_per_block: Int = 0,
                            cur_nest_depth: Int = 0
+
                            )
 
 trait GenRandomOps extends ExposeRepBase{
