@@ -63,8 +63,6 @@ class TestCompile extends Suite {
 
       def f (x: Int) = x
       sameFunction(f _, f _)
-
-
       implicit val exposeComplex = new ExposeRep[Complex](){
         val freshExps = (u: Unit) => Vector(Arg[Boolean],Arg[Boolean])
         val vec2t: Vector[Exp[_]] => Complex = (in: Vector[Exp[_]]) => Complex(in.head.asInstanceOf[Rep[Boolean]],in.tail.head.asInstanceOf[Rep[Boolean]])
@@ -82,16 +80,22 @@ class TestCompile extends Suite {
         val sf = doLambda(innerg)
         sf(b)
       }
-      val FunctionOnComplex = (in: Complex) => Complex(in.im,in.re)
+
+      val FunctionOnComplex = (in: Complex) => {
+        val sh = doLambda(innerh)
+        Complex(in.im,sh(in.re))
+      }
       def mystagedf(x: Rep[Boolean]): Rep[Boolean] = {
-        /*val complex = Complex(x,x)
-        val sf = doLambda(innerf)
+
+        val complex = Complex(x,x)
+        //val sf = doLambda(innerf)
 
         val stageFunctiononComplex = doLambda(FunctionOnComplex)
         val retcomplex = stageFunctiononComplex(complex)
-        val ret = sf(retcomplex.im)*/
-        val sg = doLambda(innerh)
-        sg(x)
+        /*val ret = sf(retcomplex.im)
+        val sg = doLambda(innerf)
+        sg(x)*/
+        retcomplex.re
         //nest(nest(boolean_negate(x)))
       }
 

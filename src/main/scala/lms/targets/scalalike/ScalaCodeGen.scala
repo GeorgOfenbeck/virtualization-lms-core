@@ -51,23 +51,57 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   val staticData = Vector.empty[(IR.TP[_],Any)]
   var className: String
 
+  val tuplesize = 21
+
+  override def emitSource[A,R](
+                       f: Function1[A,R],
+                       className: String,
+                       out: PrintWriter)(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]) = {
+
+    val res = super.emitSource(f,className,out)(args,returns)
+    head = null
+    res
+  }
+
+  private def tupleaccesshelper(pos: Int, acc: String): String = {
+    if (pos < tuplesize)
+      acc + "._" + (pos + 1).toInt
+    else{
+      tupleaccesshelper(pos - tuplesize,acc + "._" + tuplesize)
+    }
+  }
+  private def tupledeclarehelper(rest: Vector[String], acc: String): String = {
+    if (rest.size < tuplesize)
+      acc + "(" + rest.mkString(",\n") + ")"
+    else
+    {
+      val start = acc + "(" + rest.take(tuplesize).mkString(",\n") + ","
+      tupledeclarehelper(rest.drop(tuplesize),start) + ")"
+    }
+  }
+
   override def emitNode(tp: self.IR.TP[_], acc: String,
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
       if (head == null || head == tp) {
         head = tp
-        if (y.res.size > 1)
-          assert(false, "still need to implement multiy result unparsing")
+        /*if (y.res.size > 1)
+          assert(false, "still need to implement multiy result unparsing")*/
+
+        val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag.mf)),"")
+
+
         val stringheader =
           "/*****************************************\n"+
             "  Emitting Generated Code                  \n"+
             "*******************************************/\n" +
             "class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tag).mkString(",")+")")+
-            " extends (("+x.map(a => remap(a.tag.mf)).mkString(", ")+")=>("+y.res.map(a => remap(IR.exp2tp(a).tag.mf)).mkString(", ") + ")) {" +
-            "\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): "+y.res.map(a => remap(IR.exp2tp(a).tag.mf)).mkString(", ")+" = {\n"
+            " extends (("+x.map(a => remap(a.tag.mf)).mkString(", ")+")=>" + returntuple + ") {" +
+            "\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
 
+        val restuple: Vector[String] = y.res.map(r => quote(r))
         val res = stringheader + block_callback(y,"") +
-          "\n ("+ y.res.map(r => quote(r)).mkString(", ") +  ")\n" +
+          "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}" +
           "}" +
           "\n/*****************************************\n"+
@@ -91,9 +125,12 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
       emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
     }
-    case IR.ReturnArg(f,sym,pos,tuple) => {
-      if (tuple)
-        emitValDef(tp,quote(f) + "._" + (pos+1).toInt)
+    case IR.ReturnArg(f,sym,posx,tuple) => {
+      if (tuple) {
+        //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
+        val start = "val " + quote(tp) + " = " + quote(f)
+        tupleaccesshelper(posx,start)
+      }
       else
         emitValDef(tp,quote(f))
     }

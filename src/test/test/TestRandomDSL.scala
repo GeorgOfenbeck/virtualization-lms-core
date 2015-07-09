@@ -25,7 +25,11 @@ with GenRandomPrimitiveOps
 with GenRandomFunctions
 with ScalaCompile {
  self =>
- override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenIfThenElse{
+ override val codegen = new ScalaCodegen
+   with EmitHeadInternalFunctionAsClass
+   with ScalaGenBooleanOps
+   with ScalaGenPrimitivOps
+   with ScalaGenIfThenElse{
   val IR: self.type = self
  }
  val emitGraph = new GraphVizExport {
@@ -42,7 +46,7 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
 
  val dsl = new MRandomClass
  println("hello dude")
- val desc = CodeDescriptor(10,2,1)
+ val desc = CodeDescriptor(10,1,10,0)
  val test1 = dsl.genCode(desc).sample.get
  val inisyms = test1.head.syms
  val resultsyms = test1.last.syms
@@ -60,7 +64,11 @@ class TestRandomDSL extends PropSpec with PropertyChecks {
  stream.println(code)
  stream.flush()
  stream.close()
- //dsl.compile(callstack_staged)
+ val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+ val esc = dsl.codegen.emitSource(callstack_staged,"testClass",stream2)(exposeargs,exposeres)
+ stream2.flush()
+ stream2.close()
+ //val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs,exposeres)
 
 
  println("args!")

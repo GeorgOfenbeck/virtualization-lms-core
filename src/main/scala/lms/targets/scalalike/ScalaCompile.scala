@@ -88,6 +88,8 @@ trait ScalaCompile {
 
     val cons = cls.getConstructor(staticData.map(_._1.tp.erasure):_*)
 
+    //val obj: A=>R = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[A=>R]
+
     val obj: A=>R = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[A=>R]
     (obj,esc)
   }

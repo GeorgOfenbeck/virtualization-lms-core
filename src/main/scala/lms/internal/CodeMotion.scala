@@ -79,8 +79,8 @@ trait CodeMotion {
 
     if (true) {//TODO - RF!
       //if (!bcache.contains(resid)) { //this should always be true
-      if (block.res.size > 1)
-        assert(false, "fix me")
+      /*if (block.res.size > 1)
+        assert(false, "fix me")*/
       val  (mark,pmark,stack,rscope,rfullscope,uplinks,roots) = //calling visited_nested with the empty status variables and the full graph to start things off
         res.foldLeft( (Set.empty[Int],Set.empty[Int],Vector.empty[Int],enriched_graph,enriched_graph,Set.empty[Int],Set.empty[Int]) ) {
           (acc,ele) =>  {

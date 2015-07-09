@@ -62,8 +62,8 @@ trait Expressions extends TypeRepBase with Logging{
  case class TP[T](val sym: Exp[T], val rhs: Def[T], val tag: TypeRep[T])
 
  var nVars = 0
-
   var nArgs = 0
+
   def Arg[T:TypeRep] = {
     val r = toAtom( ArgDef(nArgs))
     nArgs += 1
@@ -238,6 +238,7 @@ trait Expressions extends TypeRepBase with Logging{
 
  def reset() =  {
   nVars = 0
+  nArgs = 0
   exp2tp = Map.empty
   def2tp = Map.empty
   id2tp = Map.empty

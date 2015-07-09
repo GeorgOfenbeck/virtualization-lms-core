@@ -19,9 +19,21 @@ trait ScheduleChoice {
   if (!block.children.contains(root))
    assert(false, "bla")
   val nexts = block.children(root).successors //get all successors
-  val withoutprev = nexts flatMap (
-     next => { //for each successors
+  val onlyfromblock = nexts.filter(n => block.children.contains(n)) //don't consider successors that are not part of the block
+  val onlynew = onlyfromblock.filter(n => !done.contains(n))
 
+  //at this part we check if its predecessors are already done
+  //preddone will contain all those sucessors whos predecessors are done/ outside the block or are the current root
+  val preddone = onlynew.flatMap(n => {
+    val allprev = block.children(n).predecessors //get its predecessors
+    val withoutroots = allprev - root -- done
+    val onlyfromblock = withoutroots.filter(n => block.children.contains(n))
+    if (onlyfromblock.isEmpty) Some(n) else None
+  })
+  val newroots = current_roots ++ preddone - root
+
+  /*val withoutprev = nexts flatMap (
+     next => { //for each successors
       if(!block.children.contains(next))
        assert(false,"bla")
      val allprev = block.children(next).predecessors //get its predecessors
@@ -30,7 +42,8 @@ trait ScheduleChoice {
       if (onlyfromblock.isEmpty) Some(next) else None
      }
      )
-  val newroots = (current_roots - root ++ withoutprev).filter(p => block.children.contains(p)) //the filter to make sure we dont schedule the calling block function
+*/
+  //val newroots = (current_roots - root ++ withoutprev).filter(p => block.children.contains(p)) //the filter to make sure we dont schedule the calling block function
   newroots
  }
 

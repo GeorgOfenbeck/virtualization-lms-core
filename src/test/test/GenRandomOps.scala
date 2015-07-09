@@ -10,6 +10,7 @@ import scala.lms.internal._
 
 case class CodeDescriptor(
                            max_nodes_per_block: Int,
+                           max_toplevel_args: Int,
                            max_args: Int,
                            max_nest_depth: Int,
                            cur_nodes_per_block: Int = 0,
@@ -227,7 +228,7 @@ trait GenRandomOps extends ExposeRepBase{
         val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
         in ++ retctp
       }
-      val sf: (Vector[cTP] => Vector[cTP]) = (in: Vector[cTP]) => {
+      val stagedf: (Vector[cTP] => Vector[cTP]) = (in: Vector[cTP]) => {
         val argsyms: Vector[Any] = assign.foldLeft(Vector.empty[Any]) {
           (acc, ele) => {
             acc :+ in(ele).sym
@@ -235,16 +236,17 @@ trait GenRandomOps extends ExposeRepBase{
         }
         val ret: Vector[Any] = op.desc.sf(argsyms)
         val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
-        println(retctp)
+        println(in ++ retctp)
+        println("0----")
         in ++ retctp
       }
-      FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,sf)
+      FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,stagedf)
     }
   }
 
   def genCode(desc: CodeDescriptor): Gen[Vector[FNest]] = {
     for {
-      ini <- genArgs(desc.max_args)
+      ini <- genArgs(desc.max_toplevel_args)
       tail <- genNodes(desc, Vector(FNest(ini, null, null)))
     } yield tail
   }
