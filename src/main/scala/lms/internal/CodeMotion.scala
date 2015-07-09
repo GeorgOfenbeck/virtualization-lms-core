@@ -231,6 +231,8 @@ trait CodeMotion {
       (currentmap)
     else {
       val track: Int = backtrack.head //backtrack is a stack of nodes we still not to go through
+      if (!full.contains(track))
+        assert(false, "??")
       val tracknode: EnrichedGraphNode = full(track) //get the head and traverse from there
       val tpredessors = tracknode.predecessors
       val newtrack =  tpredessors filter ( e => !(currentmap.contains(e)) && !roots.contains(e)) //make sure we didnt visit that path already and that we are not at the origin of the subgraph

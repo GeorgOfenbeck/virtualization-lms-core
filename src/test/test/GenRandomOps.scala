@@ -236,8 +236,8 @@ trait GenRandomOps extends ExposeRepBase{
         }
         val ret: Vector[Any] = op.desc.sf(argsyms)
         val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
-        println(in ++ retctp)
-        println("0----")
+        /*println(in ++ retctp)
+        println("0----")*/
         in ++ retctp
       }
       FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,stagedf)
@@ -275,10 +275,19 @@ trait GenRandomOps extends ExposeRepBase{
     }
     f
   }
-  @tailrec
+
+  private def chainsf(v: Vector[FNest], res: Vector[cTP]): Vector[cTP] = {
+
+    if (v.isEmpty) res else {
+      val headres = v.head.sf(res)
+      chainsf(v.tail, headres)
+    }
+  }
+
+  /*@tailrec
   private def chainsf(v: Vector[FNest], res: Vector[cTP]): Vector[cTP] =
     if (v.isEmpty) res else chainsf(v.tail, v.head.sf(res))
-
+*/
 
   def chainHeadf(v: Vector[FNest]): (Vector[cTP] => Vector[cTP]) = {
     if (v.tail.isEmpty)
