@@ -4,7 +4,7 @@ version := "0.5"
 
 organization := "EPFL"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
@@ -23,6 +23,8 @@ libraryDependencies ++= Seq(
 )
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.3" % "test"
+
+libraryDependencies += "org.apache.commons" % "commons-math3" % "3.0"
 
 // tests are not thread safe
 parallelExecution in Test := false
