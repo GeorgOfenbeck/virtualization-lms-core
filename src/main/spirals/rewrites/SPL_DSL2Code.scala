@@ -1,7 +1,8 @@
+/*
 package ch.ethz.spirals.rewrites
 
-import scala.virtualization.lms.common._
-import scala.virtualization.lms._
+import scala.lms._
+import ops._
 import internal._
 
 
@@ -139,3 +140,4 @@ trait SPL_DSL2Code extends PureDefaultTraversal {
 }
 
 
+*/

@@ -1,3 +1,4 @@
+/*
 package ch.ethz.spirals.rewrites
 
 import scala.virtualization.lms.common._
@@ -134,3 +135,4 @@ trait SigmaSPL2Code extends PureDefaultTraversal {
 }
 
 
+*/

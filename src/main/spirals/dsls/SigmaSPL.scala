@@ -81,7 +81,7 @@ trait SigmaSPLExp extends SigmaSPLBase with PureNumericOpsExp { self =>
           s: Exp[IndexMapping],
           v: Vector[Int]) = GT(x,A,g,s,v, getSigmaSPLSize(x))
 
-  def sigma(n: Exp[Int], start: Exp[Int], end: Exp[Int], f: Exp[Int] => Exp[SigmaSPLVector], size: Int): Exp[SigmaSPLVector] = {
+  def sigma(n: Exp[Int], start: Exp[Int], end: Exp[Int], f: Exp[Int] => Exp[SigmaSPLVector]): Exp[SigmaSPLVector] = {
     ???
   }
 }

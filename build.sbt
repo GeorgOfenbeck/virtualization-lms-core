@@ -22,7 +22,7 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "2.2.0" % "test"
 )
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.3" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.3"
 
 libraryDependencies += "org.apache.commons" % "commons-math3" % "3.0"
 
@@ -58,6 +58,6 @@ libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _ % 
 
 addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
 
-// code coverage
 
-scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageHighlighting := false
+
+

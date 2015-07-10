@@ -34,7 +34,8 @@ trait StagedScala_Exp  extends PureNumericOpsExp with BaseExp with InternalFunct
       val t = for(i <- 0 until instance_size) yield exposeComplex.freshExps()
       t.foldLeft(Vector.empty[Exp[_]])((acc,ele) => { acc ++ ele })
     }
-    val vec2t = (h: Vector[Exp[_]]) => ComplexVector(h.grouped(2).foldLeft(Vector.empty[StagedComplex])((acc,ele) => { acc :+ exposeComplex.vec2t(ele)}))
+    val vec2t: (Vector[Exp[_]] => ComplexVector[T]) =
+      (h: Vector[Exp[_]]) => ComplexVector(h.grouped(2).foldLeft(Vector.empty[StagedComplex])((acc,ele) => { acc :+ exposeComplex.vec2t(ele)}))
     val t2vec = (v: ComplexVector[T]) => v.vec.foldLeft(Vector.empty[Exp[_]])((acc,ele) => { acc ++ exposeComplex.t2vec(ele)})
   }
 }

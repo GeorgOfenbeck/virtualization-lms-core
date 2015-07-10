@@ -4,11 +4,7 @@ trait BreakDown2SPL_DSL{
   import ch.ethz.spirals.dsls._
 
   val IR: SPL_Exp
-  implicit def unit(spl : SPL): IR.Rep[SPL] = IR.SPLtoRep(spl)
   import IR._
-
-
-
   def bd2spl(in_bd: BreakDown): Rep[SPL] = {
     val r: Rep[SPL] = in_bd.applied_bd map (x =>
       x.rule match {
@@ -22,25 +18,25 @@ trait BreakDown2SPL_DSL{
           val spl_expression = {
             //SPL - this is the actual SPL expression - c1 and c2 are the possibly extended children
             import IR.SPLOps
-            ( c1 tensor I(d1) ) compose ( infix_tensor(I(k1),c2))
+            ( c1 tensor unit(I(d1)) ) compose ( unit(I(k1)) tensor c2)
             //--------------------------------------------------------------------------------
           }
           spl_expression
         }
         case BreakdownRules.WHT_Base => {
-          val spl: Rep[SPL] = F_2()
+          val spl: Rep[SPL] = unit(F_2())
           spl
         }
         case _ =>
           println(x)
           assert(false);
-          val spl: Rep[SPL] = F_2()
+          val spl: Rep[SPL] = unit(F_2())
           spl
       }
       ) getOrElse (
       {
         //assert(false);
-        val spl: Rep[SPL] = F_2()
+        val spl: Rep[SPL] = unit(F_2())
         spl
       }
       )

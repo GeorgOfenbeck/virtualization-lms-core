@@ -33,7 +33,6 @@ trait ScalaGenTest extends ScalaCodegen {
   val IR: TestExp
 
   import IR._
-
   override def emitNode(tp: TP[_], acc: String,
                         block_callback: (Block, String) => String): String = {
     val ma = tp.rhs match {

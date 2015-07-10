@@ -1,9 +1,9 @@
+/*
 package ch.ethz.spirals.rewrites
 
 
 
-import scala.virtualization.lms.common._
-import scala.virtualization.lms._
+import scala.lms._
 import internal._
 import ch.ethz.spirals.dsls._
 
@@ -96,3 +96,4 @@ trait PrintStagedScala extends PureDefaultTraversal {
 
 
 }
+*/

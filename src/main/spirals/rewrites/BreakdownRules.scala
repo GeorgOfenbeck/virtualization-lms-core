@@ -181,10 +181,11 @@ object BreakdownRules {
   def getChildren(in: BreakDown): List[BreakDown] = in.applied_bd.map ( resolved => resolved.children).getOrElse(List())
 
   def expandChildren (in: List[BreakDown]): Gen[List[BreakDown]] = {
-    implicit def buildableList[T] = new util.Buildable[T,List] {
+    implicit def buildableList[T] = new util.Buildable[T,List[T]] {
       def builder = new scala.collection.mutable.ListBuffer[T]
     }
-    val listnow: Gen[List[BreakDown]] = Gen.sequence(in.map( child => genRandomRuleTree(child.nt))) //(util.Buildable.buildableList)
+    val t = in.map( child => genRandomRuleTree(child.nt))
+    val listnow: Gen[List[BreakDown]] = Gen.sequence(t) //(util.Buildable.buildableList)
     listnow
   }
 
