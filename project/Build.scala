@@ -6,7 +6,7 @@ object LMSBuild extends Build {
 
   val scalaTest = "org.scalatest" % "scalatest_2.11" % "2.2.2"
   
-  val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
+  //val virtScala = Option(System.getenv("SCALA_VIRTUALIZED_VERSION")).getOrElse("2.11.2")
 
   lazy val lms = Project("LMS", file("."))
 }
