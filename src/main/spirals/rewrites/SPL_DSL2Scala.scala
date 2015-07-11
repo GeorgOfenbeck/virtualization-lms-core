@@ -36,6 +36,7 @@ trait SPL_DSL2Scala extends Emit[Map[Int, Vector[MyComplex] => Vector[MyComplex]
             x match{
               case I(n) => ( (in: Vector[MyComplex]) => in )
               case F_2() => ( (in: Vector[MyComplex]) => Vector(in(0)+in(1),in(0)-in(1)) )
+
               case _ => ??? //we dont support anyting else for this tutorial
           }
           fmap + (tp.sym.id -> f)
