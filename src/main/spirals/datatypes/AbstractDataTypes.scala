@@ -58,11 +58,13 @@ abstract class ElementOps[ElementClass[_], T] (implicit val numeric: NumericOps[
  * @tparam T Primitives type
  */
 abstract class ArrayOps[V[_], A[_], R[_], T] {
-  def alloc(s: V[Int]): V[A[T]]
+  def alloc(s: V[Int]): V[A[R[T]]]
 
-  def apply(x: V[A[T]], i: V[Int]): R[T]
+  def apply(x: V[A[R[T]]], i: V[Int]): R[T]
 
-  def update(x: V[A[T]], i: V[Int], y: R[T])
+  //def update(x: V[A[T]], i: V[Int], y: R[T])
+
+  def ini(from: Seq[R[T]]): V[A[R[T]]]
 }
 
 abstract class LiftOps[R[_]] {
@@ -81,18 +83,20 @@ abstract class CVector[VectorRep[_], ElementClass[_], R[_], T]
   self =>
   def apply(i: VectorRep[Int]): ElementClass[R[T]]
 
-  def create(s: VectorRep[Int]): CVector[VectorRep, ElementClass, R, T]
+  //def create(s: Int): CVector[VectorRep, ElementClass, R, T]
 
-  def update(i: VectorRep[Int], y: ElementClass[R[T]])
+
+  //def update(i: VectorRep[Int], y: ElementClass[R[T]])
+  def ini(from: Seq[ElementClass[R[T]]]): CVector[VectorRep, ElementClass, R, T]
 
   def GT(A: CVector[VectorRep, ElementClass, R, T] => CVector[VectorRep, ElementClass, R, T],
-        g: (Vector[VectorRep[Int]]) => VectorRep[Int],
-        s: (Vector[VectorRep[Int]]) => VectorRep[Int],
+        g: (Vector[Int]) => Int,
+        s: (Vector[Int]) => Int,
         v: Vector[Int]
           ): CVector[VectorRep, ElementClass, R, T] => CVector[VectorRep, ElementClass, R, T]
 
 
-  def size(): VectorRep[Int]
+  def size(): Int
 }
 
 

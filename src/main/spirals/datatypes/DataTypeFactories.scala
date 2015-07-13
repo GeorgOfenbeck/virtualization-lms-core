@@ -25,9 +25,8 @@
 package ch.ethz.spirals.datatypes
 
 object DataTypeFactories {
-  import UnstagedImplicitOps._
   import ElementOpsUnstaged._
-  class SplitComplexArray[V[_], A[_], R[_], T](s: V[Int], d: V[A[T]] = null)
+  class SplitComplexArray[V[_], A[_], R[_], T](s: Int, d1: V[A[R[T]]] = null, d2: V[A[R[T]]] = null)
                                                               (implicit
                                                                // Template operators
                                                                aops: ArrayOps[V, A, R, T],
@@ -37,55 +36,60 @@ object DataTypeFactories {
                                                                irep: NumericOps[V[Int]]
                                                                 ) extends CVector[V, Complex, R,T] {
 
-
     private val two = irep.fromInt(2)
-    private val data = if (d == null) aops.alloc(irep.times(s, two)) else d
+    private val data1: V[A[R[T]]] = if (d1 == null) aops.alloc(vrep(s)) else d1
+    private val data2: V[A[R[T]]] = if (d2 == null) aops.alloc(vrep(s)) else d2
 
-    def create(n: V[Int]) = {
-      val arr: V[A[T]] = aops.alloc(irep.times(n, two))
-      new SplitComplexArray[V, A, R, T](n, arr)
-    }
     def apply(i: V[Int]): Complex[R[T]] = new Complex(
-      _re = aops.apply(data, i),
-      _im = aops.apply(data, irep.plus(s, i))
+      _re = aops.apply(data1, i),
+      _im = aops.apply(data2, i)
     )
 
-    // (nrep.m)
-    def update(i: V[Int], y: Complex[R[T]]) = {
-      aops.update(data, i, y._re)
-      aops.update(data, irep.plus(s, i), y._im)
+    def ini(from: Seq[Complex[R[T]]]) = {
+      val v: Vector[Complex[R[T]]] = from.toVector
+      val first = v.map(e => e._re)
+      val second = v.map(e => e._im)
+      val d1 = aops.ini(first)
+      val d2 = aops.ini(second)
+      new SplitComplexArray[V, A, R, T](s,d1,d2)
     }
 
     def GT(A: CVector[V, Complex, R, T] => CVector[V, Complex, R, T],
-           g: (Vector[V[Int]]) => V[Int],
-           s: (Vector[V[Int]]) => V[Int],
+           g: (Vector[Int]) => Int,
+           s: (Vector[Int]) => Int,
            v: Vector[Int]
             )
     : CVector[V, Complex, R, T] => CVector[V, Complex, R, T] = (in: CVector[V, Complex, R, T]) => {
 
-      val out = in.create(in.size()) //create a same size element
-
-
-      def helper(loopv: Vector[Int], currv: Vector[V[Int]]): Unit = {
+      //val out = in.create(in.size()) //create a same size element
+      val size = in.size
+      val out = new Array[Complex[R[T]]](size)
+      for (i<-0 until size) out(i) = in(vrep(0))
+      def helper(loopv: Vector[Int], currv: Vector[Int]): Unit = {
         if (loopv.tail.isEmpty){ //inner most loop
           val s0 = loopv.head
-          val int = in.create(irep.fromInt(s0))
+          val temp = new Array[Complex[R[T]]](s0)
+          for (i<-0 until s0) temp(i) = in(vrep(0))
+          //val int = in.create(s0)
             for ( i <- 0 until s0)
             {
-              val is: V[Int] = irep.fromInt(i)
-              val newv: Vector[V[Int]] = is +: currv
-              val idx: V[Int] = g(newv)
-              val ele = in.apply(idx)
-              int.update(is,ele)
+              //val is: V[Int] = irep.fromInt(i)
+              val newv: Vector[Int] = i +: currv
+              val idx = g(newv)
+              val ele = in.apply(vrep(idx))
+              temp.update(i,ele)
+              //int.update(is,ele)
             }
-            val outt = A(int)
+            val intvec = in.ini(temp)
+            val outt = A(intvec)
             for ( i <- 0 until s0)
             {
-              val is: V[Int] = irep.fromInt(i)
-              val newv: Vector[V[Int]] = is +: currv
-              val idx: V[Int] = s(newv)
-              val ele = outt.apply(is)
+              //val is: V[Int] = irep.fromInt(i)
+              val newv: Vector[Int] = i +: currv
+              val idx = s(newv)
+              val ele = outt.apply(vrep(i))
               out.update(idx,ele)
+              //out.update(idx,ele)
             }
           }
         else
@@ -93,23 +97,17 @@ object DataTypeFactories {
           val sk = loopv.head
           val rest = loopv.tail
           for (i <- 0 until sk) {
-            val is: V[Int] = irep.fromInt(i)
-            helper(rest, is +: currv)
+            //val is: V[Int] = irep.fromInt(i)
+            helper(rest, i +: currv)
           }
         }
       }
 
       helper(v,Vector.empty)
-      out
+      val outvec = in.ini(out)
+      outvec
     }
-
-
-
-
-
     def size() = s
-
-    override def toString = "SplitComplexVector()"
   }
 
 }

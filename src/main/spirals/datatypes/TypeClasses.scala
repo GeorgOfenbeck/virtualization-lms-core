@@ -49,7 +49,7 @@ object NumericOpsUnstaged extends IdendityTypes{
 
 trait TypeClassesStagedNumericOps extends PureNumericOpsExpOpt with IdendityTypes{
   object StagedNumericOps {
-    class NumericRepOps[T: Numeric : Manifest] extends NumericOps[Rep[Single[T]]] {
+    class NumericRepOps[T: Numeric : Manifest] extends NumericOps[Rep[T]] {
       def plus(x: Rep[T], y: Rep[T]) = numeric_plus[T](x, y)
       def minus(x: Rep[T], y: Rep[T]) = numeric_minus[T](x, y)
       def times(x: Rep[T], y: Rep[T]) = numeric_times[T](x, y)
@@ -117,44 +117,6 @@ object ElementOpsUnstaged {
   }
 }
 
-/* ========================================================================================================= */
-/* ========================================= VectorElementOps ============================================== */
-/* ========================================================================================================= */
-/*
-
-object VectorElementOps {
-  class VectorElementOpsSingle[E[_], T: Manifest](implicit eops: ElementOps[E, Rep[Single[T]]])
-    extends VectorElementOps[E, Rep, Single, T]() {
-
-    def length() = 1
-
-    def vset1(x: E[Rep[T]])(implicit e: ElementOps[E, Rep[T]]) = x
-
-    def hadd(a: E[Rep[Single[T]]], b: E[Rep[Single[T]]]) = eops.plus(a, b)
-
-    def permute2(a: E[Rep[Single[T]]], b: E[Rep[Single[T]]], mask: Int) = if (mask == 1) a else b
-  }
-
-  class VectorElementOpsPacked[E[_], T: Manifest](implicit eops: ElementOps[E, Rep[Packed[T]]])
-    extends VectorElementOps[E, Rep, Packed, T]() {
-
-    def length() = codegen.getInstructionSetVectorSize[T]
-
-    def vset1(x: E[Rep[T]])(implicit e: ElementOps[E, Rep[T]]) = eops.create(
-      e.extract(x).map(t => infix_vset1[T](t, codegen.getInstructionSetVectorSize[T]))
-    )
-
-    def hadd(a: E[Rep[Packed[T]]], b: E[Rep[Packed[T]]]) = eops.create(
-      (eops.extract(a) zip eops.extract(b)).map(z => infix_hadd[T](z._1, z._2))
-    )
-
-    def permute2(a: E[Rep[Packed[T]]], b: E[Rep[Packed[T]]], mask: Int) = eops.create(
-      (eops.extract(a) zip eops.extract(b)).map(z => infix_permute2[T](z._1, z._2, mask))
-    )
-  }
-}
-*/
-
 /**
  * ============================================ ArrayOps ===================================================
  *
@@ -183,65 +145,25 @@ object VectorElementOps {
 
 object ArrayOpsUnstaged extends IdendityTypes{
   class UnstagedArray[T: Manifest]  extends ArrayOps[NoRep,Array,NoRep,T] {
-    def alloc(s: NoRep[Int]): NoRep[Array[T]] = new Array[T](s)
-    def apply(x: NoRep[Array[T]], i: NoRep[Int]): NoRep[T] = x.apply(i)
-    def update(x: NoRep[Array[T]], i: NoRep[Int], y: NoRep[T]) = x.update(i,y)
+    def alloc(s: NoRep[Int]): NoRep[Array[T]] = new Array[NoRep[T]](s)
+    def apply(x: NoRep[Array[NoRep[T]]], i: NoRep[Int]): NoRep[T] = x.apply(i)
+    //def update(x: NoRep[Array[T]], i: NoRep[Int], y: NoRep[T]) = x.update(i,y)
+    def ini(from: Seq[NoRep[T]]): NoRep[Array[T]] = from.toArray
   }
+}
+
+
+trait TypeClassesStagedArrayOps extends PureNumericOpsExpOpt with IdendityTypes{
+  class ScalarSingleArrayOps[T: Manifest] extends ArrayOps[NoRep, Array, Rep, T] {
+    def alloc(s: NoRep[Int]): NoRep[Array[Rep[T]]] = new Array[Rep[T]](s)
+    def apply(x: NoRep[Array[Rep[T]]], i: NoRep[Int]): Rep[T] = x.apply(i)
+    def ini(from: Seq[Rep[T]]): Array[Rep[T]] = from.toArray
+  }
+  implicit def arrayofStaged[T:Manifest]: ArrayOps[NoRep,Array,Rep,T] = new ScalarSingleArrayOps[T]
+
+
 
 }
-/*
-
-
-trait TypeClassesStagedNumericOps extends VectorOpsExp{
-
-  class StagedSingleArrayOps[T] extends ArrayOps[Rep, Rep, Single, NoRep, T] {
-    def alloc(s: Rep[Int]): Rep[Array[T]] = array_obj_new(s)
-
-    def apply(x: Rep[Array[T]], i: Rep[Int]): Rep[T] = array_apply(x, i)
-
-    def update(x: Rep[Array[T]], i: Rep[Int], y: Rep[T]) = array_update(x, i, y)
-  }
-
-  class ScalarSingleArrayOps[T: Manifest] extends ArrayOps[NoRep, Rep, Single, Rep, T] {
-    def alloc(s: NoRep[Int]): Array[Rep[T]] = new Array[Rep[T]](s)
-
-    def apply(x: Array[Rep[T]], i: NoRep[Int]): Rep[T] = x(i)
-
-    def update(x: Array[Rep[T]], i: NoRep[Int], y: Rep[T]) = x.update(i, y)
-  }
-
-  class StagedPackedArrayOps[T: Manifest] extends ArrayOps[Rep, Rep, Packed, NoRep, T] {
-    def alloc(s: Rep[Int]): Rep[Array[T]] = array_obj_new(s)
-
-    def apply(x: Rep[Array[T]], i: Rep[Int]): Rep[Packed[T]] = infix_vload[T](x, i, codegen.getInstructionSetVectorSize[T])
-
-    def update(x: Rep[Array[T]], i: Rep[Int], y: Rep[Packed[T]]) = infix_vstore(x, i, y)
-  }
-
-  class PackedScalarArrayOps[T: Manifest] extends ArrayOps[NoRep, Rep, Packed, RepPacked, T] {
-    def alloc(s: NoRep[Int]): Array[RepPacked[T]] = new Array[RepPacked[T]](s)
-
-    def apply(x: Array[RepPacked[T]], i: NoRep[Int]): Rep[Packed[T]] = x(i)
-
-    def update(x: Array[RepPacked[T]], i: NoRep[Int], y: Rep[Packed[T]]) = x.update(i, y)
-  }
-
-  class ScalarPackedArrayOps[T: Manifest] extends ArrayOps[NoRep, Rep, Packed, Rep, T] {
-    def alloc(s: NoRep[Int]): Array[Rep[T]] = new Array[Rep[T]](s)
-
-    def apply(x: Array[Rep[T]], i: NoRep[Int]): Rep[Packed[T]] = {
-      val r: Rep[Packed[T]] = null
-      // TODO (Alen Stojanov): Write the implementation using infix_vset (or smth)
-      r
-    }
-
-    def update(x: Array[Rep[T]], i: NoRep[Int], y: Rep[Packed[T]]) = {
-      // TODO (Alen Stojanov): Write the implementation using infix_vget (or smth)
-    }
-  }
-
-}
-*/
 
 
 /* ========================================================================================================= */

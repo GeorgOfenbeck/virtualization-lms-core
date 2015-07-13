@@ -22,14 +22,26 @@ trait SPL_DSL2ParametricStagedScala[V[_],E[_],R[_],T] extends Emit[Map[Int, CVec
       case IR.Tensor(IR.Exp(a), IR.Exp(b), size) => {
         val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (IR.id2tp(a).rhs, IR.id2tp(b).rhs) match {
           case (IR.ConstDef(I(n)), _) => {
-            (in: CVector[V,E,R,T]) =>
-              in.grouped(size / n).flatMap(chunk => fmap(b)(chunk)).toVector
+            (in: CVector[V,E,R,T]) => {
+              val base = 0
+              val strides = Vector(1,n)
+              val h: (Vector[Int]) => Int = (loopvars: Vector[Int]) => { //this is the stride function we access with
+                base + loopvars.zip(strides).foldLeft(0)({(acc,ele) => acc + (ele._1 * ele._2)})}
+              val A = fmap(b)
+              in.GT(A,h,h,Vector(size/n))(in) //in.grouped(size / n).flatMap(chunk => fmap(b)(chunk)).toVector
+            }
           }
           case (_, IR.ConstDef(I(n))) => {
-            (in: CVector[V,E,R,T]) =>
-              in.grouped(n).toList.transpose.map(chunk => fmap(a)(chunk.toVector)).transpose.flatten.toVector
+            (in: CVector[V,E,R,T]) => {
+              val base = 0
+              val strides = Vector(size/n,1)
+              val h: (Vector[Int]) => Int = (loopvars: Vector[Int]) => { //this is the stride function we access with
+                  base + loopvars.zip(strides).foldLeft(0)({(acc,ele) => acc + (ele._1 * ele._2)})}
+              val A = fmap(b)
+              in.GT(A,h,h,Vector(size/n))(in) //in.grouped(n).toList.transpose.map(chunk => fmap(a)(chunk.toVector)).transpose.flatten.toVector
+            }
           }
-          case _ => ??? //we dont support anyting else for this tutorial
+          case _ => ??? //we dont support anything else for this tutorial
         }
         fmap + (tp.sym.id -> f)
       }
@@ -39,20 +51,14 @@ trait SPL_DSL2ParametricStagedScala[V[_],E[_],R[_],T] extends Emit[Map[Int, CVec
           x match {
             case I(n) => (in: CVector[V,E,R,T]) => in
             case F_2() => (in: CVector[V,E,R,T]) => {
-              val f: CVector[V,E,R,T] => CVector[V,E,R,T] = (in: CVector[V,E,R,T]) => {
-                val idx0 = in.irep.fromInt(0)
-                val idx1 = in.irep.fromInt(1)
-                val t0 = in(idx0)
-                val t1 = in(idx1)
-                val out = in.create(in.irep.fromInt(2))
+                val t0 = in(in.irep.fromInt(0))
+                val t1 = in(in.irep.fromInt(1))
                 val res1 = in.erep.plus(t0,t1)
                 val res2 = in.erep.minus(t0,t1)
-                out.update(idx0,res1)
-                out.update(idx1,res2)
-                out
+                in.ini(Vector(res1, res2))
+
               }
-            }
-            case _ => ??? //we dont support anyting else for this tutorial
+            case _ => ??? //we dont support anything else for this tutorial
           }
         fmap + (tp.sym.id -> f)
       }
