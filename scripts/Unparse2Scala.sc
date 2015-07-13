@@ -5,10 +5,8 @@ import ch.ethz.spirals.dsls._
 import ch.ethz.spirals.rewrites._
 import scala.lms.internal.InternalFunctionsExp
 import scala.lms.targets.graphviz.GraphVizExport
-
 class MyDSLProgram extends SPL_DSL {
   self =>
-
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
   }
@@ -74,6 +72,7 @@ class MyDSLProgram extends SPL_DSL {
     stream.println(scalagraph)
     stream.flush()
     stream.close()
+    println("done")
   }
 
 }
@@ -85,7 +84,6 @@ val myprog = new MyDSLProgram
 
 myprog.exportgraph()
 myprog.createMat()
-
 myprog.createScalaCode()
 myprog.createStagedScalaCode()
 
