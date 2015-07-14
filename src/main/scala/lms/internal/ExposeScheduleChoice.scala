@@ -1,6 +1,11 @@
 package scala.lms
 package internal
 
+
+/**
+ * This is not stable code!
+ */
+
 trait ScheduleChoice {
  self =>
  val cminfo: CodeMotion

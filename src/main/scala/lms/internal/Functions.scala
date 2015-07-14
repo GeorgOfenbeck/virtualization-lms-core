@@ -14,7 +14,7 @@ trait ExposeRepBase extends Expressions{
 trait InternalFunctions extends Base with ExposeRepBase{
  def doLambda[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ( A => R)
  implicit def fun[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): (A => R) = doLambda(f)
- //def doApply[A,R](fun: Rep[_ => _], arg: A)(implicit args: ExposeRep[A], returns: ExposeRep[R]): R
+
 }
 
 
@@ -41,17 +41,6 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCo
  case class InternalApply[CA, CR](f: Exp[_ => _], arg: Vector[Exp[_]]) extends Def[Any] //RF (any?)
 
 
-/*
-  def doApply[A,R](fun: Exp[_ => _], arg: A)(implicit args: ExposeRep[A], returns: ExposeRep[R]): R = {
-    val ftp = id2tp(fun.id)
-    ftp.rhs match {
-      case InternalLambda(f,x,y,args,returns) => returns.vec2t(y.res).asInstanceOf[R]
-      case _ => ???
-    }
-  }
-*/
-
-
  def doLambdaDef[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]) : InternalLambda[A,R] = {
    val freshexps = args.freshExps()
    val tps = freshexps map (exp => id2tp(exp.id))
@@ -75,20 +64,6 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCo
    fun2tp = fun2tp + (returnf -> tp)
    returnf
   }
-  /*val can = canonicalize(f)
-  val existingf = fun2tp.get(can)
-
-  if (existingf.isDefined) {
-   existingf.get.sym.asInstanceOf[Exp[_ => _]]
-  }
-  else  {
-   val y = doLambdaDef(f)(args, returns)
-   val exp = toAtom(y)
-   val tp = id2tp(exp.id)
-   fun2tp = fun2tp + (can -> tp)
-   exp
-  }*/
-
 
  override def syms(e: Any): Vector[Exp[_]] = e match {
   case InternalLambda(f,x,y,args,returns) => {

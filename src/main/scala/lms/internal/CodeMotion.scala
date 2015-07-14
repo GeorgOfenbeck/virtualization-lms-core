@@ -1,6 +1,9 @@
 package scala.lms
 package internal
 
+/**
+ * This is not stable code!
+ */
 
 /*
   The general assumption of the new Codemotion is, that there cannot be a Sym without a corresponding TP! (which was different in previous LMS versions)

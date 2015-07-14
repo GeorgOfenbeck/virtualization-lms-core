@@ -35,7 +35,6 @@ trait IdendityTypes{
 object NumericOpsUnstaged extends IdendityTypes{
 
   class NumericNoRepOps[T: Manifest](implicit val numeric: Numeric[T]) extends NumericOps[NoRep[Single[T]]] {
-    //def cast[U: Manifest](x: T) = convert[T, U](x)
 
     def plus(x: T, y: T) = numeric.plus(x,y)
 
@@ -88,13 +87,6 @@ object ElementOpsUnstaged {
     def minus(x: Real[T], y: Real[T]) = Real(x._re - y._re)
 
     def times(x: Real[T], y: Real[T]) = Real(x._re * y._re)
-
-    /*def create(v: List[T]) = v.size match {
-      //case 0 => Real(implicitly[NumericOps[T]].fromDouble(0))
-      case _ => Real(v(0))
-    }*/
-
-    //def extract(elem: Real[T]) = List(elem._re)
   }
 
   class ComplexOps[T: Manifest : NumericOps] extends ElementOps[Complex, T] {
@@ -111,14 +103,6 @@ object ElementOpsUnstaged {
       val m4 = x._im * y._re
       Complex(m1 - m2, m3 + m4)
     }
-
-    /*def create(v: List[T]) = v.size match {
-      case 0 => val z = nops.fromDouble(0); Complex(z, z)
-      case 1 => val z = nops.fromDouble(0); Complex(v(0), z)
-      case _ => Complex(v(0), v(1))
-    }*/
-
-    //def extract(elem: Complex[T]) = List(elem._re, elem._im)
   }
 }
 
@@ -172,16 +156,12 @@ trait TypeClassesStagedArrayOps extends PureNumericOpsExpOpt with VectorOpsExp w
   class VectorArrayOps[T: Manifest] extends ArrayOps[Rep, Vector, NoRep, T] {
     def alloc(s: Rep[Int]): Rep[Vector[NoRep[T]]] = {
       ???
-      //vector_obj_fromseq(Vector.empty[Exp[T]])
     }
     def apply(x: Rep[Vector[NoRep[T]]], i: Rep[Int]): Rep[NoRep[T]] = vector_apply(x,i)
     def ini(from: Seq[Rep[NoRep[T]]]): Rep[Vector[NoRep[T]]] = vector_obj_fromseq(from) //from.toArray
   }
 
   implicit def arrayofStaged[T:Manifest]: ArrayOps[NoRep,Array,Rep,T] = new ScalarSingleArrayOps[T]
-
-
-
 }
 
 
@@ -190,16 +170,8 @@ trait TypeClassesStagedArrayOps extends PureNumericOpsExpOpt with VectorOpsExp w
 /* ========================================================================================================= */
 
 object UnstagedLiftOps extends IdendityTypes{
-
-
   class LifOpsNoRep extends LiftOps[NoRep] {
     def apply[T: Manifest](x: T) = x
-    /*def apply[X[_], T: Numeric : Manifest](exp: X[T])(implicit mE: Manifest[X[Any]]): NoRep[T] = exp match {
-      case c: Const[_] => apply(c.x.asInstanceOf[T])
-      case _ if (mA == mE) => exp.asInstanceOf[NoRep[T]]
-      case _ => throw new LiftOpsException(exp.toString + " can not be lifted")
-    }*/
-
     def staged() = false
   }
 }
@@ -209,10 +181,6 @@ object UnstagedImplicitOps extends IdendityTypes{
   /* =========================================== NumericOps ================================================== */
 
   implicit def numericNoRepOps[T: Numeric : Manifest]: NumericOps[NoRep[Single[T]]] = new NumericOpsUnstaged.NumericNoRepOps[T]
-
-  //implicit def numericRepOps[T: Numeric : Manifest]: NumericOps[Rep[Single[T]]] = new NumericOps.NumericRepOps[T]
-
-  //implicit def packedNumericOps[T: Numeric : Manifest]: NumericOps[Rep[Packed[T]]] = new NumericOps.PackedNumericOps[T]
 
   /* =========================================== ElementOps ================================================== */
 
@@ -224,28 +192,12 @@ object UnstagedImplicitOps extends IdendityTypes{
 
   implicit def unstagedArrayOps[T:Manifest]: ArrayOps[NoRep,Array,NoRep,T]       = new ArrayOpsUnstaged.UnstagedArray[T]
 
-/*
-  implicit def stagedPackedArrayOps[T: Manifest]: ArrayOps[Rep, Rep, Packed, NoRep, T] = new ArrayOps.StagedPackedArrayOps[T]
-
-  implicit def scalarPackedArrayOps[T: Manifest]: ArrayOps[NoRep, Rep, Packed, Rep, T] = new ArrayOps.ScalarPackedArrayOps[T]
-
-  implicit def packedScalarArrayOps[T: Manifest]: ArrayOps[NoRep, Rep, Packed, RepPacked, T] = new ArrayOps.PackedScalarArrayOps[T]
-
-  implicit def scalarSingleArrayOps[T: Manifest]: ArrayOps[NoRep, Rep, Single, Rep, T] = new ArrayOps.ScalarSingleArrayOps[T]
-
-  implicit def stagedSingleArrayOps[T: Manifest]: ArrayOps[Rep, Rep, Single, NoRep, T] = new ArrayOps.StagedSingleArrayOps[T]
-*/
-
   /* ========================================= VectorElementOps ============================================== */
 
 
   /* ============================================ LiftOps ==================================================== */
 
   implicit object NoRepObject extends UnstagedLiftOps.LifOpsNoRep
-
-/*  implicit object RepObject extends LiftOps.LifOpsRep
-
-  implicit object NoRepObject extends LiftOps.LifOpsNoRep*/
 
   /* ========================================================================================================= */
 }

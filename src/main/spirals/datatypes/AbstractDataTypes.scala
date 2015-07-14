@@ -5,7 +5,6 @@ import scala.reflect.runtime.universe._
 
 
 abstract class NumericOps[T](implicit val tag: Manifest[T]) {
-  //def cast[U: TypeRep](x: T): U
 
   def plus(x: T, y: T): T
 
@@ -36,10 +35,6 @@ abstract class ElementOps[ElementClass[_], T] (implicit val numeric: NumericOps[
 
   def times(x: ElementClass[T], y: ElementClass[T]): ElementClass[T]
 
-  //def create(l: Vector[T]): ElementClass[T]
-
-  //def extract(x: ElementClass[T]): Vector[T]
-
   class Ops(lhs: ElementClass[T]) {
     def +(rhs: ElementClass[T]) = plus(lhs, rhs)
 
@@ -62,8 +57,6 @@ abstract class ArrayOps[V[_], A[_], R[_], T] {
 
   def apply(x: V[A[R[T]]], i: V[Int]): V[R[T]]
 
-  //def update(x: V[A[T]], i: V[Int], y: R[T])
-
   def ini(from: Seq[V[R[T]]]): V[A[R[T]]]
 }
 
@@ -83,10 +76,6 @@ abstract class CVector[VectorRep[_], ElementClass[_], R[_], T]
   self =>
   def apply(i: VectorRep[Int]): ElementClass[VectorRep[R[T]]]
 
-  //def create(s: Int): CVector[VectorRep, ElementClass, R, T]
-
-
-  //def update(i: VectorRep[Int], y: ElementClass[R[T]])
   def ini(from: Seq[ElementClass[VectorRep[R[T]]]]): CVector[VectorRep, ElementClass, R, T]
 
   def GT(A: CVector[VectorRep, ElementClass, R, T] => CVector[VectorRep, ElementClass, R, T],
