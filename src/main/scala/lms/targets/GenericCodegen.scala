@@ -40,6 +40,7 @@ trait GenericCodegen extends Emit[String]{
     case Const(c: Char) => "'"+(""+c).replace("'", "\\'").replace("\n", "\\n")+"'"
     case Const(f: Float) => "%1.10f".format(f) + "f"
     case Const(l: Long) => l.toString + "L"
+    case Const(i: Int) => i.toString
     case Const(null) => "null"
     case Const(z) => z.toString
     case Exp(n) => "x"+n

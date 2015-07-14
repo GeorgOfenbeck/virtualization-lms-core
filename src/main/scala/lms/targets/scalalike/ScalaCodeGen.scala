@@ -151,6 +151,8 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         emitValDef(tp,quote(f))
     }
     case IR.ArgDef(id) => "" //args are handled in the according lambda
+    case IR.ConstDef(x) => "" //we assume Consts are inline through quoute
+
     case _ => super.emitNode(tp,acc,block_callback)
   }
 

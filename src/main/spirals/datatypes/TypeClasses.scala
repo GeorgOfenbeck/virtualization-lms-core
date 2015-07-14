@@ -53,7 +53,12 @@ trait TypeClassesStagedNumericOps extends PureNumericOpsExpOpt with IdendityType
       def plus(x: Rep[T], y: Rep[T]) = numeric_plus[T](x, y)
       def minus(x: Rep[T], y: Rep[T]) = numeric_minus[T](x, y)
       def times(x: Rep[T], y: Rep[T]) = numeric_times[T](x, y)
-      def fromInt(x: Int): Rep[T] = ???
+      def fromInt(x: Int): Rep[T] =
+      {
+        val ev = implicitly[Numeric[T]]
+        val b = ev.fromInt(x)
+        Const(b)
+      }
     }
   }
 }

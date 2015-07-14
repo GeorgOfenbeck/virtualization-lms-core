@@ -1,7 +1,7 @@
 
 
 
-import ch.ethz.spirals.datatypes.DataTypeFactories.SplitComplexArray
+import ch.ethz.spirals.datatypes.DataTypeFactories.{InterleavedComplexArray, SplitComplexArray}
 import ch.ethz.spirals.dsls._
 import ch.ethz.spirals.rewrites._
 
@@ -31,6 +31,7 @@ object Main extends App {
         with EmitHeadInternalFunctionAsClass
         with ScalaGenPrimitivOps
         with ScalaGenNumericOps
+        with ScalaGenVectorOps
       {
         val IR: self.type = self
       }
@@ -186,6 +187,68 @@ object Main extends App {
     }
 
 
+    def createParamizedStagedInterleavedScalaCode() = {
+      import ch.ethz.spirals.datatypes._
+      import ch.ethz.spirals.datatypes.UnstagedImplicitOps._
+      import ElementOpsUnstaged._
+      val size: ch.ethz.spirals.datatypes.UnstagedImplicitOps.NoRep[Int] = 4
+
+      implicit val aops: ArrayOps[newIR.Rep,Vector,NoRep,Double] = new newIR.VectorArrayOps[Double]
+      implicit val nrep: NumericOps[newIR.Rep[Double]] =  new newIR.StagedNumericOps.NumericRepOps[Double]
+      implicit val erep: ElementOps[Complex,newIR.Rep[Double]] = new ElementOpsUnstaged.ComplexOps[newIR.Rep[Double]]()
+      implicit val vrep: LiftOps[newIR.Rep] = new newIR.LiftOpsRep()
+      implicit val irep: NumericOps[newIR.Rep[Int]] =  new newIR.StagedNumericOps.NumericRepOps[Int]
+
+
+      val emitParametricStagedScala =
+        new SPL_DSL2ParametricStagedScala[newIR.Rep, ElementOpsUnstaged.Complex,newIR.NoRep,Double]{
+          override val IR: self.type = self
+          override val targetIR: newIR.type = newIR
+        }
+
+      val (map, cm) = emitParametricStagedScala.emit(Map.empty, myf)
+      val toplevelf = map(map.keysIterator.max)
+      //toplevelf(input)
+
+
+      implicit def exposeRepFromCVector2(size: Int)(implicit tag: Manifest[Vector[Double]]): newIR.ExposeRep[CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double]]
+      = new newIR.ExposeRep[CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double]] (){
+        import newIR._
+        val freshExps: (Unit => Vector[newIR.Exp[_]]) = (u: Unit) => {
+          Vector(newIR.Arg[Vector[Double]](newIR.convertFromManifest(tag)))
+        }
+        val vec2t: (Vector[newIR.Exp[_]] => CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double]) = (v: Vector[newIR.Exp[_]]) => {
+          val inter: newIR.Exp[Vector[Double]] = v(0).asInstanceOf[newIR.Exp[Vector[Double]]] //RF: use the Manifest to make this safe
+          val t = new InterleavedComplexArray[newIR.Rep, Vector, NoRep, Double](size,inter)
+          t
+        }
+        val t2vec = (c: CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double]) => {
+          val t = (for (i <- 0 until size) yield c(c.vrep(i))).toVector
+          t.foldLeft(Vector.empty[newIR.Rep[_]]){(acc,ele) => acc ++ Vector(ele._re,ele._im)}
+        }
+      }
+      val expose = exposeRepFromCVector2(4)
+
+      val emitGraphScala = new GraphVizExport {
+        override val IR: newIR.type = newIR
+      }
+      val (scalagraph, cm2) = {
+        emitGraphScala.emitDepGraphf(toplevelf)(expose,expose)
+      }
+      val stream = new java.io.PrintWriter(new java.io.FileOutputStream("scala_intercomplex_SON.dot"))
+      stream.println(scalagraph)
+      stream.flush()
+      stream.close()
+
+      val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("source_intercomplex.txt"))
+      val esc = newIR.codegen.emitSource(toplevelf,"testClass",stream2)(expose,expose)
+      stream2.flush()
+      stream2.close()
+
+      println("---")
+    }
+
+
     def createParamizedStagedScalaCode() = {
       import ch.ethz.spirals.datatypes._
       import ch.ethz.spirals.datatypes.UnstagedImplicitOps._
@@ -217,14 +280,10 @@ object Main extends App {
           Vector(newIR.Arg[Vector[Double]](newIR.convertFromManifest(tag)),newIR.Arg[Vector[Double]](newIR.convertFromManifest(tag)))
         }
         val vec2t: (Vector[newIR.Exp[_]] => CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double]) = (v: Vector[newIR.Exp[_]]) => {
-          val x = for (i <- 0 until size) yield{
-            val re: newIR.Exp[Double] = v(i*2).asInstanceOf[newIR.Exp[Double]] //RF: use the Manifest to make this safe
-            val im: newIR.Exp[Double] = v(i*2+1).asInstanceOf[newIR.Exp[Double]]
-            Complex(re,im)
-          }
-          val t = new SplitComplexArray[newIR.Rep, Vector, NoRep, Double](size)
-          val r: CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double] = t.ini(x)
-          r
+          val re: newIR.Exp[Vector[Double]] = v(0).asInstanceOf[newIR.Exp[Vector[Double]]] //RF: use the Manifest to make this safe
+          val im: newIR.Exp[Vector[Double]] = v(1).asInstanceOf[newIR.Exp[Vector[Double]]] //RF: use the Manifest to make this safe
+          val t = new SplitComplexArray[newIR.Rep, Vector, NoRep, Double](size,re,im)
+          t
         }
         val t2vec = (c: CVector[newIR.Rep, ElementOpsUnstaged.Complex,NoRep,Double]) => {
           val t = (for (i <- 0 until size) yield c(c.vrep(i))).toVector
@@ -244,11 +303,11 @@ object Main extends App {
       stream.flush()
       stream.close()
 
-      /*val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("source.txt"))
+      val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("source_splitcomplex.txt"))
       val esc = newIR.codegen.emitSource(toplevelf,"testClass",stream2)(expose,expose)
       stream2.flush()
       stream2.close()
-*/
+
       println("---")
     }
 
@@ -266,4 +325,5 @@ object Main extends App {
   //myprog.createParamizedNonStagedScalaCode()
   //myprog.createParamizedStagedScalarScalaCode()
   myprog.createParamizedStagedScalaCode()
+  myprog.createParamizedStagedInterleavedScalaCode()
 }
