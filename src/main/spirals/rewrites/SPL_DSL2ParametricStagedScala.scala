@@ -28,7 +28,7 @@ trait SPL_DSL2ParametricStagedScala[V[_],E[_],R[_],T] extends Emit[Map[Int, CVec
               val h: (Vector[Int]) => Int = (loopvars: Vector[Int]) => { //this is the stride function we access with
                 base + loopvars.zip(strides).foldLeft(0)({(acc,ele) => acc + (ele._1 * ele._2)})}
               val A = fmap(b)
-              in.GT(A,h,h,Vector(size/n))(in) //in.grouped(size / n).flatMap(chunk => fmap(b)(chunk)).toVector
+              in.GT(A,h,h,Vector(size/n,n))(in) //in.grouped(size / n).flatMap(chunk => fmap(b)(chunk)).toVector
             }
           }
           case (_, IR.ConstDef(I(n))) => {
@@ -38,7 +38,7 @@ trait SPL_DSL2ParametricStagedScala[V[_],E[_],R[_],T] extends Emit[Map[Int, CVec
               val h: (Vector[Int]) => Int = (loopvars: Vector[Int]) => { //this is the stride function we access with
                   base + loopvars.zip(strides).foldLeft(0)({(acc,ele) => acc + (ele._1 * ele._2)})}
               val A = fmap(b)
-              in.GT(A,h,h,Vector(size/n))(in) //in.grouped(n).toList.transpose.map(chunk => fmap(a)(chunk.toVector)).transpose.flatten.toVector
+              in.GT(A,h,h,Vector(size/n,n))(in) //in.grouped(n).toList.transpose.map(chunk => fmap(a)(chunk.toVector)).transpose.flatten.toVector
             }
           }
           case _ => ??? //we dont support anything else for this tutorial

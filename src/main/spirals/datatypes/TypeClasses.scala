@@ -159,6 +159,13 @@ trait TypeClassesStagedArrayOps extends PureNumericOpsExpOpt with IdendityTypes{
     def apply(x: NoRep[Array[Rep[T]]], i: NoRep[Int]): Rep[T] = x.apply(i)
     def ini(from: Seq[Rep[T]]): Array[Rep[T]] = from.toArray
   }
+
+  class VectorArrayOps[T: Manifest] extends ArrayOps[Rep, Vector, Rep, T] {
+    def alloc(s: Rep[Int]): Rep[Vector[T]] = ??? //new Array[Rep[T]](s)
+    def apply(x: Rep[Vector[T]], i: NoRep[Int]): Rep[T] = ??? ///x.apply(i)
+    def ini(from: Seq[Rep[T]]): Vector[Rep[T]] = ??? //from.toArray
+  }
+
   implicit def arrayofStaged[T:Manifest]: ArrayOps[NoRep,Array,Rep,T] = new ScalarSingleArrayOps[T]
 
 

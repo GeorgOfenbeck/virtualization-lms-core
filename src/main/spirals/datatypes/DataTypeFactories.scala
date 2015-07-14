@@ -40,10 +40,12 @@ object DataTypeFactories {
     private val data1: V[A[R[T]]] = if (d1 == null) aops.alloc(vrep(s)) else d1
     private val data2: V[A[R[T]]] = if (d2 == null) aops.alloc(vrep(s)) else d2
 
-    def apply(i: V[Int]): Complex[R[T]] = new Complex(
-      _re = aops.apply(data1, i),
-      _im = aops.apply(data2, i)
-    )
+    def apply(i: V[Int]): Complex[R[T]] = {
+      new Complex(
+        _re = aops.apply(data1, i),
+        _im = aops.apply(data2, i)
+      )
+    }
 
     def ini(from: Seq[Complex[R[T]]]) = {
       val v: Vector[Complex[R[T]]] = from.toVector
@@ -60,7 +62,6 @@ object DataTypeFactories {
            v: Vector[Int]
             )
     : CVector[V, Complex, R, T] => CVector[V, Complex, R, T] = (in: CVector[V, Complex, R, T]) => {
-
       //val out = in.create(in.size()) //create a same size element
       val size = in.size
       val out = new Array[Complex[R[T]]](size)
@@ -71,8 +72,7 @@ object DataTypeFactories {
           val temp = new Array[Complex[R[T]]](s0)
           for (i<-0 until s0) temp(i) = in(vrep(0))
           //val int = in.create(s0)
-            for ( i <- 0 until s0)
-            {
+            for ( i <- 0 until s0)            {
               //val is: V[Int] = irep.fromInt(i)
               val newv: Vector[Int] = i +: currv
               val idx = g(newv)

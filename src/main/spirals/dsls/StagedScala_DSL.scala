@@ -18,7 +18,7 @@ trait StagedScala_Exp  extends PureNumericOpsExp with BaseExp with InternalFunct
     def -(that: StagedComplex) = StagedComplex(this.re - that.re, this.im - that.im)
   }
 
-  import scala.reflect.runtime.universe._
+
   implicit def exposeRepFromStagedComplex(implicit tag: Manifest[Double]): ExposeRep[StagedComplex] = new ExposeRep[StagedComplex](){
     val freshExps = (u: Unit) => Vector(Arg[Double](tag), Arg[Double](tag))
     val vec2t = (v: Vector[Exp[_]]) => {
