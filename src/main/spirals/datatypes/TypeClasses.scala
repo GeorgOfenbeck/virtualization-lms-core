@@ -153,17 +153,24 @@ object ArrayOpsUnstaged extends IdendityTypes{
 }
 
 
-trait TypeClassesStagedArrayOps extends PureNumericOpsExpOpt with IdendityTypes{
+trait TypeClassesStagedArrayOps extends PureNumericOpsExpOpt with VectorOpsExp with IdendityTypes{
   class ScalarSingleArrayOps[T: Manifest] extends ArrayOps[NoRep, Array, Rep, T] {
     def alloc(s: NoRep[Int]): NoRep[Array[Rep[T]]] = new Array[Rep[T]](s)
     def apply(x: NoRep[Array[Rep[T]]], i: NoRep[Int]): Rep[T] = x.apply(i)
     def ini(from: Seq[Rep[T]]): Array[Rep[T]] = from.toArray
   }
 
-  class VectorArrayOps[T: Manifest] extends ArrayOps[Rep, Vector, Rep, T] {
-    def alloc(s: Rep[Int]): Rep[Vector[T]] = ??? //new Array[Rep[T]](s)
-    def apply(x: Rep[Vector[T]], i: NoRep[Int]): Rep[T] = ??? ///x.apply(i)
-    def ini(from: Seq[Rep[T]]): Vector[Rep[T]] = ??? //from.toArray
+  class LiftOpsRep extends LiftOps[Rep] {
+    def apply[T: Manifest](x: T) = Const(x)
+  }
+
+  class VectorArrayOps[T: Manifest] extends ArrayOps[Rep, Vector, NoRep, T] {
+    def alloc(s: Rep[Int]): Rep[Vector[NoRep[T]]] = {
+      ???
+      //vector_obj_fromseq(Vector.empty[Exp[T]])
+    }
+    def apply(x: Rep[Vector[NoRep[T]]], i: Rep[Int]): Rep[NoRep[T]] = vector_apply(x,i)
+    def ini(from: Seq[Rep[NoRep[T]]]): Rep[Vector[NoRep[T]]] = vector_obj_fromseq(from) //from.toArray
   }
 
   implicit def arrayofStaged[T:Manifest]: ArrayOps[NoRep,Array,Rep,T] = new ScalarSingleArrayOps[T]

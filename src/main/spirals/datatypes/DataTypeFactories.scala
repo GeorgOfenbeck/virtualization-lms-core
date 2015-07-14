@@ -31,7 +31,7 @@ object DataTypeFactories {
                                                                // Template operators
                                                                aops: ArrayOps[V, A, R, T],
                                                                vrep: LiftOps[V],
-                                                               erep: ElementOps[Complex, R[T]],
+                                                               erep: ElementOps[Complex, V[R[T]]],
                                                                nrep: NumericOps[R[T]],
                                                                irep: NumericOps[V[Int]]
                                                                 ) extends CVector[V, Complex, R,T] {
@@ -40,15 +40,15 @@ object DataTypeFactories {
     private val data1: V[A[R[T]]] = if (d1 == null) aops.alloc(vrep(s)) else d1
     private val data2: V[A[R[T]]] = if (d2 == null) aops.alloc(vrep(s)) else d2
 
-    def apply(i: V[Int]): Complex[R[T]] = {
+    def apply(i: V[Int]): Complex[V[R[T]]] = {
       new Complex(
         _re = aops.apply(data1, i),
         _im = aops.apply(data2, i)
       )
     }
 
-    def ini(from: Seq[Complex[R[T]]]) = {
-      val v: Vector[Complex[R[T]]] = from.toVector
+    def ini(from: Seq[Complex[V[R[T]]]]) = {
+      val v: Vector[Complex[V[R[T]]]] = from.toVector
       val first = v.map(e => e._re)
       val second = v.map(e => e._im)
       val d1 = aops.ini(first)
@@ -64,12 +64,12 @@ object DataTypeFactories {
     : CVector[V, Complex, R, T] => CVector[V, Complex, R, T] = (in: CVector[V, Complex, R, T]) => {
       //val out = in.create(in.size()) //create a same size element
       val size = in.size
-      val out = new Array[Complex[R[T]]](size)
+      val out = new Array[Complex[V[R[T]]]](size)
       for (i<-0 until size) out(i) = in(vrep(0))
       def helper(loopv: Vector[Int], currv: Vector[Int]): Unit = {
         if (loopv.tail.isEmpty){ //inner most loop
           val s0 = loopv.head
-          val temp = new Array[Complex[R[T]]](s0)
+          val temp = new Array[Complex[V[R[T]]]](s0)
           for (i<-0 until s0) temp(i) = in(vrep(0))
           //val int = in.create(s0)
             for ( i <- 0 until s0)            {
