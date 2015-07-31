@@ -253,6 +253,16 @@ trait GenRandomOps extends ExposeRepBase{
     } yield tail
   }
 
+
+  implicit val shrinkCode: Shrink[Vector[FNest]] = Shrink({
+      case v: Vector[FNest] => {
+        if (v.isEmpty) Stream.empty else Stream(v.dropRight(1))
+      }
+    })
+
+
+
+
   def genNodes(desc: CodeDescriptor, ini: Vector[FNest]): Gen[Vector[FNest]] = {
     if (desc.cur_nodes_per_block < desc.max_nodes_per_block) {
       for {
