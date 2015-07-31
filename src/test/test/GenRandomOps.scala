@@ -254,8 +254,9 @@ trait GenRandomOps extends ExposeRepBase{
   }
 
 
-  implicit val shrinkCode: Shrink[Vector[FNest]] = Shrink({
+  implicit val shrinkCodeX: Shrink[Vector[FNest]] = Shrink({
       case v: Vector[FNest] => {
+        println("shrinking code nest")
         if (v.isEmpty) Stream.empty else Stream(v.dropRight(1))
       }
     })

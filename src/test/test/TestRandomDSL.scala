@@ -22,7 +22,7 @@ with InternalFunctionsExp
 with GenRandomBooleanOps
 with GenRandomPrimitiveOps
 //with GenRandomIFThenElse
-//with GenRandomFunctions
+with GenRandomFunctions
 with ScalaCompile {
  self =>
  override val codegen = new ScalaCodegen
@@ -62,7 +62,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
    val code: Vector[dsl.FNest]
  }
 
- def genDSLwCode(desc: CodeDescriptor): Gen[DSLwCode] = {
+ def genDSLwCode(desc: CodeDescriptor): Gen[DSLwCode] =  org.scalacheck.Gen.lzy{
   for {
    dslr <- new MRandomClass
    coder <- dslr.genCode(desc)
@@ -74,15 +74,20 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
  implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
   case dslwcode: DSLwCode => {
-   println("shrinking")
    import org.scalacheck.Shrink
    import org.scalacheck.Shrink.shrink
-   import dslwcode.dsl.shrinkCode
-   val res = shrink(dslwcode.code) map (e => new DSLwCode {
-    override val dsl: dslwcode.dsl.type = dslwcode.dsl
-    override val code: Vector[dslwcode.dsl.FNest] = e
-   })
-   res
+   println("shrinking")
+   if (dslwcode.code.size > 2) {
+    val res = new DSLwCode {
+     override val dsl: dslwcode.dsl.type = dslwcode.dsl
+     override val code: Vector[dslwcode.dsl.FNest] = dslwcode.code.dropRight(1)
+    }
+    println("returning smaller code")
+    val x = Stream.concat(Stream(res), org.scalacheck.Shrink.shrink[DSLwCode](res))
+    //println(x.size)
+    x
+   }
+   else Stream.empty
   }
  })
 
@@ -117,21 +122,22 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
       val exposeargs = dsl.genExposeRep(inisyms)
       val exposeres = dsl.genExposeRep(resultsyms)
 
-      val (code, cm) = dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs, exposeres)
+      /*val (code, cm) = dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs, exposeres)
       val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check.dot"))
       stream.println(code)
       stream.flush()
-      stream.close()
-      val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
-      val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
-      stream2.flush()
-      stream2.close()
+      stream.close()*/
+
       var worked = true
       try {
        val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs, exposeres)
       }
       catch {
        case _ => {
+        val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+        val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
+        stream2.flush()
+        stream2.close()
         println("caught")
         worked = false
        }

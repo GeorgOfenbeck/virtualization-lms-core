@@ -74,7 +74,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     }
   }
   private def tupledeclarehelper(rest: Vector[String], acc: String): String = {
-    if (rest.size < tuplesize)
+    if (rest.size <= tuplesize)
       acc + "(" + rest.mkString(",") + ")"
     else
     {
