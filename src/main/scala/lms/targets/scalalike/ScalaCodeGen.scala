@@ -47,7 +47,7 @@ trait ScalaCodegen extends GenericCodegen with Config {
 trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   self =>
 
-  var head: IR.TP[_] = null
+  var head: IR.TP[_] = null //RF - get rid of the state!
   val staticData = Vector.empty[(IR.TP[_],Any)]
   var className: String
 
@@ -63,7 +63,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     res
   }
 
-  private def tupleaccesshelper(pos: Int, acc: String, lastele: Boolean): String = {
+  def tupleaccesshelper(pos: Int, acc: String, lastele: Boolean): String = {
     if (pos < tuplesize)
       if (pos == 0 && lastele)
         acc //its not a tuple
@@ -73,7 +73,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       tupleaccesshelper(pos - tuplesize,acc + "._" + (tuplesize+1), lastele)
     }
   }
-  private def tupledeclarehelper(rest: Vector[String], acc: String): String = {
+  def tupledeclarehelper(rest: Vector[String], acc: String): String = {
     if (rest.size <= tuplesize)
       acc + "(" + rest.mkString(",") + ")"
     else
@@ -104,7 +104,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         /*if (y.res.size > 1)
           assert(false, "still need to implement multiy result unparsing")*/
 
-
+        val secondaryconstructor: String = "\ndef apply(v: Vector[Any]) = { \nprintln(\"works\")\n }\n"
 
         val stringheader =
           "/*****************************************\n"+
@@ -118,7 +118,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
 
         val res = stringheader + block_callback(y,"") +
           "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
-          "}" +
+          "}" + secondaryconstructor +
           "}" +
           "\n/*****************************************\n"+
           "  End of Generated Code                  \n"+

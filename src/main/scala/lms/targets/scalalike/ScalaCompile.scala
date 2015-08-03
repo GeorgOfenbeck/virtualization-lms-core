@@ -88,9 +88,11 @@ trait ScalaCompile {
 
     val cons = cls.getConstructor(staticData.map(_._1.tp.erasure):_*)
 
+
     //val obj: A=>R = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[A=>R]
 
-    val obj: A=>R = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[A=>R]
+    val obj: Any=>Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[Any=>Any]
+    //GO: making this any to any since we unparse into Tuples not A=>R
     (obj,esc)
   }
 
