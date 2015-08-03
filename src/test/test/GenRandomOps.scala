@@ -347,7 +347,11 @@ trait GenRandomOps extends ExposeRepBase{
   }
 
 
-
+  //Introduced this just to avoid that scalacheck shrinks that vector (which doesnt make sense)
+  case class StealthIt(x: Vector[cTP])
+  def hideit(v: Vector[cTP]): Gen[StealthIt] = for {
+    x <- genArgInstances(v)
+   } yield StealthIt(x)
 
 
   def genExposeRep(v: Vector[cTP]): ExposeRep[Vector[cTP]] = {
