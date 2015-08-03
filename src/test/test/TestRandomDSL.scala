@@ -13,10 +13,21 @@ import scala.lms.internal._
 import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
+import scala.reflect.Manifest
 import scala.reflect.io.VirtualDirectory
 import scala.tools.nsc.interpreter.AbstractFileClassLoader
 import scala.tools.nsc.util
 
+
+trait MyRemap extends ScalaCodegen{
+  val IR: GenRandomOps with InternalFunctionsExp
+  override def remap[A](m: Manifest[A]): String = {
+    m match {
+      case b: FunctionMarker => "scala.Function1[_ <: Any, _ <: Any]"
+      case _ => super.remap(m)
+    }
+  }
+}
 
 class MRandomClass extends BooleanOpsExp
 with PurePrimitiveOpsExp
@@ -27,14 +38,18 @@ with InternalFunctionsExp
 with GenRandomBooleanOps
 with GenRandomPrimitiveOps
 //with GenRandomIFThenElse
-//with GenRandomFunctions
+with GenRandomFunctions
 with ScalaCompile {
   self =>
-  override val codegen = new ScalaCodegen
+
+
+
+  override val codegen = new MyRemap
     with EmitHeadInternalFunctionAsClass
     with ScalaGenBooleanOps
     with ScalaGenPrimitivOps
-    with ScalaGenIfThenElse {
+    with ScalaGenIfThenElse
+  {
     val IR: self.type = self
   }
   val emitGraph = new GraphVizExport {
@@ -100,7 +115,7 @@ with ScalaCompile {
     if (this.compiler eq null)
       setupCompiler()
     val staticData: List[(codegen.IR.Exp[_], Any)] = List()
-    val className = "tupler$" + tuplercount
+    val className = "detupler$" + tuplercount
     tuplercount += 1
     val source = new StringWriter()
     val writer = new PrintWriter(source)
@@ -155,7 +170,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(100, 5, 5, 100, 20)
+  val desc = CodeDescriptor(10, 5, 5, 3, 20)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -248,6 +263,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
             try {
               val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs, exposeres)
+
               //println("-----")
               //println(rargs)
               //println()
@@ -272,7 +288,8 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
                 e == unstagedresult(idx).sym
               })
               println("dropit: " + dropit)
-              dropit.isEmpty
+              worked = dropit.isEmpty
+
             }
             catch {
               case ex : Throwable => {

@@ -7,6 +7,7 @@ import org.scalacheck._
 
 import scala.lms.internal._
 
+class FunctionMarker
 
 case class CodeDescriptor(
                            max_nodes_per_block: Int,
@@ -31,7 +32,7 @@ trait GenRandomOps extends ExposeRepBase{
   class Wildcard6 //using this for generic Types e.g. foo[T](x : T)
   class Wildcard7 //using this for generic Types e.g. foo[T](x : T)
 
-  class FunctionMarker
+
 
   type GenTypes = Manifest[_]
 

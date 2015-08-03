@@ -104,7 +104,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         /*if (y.res.size > 1)
           assert(false, "still need to implement multiy result unparsing")*/
 
-        val secondaryconstructor: String = "\ndef apply(v: Vector[Any]) = { \nprintln(\"works\")\n }\n"
+
 
         val stringheader =
           "/*****************************************\n"+
@@ -118,7 +118,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
 
         val res = stringheader + block_callback(y,"") +
           "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
-          "}" + secondaryconstructor +
+          "}" +
           "}" +
           "\n/*****************************************\n"+
           "  End of Generated Code                  \n"+
