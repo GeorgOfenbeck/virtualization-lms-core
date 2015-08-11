@@ -72,7 +72,14 @@ trait GenRandomOps extends ExposeRepBase{
    * @return returns a Map of all Ops that could be called
    */
   def filterOps(availTypes: AvailUniqueTypes, fNest: FNest): AvailOps = {
-    val currops = allops.filter(x => x._1.subsetOf(availTypes)) ++ fNest.localfs.filter(x => x._1.subsetOf(availTypes))
+    val fixedops = allops.filter(x => x._1.subsetOf(availTypes))
+    val dynops = fNest.localfs.filter(x => x._1.subsetOf(availTypes))
+    val currops = fixedops ++ dynops.map{ case (k,v) => {
+      val other: Set[Op] = fixedops.getOrElse(k,Set.empty[Op])
+      val value: Set[Op] = (v ++ other)
+      k -> value
+      }
+    }
     currops
   }
 
@@ -253,7 +260,6 @@ trait GenRandomOps extends ExposeRepBase{
       {
         val localf = op.desc.returns.map(e => cTP(null, e)).head
         //we know here that the returned symbol is a local function
-
         val (args,returns) = nf.get
 
 
@@ -268,8 +274,14 @@ trait GenRandomOps extends ExposeRepBase{
               ???
             }
             val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
-              val functiontp = x.head //we construct function applys such that the function is always the first arg
-              val functionuntyped = fun2tp.find(p => p._2 == functiontp).get._1
+              val functionexp = x.head //we construct function applys such that the function is always the first arg
+              val functiontp: TP[_] = exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
+              //println(functiontp)
+              val functionuntypedo = fun2tp.find(p => p._2 == functiontp)
+              val functionuntyped = if(functionuntypedo.isDefined)
+                functionuntypedo.get._1
+              else
+                assert(false, "hm")
               val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
 
               val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))

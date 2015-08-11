@@ -1,3 +1,4 @@
+/*
 package examples
 
 
@@ -126,3 +127,4 @@ class TestCompile extends Suite {
 }
 
 
+*/

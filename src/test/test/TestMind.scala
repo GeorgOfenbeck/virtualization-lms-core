@@ -1,3 +1,4 @@
+/*
 package test
 
 import org.scalatest.PropSpec
@@ -259,3 +260,4 @@ class TestMind extends PropSpec with PropertyChecks {
   println("args + result")
   println(callstack(rargs))
 }
+*/

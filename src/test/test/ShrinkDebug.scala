@@ -1,3 +1,4 @@
+/*
 package test
 import org.scalacheck.Gen.{choose, numChar, alphaChar}
 import org.scalacheck.Shrink
@@ -65,3 +66,4 @@ object ShrinkDebug extends org.scalacheck.Properties("MySpec2") {
  }
 
 }
+*/

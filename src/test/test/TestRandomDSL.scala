@@ -19,8 +19,9 @@ import scala.tools.nsc.interpreter.AbstractFileClassLoader
 import scala.tools.nsc.util
 
 
-trait MyRemap extends ScalaCodegen{
+trait MyRemap extends ScalaCodegen {
   val IR: GenRandomOps with InternalFunctionsExp
+
   override def remap[A](m: Manifest[A]): String = {
     m match {
       case b: FunctionMarker => "scala.Function1[_ <: Any, _ <: Any]"
@@ -43,13 +44,11 @@ with ScalaCompile {
   self =>
 
 
-
   override val codegen = new MyRemap
     with EmitHeadInternalFunctionAsClass
     with ScalaGenBooleanOps
     with ScalaGenPrimitivOps
-    with ScalaGenIfThenElse
-  {
+    with ScalaGenIfThenElse {
     val IR: self.type = self
   }
   val emitGraph = new GraphVizExport {
@@ -57,9 +56,10 @@ with ScalaCompile {
   }
 
   var tuplercount = 1
+
   def tupler(x: Vector[cTP]) = {
-    val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)),"")
-    val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf["+ codegen.remap(a.tag.mf)+"]"),"")
+    val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
+    val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"), "")
     if (this.compiler eq null)
       setupCompiler()
     val staticData: List[(codegen.IR.Exp[_], Any)] = List()
@@ -68,18 +68,18 @@ with ScalaCompile {
     val source = new StringWriter()
     val writer = new PrintWriter(source)
     val stringheader =
-      "/*****************************************\n"+
-        "  Emitting Generated Code                  \n"+
+      "/*****************************************\n" +
+        "  Emitting Generated Code                  \n" +
         "*******************************************/\n" +
-        "class "+className+ "" +
+        "class " + className + "" +
         " extends (Vector[Any] =>" + argtuple + ") {" +
-        "\ndef apply( v: Vector[Any]): ("+argtuple+") = {\n" +
-        "val x: ("+argtuple+") = " + withvalues +
-      "\nx\n}" +
-      "}" +
-      "\n/*****************************************\n"+
-      "  End of Generated Code                  \n"+
-      "*******************************************/"
+        "\ndef apply( v: Vector[Any]): (" + argtuple + ") = {\n" +
+        "val x: (" + argtuple + ") = " + withvalues +
+        "\nx\n}" +
+        "}" +
+        "\n/*****************************************\n" +
+        "  End of Generated Code                  \n" +
+        "*******************************************/"
     writer.println(stringheader)
     if (dumpGeneratedCode) println(source)
     val compiler = this.compiler
@@ -99,18 +99,19 @@ with ScalaCompile {
     val parent = this.getClass.getClassLoader
     val loader = new AbstractFileClassLoader(fileSystem, this.getClass.getClassLoader)
     val cls: Class[_] = loader.loadClass(className)
-    val cons = cls.getConstructor(staticData.map(_._1.tp.erasure):_*)
-    val obj: Any=>Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[Any=>Any]
+    val cons = cls.getConstructor(staticData.map(_._1.tp.erasure): _*)
+    val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
   }
 
   var detuplercount = 1
+
   def detupler(y: Vector[cTP]) = {
-    val rettuple = codegen.tupledeclarehelper(y.map(a => codegen.remap(a.tag.mf)),"")
+    val rettuple = codegen.tupledeclarehelper(y.map(a => codegen.remap(a.tag.mf)), "")
     val withindex = y.zipWithIndex
-    val withvalues = withindex.map( ele => {
-      val (e,idx) = ele
-      codegen.tupleaccesshelper(idx,"helper",idx == withindex.size)
+    val withvalues = withindex.map(ele => {
+      val (e, idx) = ele
+      codegen.tupleaccesshelper(idx, "helper", idx == withindex.size)
     }).mkString(",")
     if (this.compiler eq null)
       setupCompiler()
@@ -120,17 +121,17 @@ with ScalaCompile {
     val source = new StringWriter()
     val writer = new PrintWriter(source)
     val stringheader =
-      "/*****************************************\n"+
-        "  Emitting Generated Code                  \n"+
+      "/*****************************************\n" +
+        "  Emitting Generated Code                  \n" +
         "*******************************************/\n" +
-        "class "+className+ "" +
+        "class " + className + "" +
         " extends ((" + rettuple + ") => Vector[Any]) {" +
-        "\ndef apply(helper: "+ rettuple + "): (Vector[Any]) = {\n" +
+        "\ndef apply(helper: " + rettuple + "): (Vector[Any]) = {\n" +
         "val x: (Vector[Any]) = Vector(" + withvalues + ")" +
         "\nx\n}" +
         "}" +
-        "\n/*****************************************\n"+
-        "  End of Generated Code                  \n"+
+        "\n/*****************************************\n" +
+        "  End of Generated Code                  \n" +
         "*******************************************/"
     writer.println(stringheader)
     if (dumpGeneratedCode) println(source)
@@ -152,8 +153,8 @@ with ScalaCompile {
     val parent = this.getClass.getClassLoader
     val loader = new AbstractFileClassLoader(fileSystem, this.getClass.getClassLoader)
     val cls: Class[_] = loader.loadClass(className)
-    val cons = cls.getConstructor(staticData.map(_._1.tp.erasure):_*)
-    val obj: Any=>Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]):_*).asInstanceOf[Any=>Any]
+    val cons = cls.getConstructor(staticData.map(_._1.tp.erasure): _*)
+    val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
   }
 
@@ -170,7 +171,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(10, 5, 5, 1, 1)
+  val desc = CodeDescriptor(10, 5, 5, 3, 2)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -195,7 +196,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
     }
   }
 
-  implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
+  /*implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
     case dslwcode: DSLwCode => {
       import org.scalacheck.Shrink
       import org.scalacheck.Shrink.shrink
@@ -212,10 +213,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
       }
       else Stream.empty
     }
-  })
-
-
-
+  })*/
 
 
   /*def genDSLCode(dsl: MRandomClass, desc: CodeDescriptor): Gen[Vector[dsl.FNest]] = {
@@ -233,41 +231,39 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
         import dslwcode._
         /*val dsl = dslwcode.dsl
         val dslwcode.code = dslwcode.code*/
-        val inisyms = dslwcode.code.head.syms
-        val resultsyms = dslwcode.code.last.syms
 
-        //Prop.forAll(dsl.genArgInstances(inisyms)) {
-        Prop.forAll(dsl.hideit(inisyms)) {
-          stealth =>
-            val rargs = stealth.x
-            /*Prop.forAll(genNewDSL()) { dsl: MRandomClass => {
+          val inisyms = dslwcode.code.head.syms
+          val resultsyms = dslwcode.code.last.syms
+
+          val callstack = dsl.chainHeadf(dslwcode.code)
+          val callstack_staged = dsl.chainHeadsf(dslwcode.code)
+          val exposeargs = dsl.genExposeRep(inisyms)
+          val exposeres = dsl.genExposeRep(resultsyms)
+          var worked = true
+        try {
+          val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs, exposeres)
+          //Prop.forAll(dsl.genArgInstances(inisyms)) {
+          Prop.forAll(dsl.hideit(inisyms)) {
+            stealth =>
+              val rargs = stealth.x
+
+              /*Prop.forAll(genNewDSL()) { dsl: MRandomClass => {
              Prop.forAll (genDSLCode(dsl, desc)) {*/
 
-            //val rargs = dsl.genArgInstances(inisyms).sample.get
+              //val rargs = dsl.genArgInstances(inisyms).sample.get
 
-            val callstack = dsl.chainHeadf(dslwcode.code)
 
-            val callstack_staged = dsl.chainHeadsf(dslwcode.code)
-
-            val exposeargs = dsl.genExposeRep(inisyms)
-            val exposeres = dsl.genExposeRep(resultsyms)
-
-            /*val (code, cm) = dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs, exposeres)
+              /*val (code, cm) = dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs, exposeres)
             val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check.dot"))
             stream.println(code)
             stream.flush()
             stream.close()*/
 
-            var worked = true
-
-
-            try {
-              val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs, exposeres)
 
               //println("-----")
               //println(rargs)
               //println()
-              val unstagedresult = callstack(rargs)
+
 
               val tupler = dsl.tupler(rargs)
               val tuple = tupler(rargs)
@@ -283,36 +279,41 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
               val widx = castit.zipWithIndex
 
-              val dropit = widx.dropWhile(ele => {
-                val (e,idx) = ele
-                e == unstagedresult(idx).sym
-              })
-              println("dropit: " + dropit)
-              worked = dropit.isEmpty
-
-            }
-            catch {
-              case ex : Throwable => {
-
-                val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
-                val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
-                stream2.flush()
-                stream2.close()
-                println("caught")
-                println("msg: " + ex.getMessage)
-
-                worked = false
+              if (false) {
+                //should we compare with unstaged?
+                val unstagedresult = callstack(rargs)
+                val dropit = widx.dropWhile(ele => {
+                  val (e, idx) = ele
+                  e == unstagedresult(idx).sym
+                })
+                println("dropit: " + dropit)
+                worked = dropit.isEmpty
               }
-            }
 
-            /*println("args!")
-       println(rargs)
-       println("args + result")*/
-            //println(callstack(rargs))
+              worked
 
-
-            worked
+          }
         }
+              catch {
+                case ex: Throwable => {
+                  val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+                  val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
+                  stream2.flush()
+                  stream2.close()
+                  println("caught")
+                  println("msg: " + ex.getMessage)
+                  worked = false
+                }
+          }
+
+        /*println("args!")
+   println(rargs)
+   println("args + result")*/
+        //println(callstack(rargs))
+
+
+        worked
       }
     }
+
 }

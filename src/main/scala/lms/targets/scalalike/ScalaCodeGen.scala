@@ -86,7 +86,17 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   override def emitNode(tp: self.IR.TP[_], acc: String,
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
-      val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag.mf)),"")
+      val returntuple = tupledeclarehelper(y.res.map(a => {
+
+        val mani = IR.exp2tp(a).tag.mf
+        if (mani.toString() == "scala.Function1[_ <: Any, _ <: Any]") {
+          println("YES")
+          remap(mani)
+        }
+        else
+          remap(mani)
+      }
+          ),"")
       val argtuple = tupledeclarehelper(x.map(a => remap(a.tag.mf)),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
@@ -141,11 +151,11 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
       emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
     }
-    case IR.ReturnArg(f,sym,posx,tuple) => {
+    case IR.ReturnArg(f,sym,posx,tuple,last) => {
       if (tuple) {
         //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
         val start = "val " + quote(tp) + " = " + quote(f)
-        tupleaccesshelper(posx,start,false) //RF
+        tupleaccesshelper(posx,start,last) + "//returnarg  " + last + "\n"//RF
       }
       else
         emitValDef(tp,quote(f))
