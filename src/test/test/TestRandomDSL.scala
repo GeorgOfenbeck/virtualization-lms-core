@@ -170,7 +170,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(10, 5, 5, 3, 20)
+  val desc = CodeDescriptor(10, 5, 5, 1, 1)
 
 
   def genNewDSL(): Gen[MRandomClass] = {

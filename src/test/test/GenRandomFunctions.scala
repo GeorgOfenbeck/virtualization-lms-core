@@ -16,7 +16,7 @@ trait GenRandomFunctions extends GenRandomOps{
   val createinternalfunction_placeholder: Op = {
    val f: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => ???
    val sf: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => ???
-   val op = OpDescription(Vector(manifest[Wildcard1]), Vector(manifest[Wildcard2]), f, sf)
+   val op = OpDescription(Vector(manifest[Wildcard1]), Vector(manifest[Wildcard2]), f, sf, None)
    Op("createinternalfunction_placeholder", op)
   }
 
@@ -64,14 +64,14 @@ trait GenRandomFunctions extends GenRandomOps{
  }
 
 
- override def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[Op] = {
+ override def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[(Op,Option[(Vector[cTP],Vector[cTP])])] = {
   if (op == createinternalfunction_placeholder){
    println("doing a internal! " + desc.cur_nest_depth)
    cur_nr_functions = cur_nr_functions + 1
 
    for {
     args <- genExistingArgs(desc.max_args,fNest.syms)
-    tail <- genNodes(desc.copy(cur_nodes_per_block = 0, cur_nest_depth = desc.cur_nest_depth + 1),Vector(FNest(args,null,null))) //this doesn't take any outside symbol
+    tail <- genNodes(desc.copy(cur_nodes_per_block = 0, cur_nest_depth = desc.cur_nest_depth + 1),Vector(FNest(args,null,null, Map.empty))) //this doesn't take any outside symbol
    } yield {
 
     println("seems we survive the recursion")
@@ -80,8 +80,6 @@ trait GenRandomFunctions extends GenRandomOps{
 
     val exposeargs = genExposeRep(args)
     val exposeres = genExposeRep(tail.last.syms)
-
-
 
 
     val createinternalfunction: Op = {
@@ -99,17 +97,23 @@ trait GenRandomFunctions extends GenRandomOps{
       val lambdatp: TP[_] = fun2tp(lambda)
       Vector(lambdatp.sym)
       //Vector(x.head)
-
      }
      val argsyms: Vector[GenTypes] = args.map(t => t.tag)
      val returnsyms: Vector[GenTypes] = tail.last.syms.map(t => t.tag)
      //val op = OpDescription(argsyms,returnsyms, f, sf)
-     val op = OpDescription(Vector.empty,Vector(manifest[FunctionMarker]), f, sf)
+     val op = OpDescription(Vector.empty,Vector(manifest[FunctionMarker]), f, sf, None)
      //val op = OpDescription(Vector.empty,Vector.empty, f, sf)
-     Op("createinternalfunction"+fNest.syms.size, op) //giving the op a number depending on the fnest size (not unique in nested case?)
+     val declaration = Op("createinternalfunction"+fNest.syms.size, op) //giving the op a number depending on the fnest size (not unique in nested case?)
+
+
+     //val appop = OpDescription(intypes,outtypes,f,)
+     val application = Some(Op("applyinternalfunction"+fNest.syms.size, op)) //giving the op a number depending on the fnest size (not unique in nested case?)
+     declaration
     }
-    createinternalfunction
-   }
+    val intypes: Vector[cTP] = args
+    val outtypes: Vector[cTP] = tail.last.syms
+    (createinternalfunction, Some((intypes,outtypes)))
+  }
   }
   else super.createFunction(desc,op,fNest)
  }

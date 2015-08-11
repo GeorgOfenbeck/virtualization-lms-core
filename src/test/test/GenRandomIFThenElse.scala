@@ -28,7 +28,7 @@ trait GenRandomIFThenElse extends GenRandomOps{
    //Vector(ifbranch)
    Vector(res) //RF!
   }
-  val op = OpDescription(Vector(manifest[Boolean],manifest[Wildcard1],manifest[Wildcard1]),Vector(manifest[Wildcard1]),f,sf)
+  val op = OpDescription(Vector(manifest[Boolean],manifest[Wildcard1],manifest[Wildcard1]),Vector(manifest[Wildcard1]),f,sf, None)
   Op("ifthenelse", op)
  }
 

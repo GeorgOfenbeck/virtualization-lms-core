@@ -20,7 +20,7 @@ trait GenRandomPrimitiveOps extends GenRandomOps{
    val r = x.tail.head.asInstanceOf[Rep[Int]]
    Vector(int_plus(l,r))
   }
-  val op = OpDescription(Vector(manifest[Int],manifest[Int]),Vector(manifest[Int]),f,sf)
+  val op = OpDescription(Vector(manifest[Int],manifest[Int]),Vector(manifest[Int]),f,sf, None)
   Op("int_plus", op)
  }
 

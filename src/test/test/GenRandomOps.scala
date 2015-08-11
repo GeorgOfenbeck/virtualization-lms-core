@@ -45,11 +45,12 @@ trait GenRandomOps extends ExposeRepBase{
   case class OpDescription(args: Vector[GenTypes],
                            returns: Vector[GenTypes],
                            rf: Vector[Any] => Vector[Any],
-                           sf: Vector[Any] => Vector[Any])
+                           sf: Vector[Any] => Vector[Any],
+                           localfidx: Option[Int] )
 
 
   case class Instructions(val syms: Vector[cTP])
-  case class FNest(syms: Vector[cTP], f: Vector[cTP] => Vector[cTP], sf: Vector[cTP] => Vector[cTP])
+  case class FNest(syms: Vector[cTP], f: Vector[cTP] => Vector[cTP], sf: Vector[cTP] => Vector[cTP], localfs: AvailOps)
   def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = availTypes
 
   def ops(availOps: AvailOps): AvailOps = availOps
@@ -70,8 +71,8 @@ trait GenRandomOps extends ExposeRepBase{
    * @param availTypes the types of the currently existing variables
    * @return returns a Map of all Ops that could be called
    */
-  def filterOps(availTypes: AvailUniqueTypes): AvailOps = {
-    val currops = allops.filter(x => x._1.subsetOf(availTypes))
+  def filterOps(availTypes: AvailUniqueTypes, fNest: FNest): AvailOps = {
+    val currops = allops.filter(x => x._1.subsetOf(availTypes)) ++ fNest.localfs.filter(x => x._1.subsetOf(availTypes))
     currops
   }
 
@@ -116,7 +117,7 @@ trait GenRandomOps extends ExposeRepBase{
 
   def genOp(desc: CodeDescriptor, fnest: FNest): Gen[Op] = {
     val availTypes: AvailUniqueTypes = fnest.syms.map(e => e.tag).toSet
-    val availOps = filterOps(availTypes)
+    val availOps = filterOps(availTypes, fnest)
     val flattened = availOps.flatMap(opset => opset._2)
     val nestcheck = flattened.filter(p => filterNestDepth(desc,fnest,p))
     for {
@@ -165,8 +166,8 @@ trait GenRandomOps extends ExposeRepBase{
   //this checks if the op we randomly selected the creation of a function literal and then replaces the placeholder with an actual symbol
   //we do this cause we want the function to only take parameters that are also currently available to increase the liklyhood of it being used
   //the actual implemention is within the GenRandomFunctions trait
-  def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[Op] = {
-    op
+  def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[(Op,Option[(Vector[cTP],Vector[cTP])])] = {
+    (op,None)
   }
 
 
@@ -217,7 +218,7 @@ trait GenRandomOps extends ExposeRepBase{
   def genFNest(desc: CodeDescriptor, fnest: FNest): Gen[FNest] = {
     for {
       wop <- genOp(desc,fnest)
-      fop <- createFunction(desc,wop,fnest)
+      (fop,nf) <- createFunction(desc,wop,fnest)
       op <- removeWildCards(fop, fnest)
       assign <- Gen.sequence[Vector[Int], Int](op.desc.args.map(arg => genAssignment(fnest, arg)))
     } yield {
@@ -237,20 +238,59 @@ trait GenRandomOps extends ExposeRepBase{
             acc :+ in(ele).sym
           }
         }
-        val ret: Vector[Any] = op.desc.sf(argsyms)
+
+        val ret: Vector[Any] =
+          if (op.desc.localfidx.isDefined) {
+            val fplusargsyms = in(op.desc.localfidx.get).sym +: argsyms
+            op.desc.sf(fplusargsyms)
+          }
+          else op.desc.sf(argsyms)
         val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
-        /*println(in ++ retctp)
-        println("0----")*/
+
         in ++ retctp
       }
-      FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,stagedf)
+      if (nf.isDefined)
+      {
+        val localf = op.desc.returns.map(e => cTP(null, e)).head
+        //we know here that the returned symbol is a local function
+
+        val (args,returns) = nf.get
+
+
+        val functionvaridx = fnest.syms.size //== index of the function
+
+          //val functiontp = x(functionvaridx)
+          //val functionuntyped = fun2tp.find(p => p._2 == functiontp).get._1
+
+
+          val applyop: Op = {
+            val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
+              ???
+            }
+            val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
+              val functiontp = x.head //we construct function applys such that the function is always the first arg
+              val functionuntyped = fun2tp.find(p => p._2 == functiontp).get._1
+              val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
+
+              val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
+              val res: Vector[cTP] = functiontyped(inasctp)
+              val withouttag: Vector[Any] = res.map(ele => ele.sym)
+              withouttag
+            }
+            val op = OpDescription(args.map(e => e.tag),returns.map(e => e.tag),f,sf,Some(functionvaridx))
+            Op("apply"+functionvaridx, op)
+          }
+        FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,stagedf, registerOp(applyop,fnest.localfs))
+      }
+      else FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,stagedf, fnest.localfs)
+
     }
   }
 
   def genCode(desc: CodeDescriptor): Gen[Vector[FNest]] = {
     for {
       ini <- genArgs(desc.max_toplevel_args)
-      tail <- genNodes(desc, Vector(FNest(ini, null, null)))
+      tail <- genNodes(desc, Vector(FNest(ini, null, null,Map.empty)))
     } yield tail
   }
 

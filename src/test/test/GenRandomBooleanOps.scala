@@ -22,7 +22,7 @@ trait GenRandomBooleanOps extends GenRandomOps{
       val t = x.head.asInstanceOf[Rep[Boolean]]
       Vector(boolean_negate(t))
     }
-    val op = OpDescription(Vector(manifest[Boolean]),Vector(manifest[Boolean]),f,sf)
+    val op = OpDescription(Vector(manifest[Boolean]),Vector(manifest[Boolean]),f,sf, None)
     Op("boolean_negate", op)
   }
 
