@@ -289,7 +289,11 @@ trait GenRandomOps extends ExposeRepBase{
               val withouttag: Vector[Any] = res.map(ele => ele.sym)
               withouttag
             }
-            val op = OpDescription(args.map(e => e.tag),returns.map(e => e.tag),f,sf,Some(functionvaridx))
+            val returntypes = returns.map(e => e.tag)
+            println ("returns .... ->")
+            println(returntypes)
+            println("-----------------")
+            val op = OpDescription(args.map(e => e.tag),returntypes,f,sf,Some(functionvaridx))
             Op("apply"+functionvaridx, op)
           }
         FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f,stagedf, registerOp(applyop,fnest.localfs))

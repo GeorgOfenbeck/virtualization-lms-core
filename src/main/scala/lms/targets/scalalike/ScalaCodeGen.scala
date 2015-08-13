@@ -83,20 +83,26 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     }
   }
 
+
+  def myhelp(tp: IR.TP[_]): String = {
+    val rm:String = tp.rhs match {
+      case IR.InternalLambda(f,x,y,args,returns) => {
+        val av: Vector[String] = x.map(ele => remap(ele.tag.mf))
+        val rv: Vector[String] = y.res.map(ele => myhelp(IR.exp2tp(ele)))
+        val a = tupledeclarehelper(av, "")
+        val r = tupledeclarehelper(rv, "")
+        println(a + r)
+        "scala.Function1[" + a + "," + r + "]"
+      }
+      case _ => remap(tp.tag.mf)
+    }
+    rm
+  }
+
   override def emitNode(tp: self.IR.TP[_], acc: String,
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
-      val returntuple = tupledeclarehelper(y.res.map(a => {
-
-        val mani = IR.exp2tp(a).tag.mf
-        if (mani.toString() == "scala.Function1[_ <: Any, _ <: Any]") {
-          println("YES")
-          remap(mani)
-        }
-        else
-          remap(mani)
-      }
-          ),"")
+      val returntuple = tupledeclarehelper(y.res.map(a => myhelp(IR.exp2tp(a)) ),"")
       val argtuple = tupledeclarehelper(x.map(a => remap(a.tag.mf)),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
