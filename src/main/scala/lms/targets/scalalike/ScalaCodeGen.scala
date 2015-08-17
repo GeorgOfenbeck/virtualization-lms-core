@@ -91,10 +91,21 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         val rv: Vector[String] = y.res.map(ele => myhelp(IR.exp2tp(ele)))
         val a = tupledeclarehelper(av, "")
         val r = tupledeclarehelper(rv, "")
+        println("................")
         println(a + r)
+        println("................")
         "scala.Function1[" + a + "," + r + "]"
       }
-      case _ => remap(tp.tag.mf)
+      case IR.ReturnArg(f,newsym,pos,tuple,last) => {
+        if (tp.tag.toString.contains("Function"))
+          println(".....")
+        val newsymtp = IR.exp2tp(newsym)
+        val applynodetp = IR.exp2tp(f)
+        myhelp(newsymtp)
+      }
+      case _ => {
+        remap(tp.tag.mf)
+      }
     }
     rm
   }
@@ -103,16 +114,17 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
       val returntuple = tupledeclarehelper(y.res.map(a => myhelp(IR.exp2tp(a)) ),"")
-      val argtuple = tupledeclarehelper(x.map(a => remap(a.tag.mf)),"")
+      val argtuple = tupledeclarehelper(x.map(a => myhelp(a)),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
         x.zipWithIndex.map(a => {
           val (tp,index) = a
           val typ = remap(tp.tag.mf)
-          "val " + quote(tp) + " : " + typ + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
+          "val " + quote(tp) + " : " + myhelp(tp) + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
         }).mkString("\n")
       } else {
-        "val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+        //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+        "val " + quote(x.head) + " : " + myhelp(x.head) + " = helper\n"
       }
 
       if (head == null || head == tp) {
@@ -167,6 +179,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         emitValDef(tp,quote(f))
     }
     case IR.ArgDef(id) => "" //args are handled in the according lambda
+    case IR.ConstDef(x) => "" //are handeled through remaps
     case _ => super.emitNode(tp,acc,block_callback)
   }
 

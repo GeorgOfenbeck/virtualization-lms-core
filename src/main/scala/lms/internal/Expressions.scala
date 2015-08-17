@@ -91,6 +91,7 @@ trait Expressions extends TypeRepBase with Logging{
  var def2tp: Map[Def[_], TP[_]] = Map.empty
  var id2tp: Map[Int, TP[_]] = Map.empty
   var fun2tp: Map[(_ => _), TP[_]] = Map.empty
+  var tp2fun: Map[TP[_], (_ => _)] = Map.empty
 
  def reifySubGraph[T](b: =>T): (T, Vector[TP[T]]) = {
   val r = b
@@ -247,6 +248,7 @@ trait Expressions extends TypeRepBase with Logging{
   def2tp = Map.empty
   id2tp = Map.empty
   fun2tp = Map.empty
+  tp2fun = Map.empty
  }
 
 }

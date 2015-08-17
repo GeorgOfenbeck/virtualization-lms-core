@@ -74,14 +74,16 @@ trait GenRandomFunctions extends GenRandomOps{
     tail <- genNodes(desc.copy(cur_nodes_per_block = 0, cur_nest_depth = desc.cur_nest_depth + 1),Vector(FNest(args,null,null, Map.empty))) //this doesn't take any outside symbol
    } yield {
 
-    println("seems we survive the recursion")
+    //println("seems we survive the recursion")
     val callstack = chainHeadf(tail)
     val callstack_staged = chainHeadsf(tail)
 
     val exposeargs = genExposeRep(args)
     val exposeres = genExposeRep(tail.last.syms)
 
-
+    /*println("------------------")
+    println(tail.last.syms)
+    println("------------------")*/
     val createinternalfunction: Op = {
      val f: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => {
       /*val ctpv = args.zipWithIndex.map(symwIndex => cTP(x(symwIndex._2),symwIndex._1.tag))
@@ -112,6 +114,9 @@ trait GenRandomFunctions extends GenRandomOps{
     }
     val intypes: Vector[cTP] = args
     val outtypes: Vector[cTP] = tail.last.syms
+    /*println("000000000")
+    println(createinternalfunction)
+    println("000000000")*/
     (createinternalfunction, Some((intypes,outtypes)))
   }
   }

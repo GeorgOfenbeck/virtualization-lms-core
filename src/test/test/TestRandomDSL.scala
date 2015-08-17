@@ -1,3 +1,4 @@
+/*
 package test
 
 
@@ -18,7 +19,7 @@ import scala.reflect.io.VirtualDirectory
 import scala.tools.nsc.interpreter.AbstractFileClassLoader
 import scala.tools.nsc.util
 
-
+/*
 trait MyRemap extends ScalaCodegen {
   val IR: GenRandomOps with InternalFunctionsExp
 
@@ -28,7 +29,7 @@ trait MyRemap extends ScalaCodegen {
       case _ => super.remap(m)
     }
   }
-}
+}*/
 
 class MRandomClass extends BooleanOpsExp
 with PurePrimitiveOpsExp
@@ -44,8 +45,8 @@ with ScalaCompile {
   self =>
 
 
-  override val codegen = new MyRemap
-    with EmitHeadInternalFunctionAsClass
+  override val codegen = new EmitHeadInternalFunctionAsClass
+    //with EmitHeadInternalFunctionAsClass
     with ScalaGenBooleanOps
     with ScalaGenPrimitivOps
     with ScalaGenIfThenElse {
@@ -171,7 +172,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(10, 5, 5, 3, 2)
+  val desc = CodeDescriptor(10, 2, 2, 3, 2)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -317,3 +318,4 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
     }
 
 }
+*/
