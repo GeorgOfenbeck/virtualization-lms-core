@@ -33,7 +33,7 @@ trait GenRandomFunctions extends GenRandomOps{
  //this is a version of GenRandomOps GenArg - the difference is that this one will only consider Symbols that already
  //exist (to increase the liklyhood that the function is actually called)
  def genExistingArg(symssofar: Vector[cTP]): Gen[Vector[cTP]] = for {
-  typechoice <- Gen.oneOf(symssofar.map(x => x.tag).filter(p => p.mf != manifest[FunctionMarker]))
+  typechoice <- Gen.oneOf(symssofar.map(x => x.tag).filter(p => !p.mf.toString().contains("Function")))
   //don't allow passing functions for now
  } yield Vector(cTP(null, typechoice))
 
@@ -96,21 +96,22 @@ trait GenRandomFunctions extends GenRandomOps{
       val resctp = callstackstaged(ctpv)
       resctp.map(t => t.sym)*/
       val lambda = fun(callstack_staged)(exposeargs,exposeres)
+
       val lambdatp: TP[_] = exp2tp(lambda.exp)
+      funexp2StagedFunction = funexp2StagedFunction + (lambda.exp -> lambda)
       Vector(lambdatp.sym)
       //Vector(x.head)
      }
      val argsyms: Vector[GenTypes] = args.map(t => t.tag)
      val returnsyms: Vector[GenTypes] = tail.last.syms.map(t => t.tag)
      //val op = OpDescription(argsyms,returnsyms, f, sf)
-     val op = OpDescription(Vector.empty,Vector(manifest[FunctionMarker]), f, sf, None)
+     val op = OpDescription(Vector.empty,Vector(manifest[Function[_,_]]), f, sf, None)
      //val op = OpDescription(Vector.empty,Vector.empty, f, sf)
      val declaration = Op("createinternalfunction"+fNest.syms.size, op) //giving the op a number depending on the fnest size (not unique in nested case?)
-
+     declaration
 
      //val appop = OpDescription(intypes,outtypes,f,)
-     val application = Some(Op("applyinternalfunction"+fNest.syms.size, op)) //giving the op a number depending on the fnest size (not unique in nested case?)
-     declaration
+     //val application = Some(Op("applyinternalfunction"+fNest.syms.size, op)) //giving the op a number depending on the fnest size (not unique in nested case?)
     }
     val intypes: Vector[cTP] = args
     val outtypes: Vector[cTP] = tail.last.syms

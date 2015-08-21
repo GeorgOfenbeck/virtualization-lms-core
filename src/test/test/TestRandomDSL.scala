@@ -1,4 +1,6 @@
 
+
+
 package test
 
 
@@ -246,6 +248,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
           //Prop.forAll(dsl.genArgInstances(inisyms)) {
           Prop.forAll(dsl.hideit(inisyms)) {
             stealth =>
+              println("trying args")
               val rargs = stealth.x
 
               /*Prop.forAll(genNewDSL()) { dsl: MRandomClass => {
@@ -290,6 +293,11 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
                 println("dropit: " + dropit)
                 worked = dropit.isEmpty
               }
+
+              val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+              val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
+              stream2.flush()
+              stream2.close()
 
               worked
 

@@ -277,7 +277,6 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
               val functionexp = x.head //we construct function applys such that the function is always the first arg
               val functiontp: TP[_] = exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
               //println(functiontp)
-
               val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
 
 
@@ -288,6 +287,7 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
               else
                 assert(false, "hm")*/
               val stagedFunction = funexp2StagedFunction(functiontp.sym)
+
 
               val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[cTP],Vector[cTP]]]
 
