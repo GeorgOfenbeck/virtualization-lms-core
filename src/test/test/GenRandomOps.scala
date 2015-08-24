@@ -416,9 +416,11 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
         instance <- genTypeInstance(e)
       } yield instance
     })
-    for {
-      ge <- Gen.sequence[Vector[cTP], cTP](t)
+    val t1 = t
+    val r = for {
+      ge <- Gen.sequence[Vector[cTP], cTP](t1)
     } yield ge //.zipWithIndex.map(e => cTP(e._1,v(e._2).tag))
+    r
   }
 
 
@@ -426,7 +428,10 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
   case class StealthIt(x: Vector[cTP])
   def hideit(v: Vector[cTP]): Gen[StealthIt] = for {
     x <- genArgInstances(v)
-   } yield StealthIt(x)
+   } yield {
+      val t = StealthIt(x)
+      t
+    }
 
 
   def genExposeRep(v: Vector[cTP]): ExposeRep[Vector[cTP]] = {
@@ -441,6 +446,11 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
         (x: Vector[cTP]) => x.foldLeft(Vector.empty[Exp[_]])( (acc,ele) => acc :+ ele.sym.asInstanceOf[Exp[_]])
     }
   }
+
+  def resetRandom () = {
+
+  }
+
 }
 
 

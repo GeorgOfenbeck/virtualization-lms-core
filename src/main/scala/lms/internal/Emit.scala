@@ -48,15 +48,21 @@ trait Emit[C]{
     val reify = new ReifyPure {
       override val IR: self.IR.type = self.IR
     }
+    println("starting reify")
     val reification = reify.reifyProgram(f)(args, returns)
+    println("starting codemotion")
     val cm: specCM = CodeMotion(reification)
+    println("starting schedule")
     val exposedScheduleChoice: specEsc = ExposeScheduleChoice(cm)
+    println("starting getting Iterator")
     val iteratable = schedule.getSchedulewithIterator(exposedScheduleChoice)
     def blockcallback (block: self.IR.Block, bstart: C): C = {
       val bit = iteratable.iterator(block)
       emitc(bstart,bit,blockcallback)
     }
+    println("starting iterating")
     val acc = emitc(start,iteratable.iterator,blockcallback)
+    println("finished iterating")
     (acc,exposedScheduleChoice)
   }
 

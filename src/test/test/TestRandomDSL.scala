@@ -174,7 +174,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(10, 2, 2, 3, 2)
+  val desc = CodeDescriptor(10, 2, 2, 5, 3)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -244,10 +244,14 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
           val exposeres = dsl.genExposeRep(resultsyms)
           var worked = true
         try {
+          println("starting compilation")
           val (compiled_staged, esc2) = dsl.compile(callstack_staged)(exposeargs, exposeres)
           //Prop.forAll(dsl.genArgInstances(inisyms)) {
-          Prop.forAll(dsl.hideit(inisyms)) {
-            stealth =>
+          val stealth = dsl.hideit(inisyms).sample.get
+
+          //Prop.forAll(dsl.hideit(inisyms)) {
+            //stealth =>
+          {
               println("trying args")
               val rargs = stealth.x
 

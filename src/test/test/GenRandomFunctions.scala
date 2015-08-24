@@ -21,7 +21,6 @@ trait GenRandomFunctions extends GenRandomOps{
   }
 
 
-
  override def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = {
   super.supported_types(availTypes)
  }
@@ -34,6 +33,7 @@ trait GenRandomFunctions extends GenRandomOps{
  //exist (to increase the liklyhood that the function is actually called)
  def genExistingArg(symssofar: Vector[cTP]): Gen[Vector[cTP]] = for {
   typechoice <- Gen.oneOf(symssofar.map(x => x.tag).filter(p => !p.mf.toString().contains("Function")))
+  //typechoice <- Gen.oneOf(symssofar.map(x => x.tag)) //.filter(p => !p.mf.toString().contains("Function")))
   //don't allow passing functions for now
  } yield Vector(cTP(null, typechoice))
 
