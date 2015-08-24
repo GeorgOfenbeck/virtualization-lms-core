@@ -1,3 +1,4 @@
+/*
 package examples
 
 
@@ -65,6 +66,8 @@ class TestCompile extends Suite {
       def f (x: Int) = x
       sameFunction(f _, f _)
 
+
+
       case class Complex(re: Rep[Int], im: Rep[Int])
 
       implicit val exposeComplex = new ExposeRep[Complex](){
@@ -74,103 +77,56 @@ class TestCompile extends Suite {
       }
 
       //Rep[A] => Rep[B]
-      implicit def exposeFunction[A,R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[A => R] =
-        new ExposeRep[A => R]() {
+      implicit def exposeFunction[A,R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[StagedFunction[A,R]] =
+        new ExposeRep[StagedFunction[A,R]]() {
           val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-            //we do not have any knowledge about the internals of the function - just its arg / return type
-            val tf: (A => R) = (in: A) => {
-              returns.vec2t(returns.freshExps())
-            }
-            val fun = doLambda(tf)
-            val funtp = fun2tp(fun)
-            Vector(funtp.sym)
+            //we have no knowledge of the function body which we don't care for
+            //create a new StagedFunction
+            //val fargs = args.freshExps()
+            //val freturns = returns.freshExps()
+            val lambda: Exp[Function[_,_]] = Arg[_ => _ ]
+            //val ele: (Vector[Exp[_]],Vector[Exp[_]]) = (fargs,freturns)
+            //funexp2AR = funexp2AR + (lambda -> ele)
+            funexp2StagedFunction = funexp2StagedFunction + (lambda -> StagedFunction(null,lambda,args,returns))
+            Vector(lambda)
           }
-          val vec2t: Vector[Exp[_]] => (A => R) = (in: Vector[Exp[_]]) => {
-            val ftp = exp2tp(in.head)
-            ftp.rhs match {
-              case ReturnArg(f,newsym,pos,tuple,last) => {
-                val ftp2 = exp2tp(newsym)
-                val fun = tp2fun(ftp2)
-                val ret: Function[A, R] = fun match {
-                  case x: Function[A, R] => x
-                  case _ => ???
-                }
-                ret
-              }
-              case InternalLambda(f,x,y,args,returns)=> {
-                val fun = tp2fun(ftp)
-                val ret: Function[A, R] = fun match {
-                  case x: Function[A, R] => x
-                  case _ => ???
-                }
-                ret
-              }
-              case _ => ???
-            }
+          val vec2t: Vector[Exp[_]] => StagedFunction[A,R] = (in: Vector[Exp[_]]) => {
+            val f : (A => R) = (ina: A) => ???
+            StagedFunction(f,in.head.asInstanceOf[Rep[_=>_]],args,returns)
+          }
+          val t2vec: StagedFunction[A,R] => Vector[Exp[_]] = (in: StagedFunction[A,R]) => {
+            Vector(in.exp)
+          }
+        }
 
-          }
-          val t2vec: (A => R) => Vector[Exp[_]] = (in: (A => R)) => {
-            val ftp = fun2tp(in)
-            Vector(ftp.sym)
-          }
+
+      val FunctionOnComplex: Complex => StagedFunction[Complex,Complex] = (in: Complex) => {
+
+        val FunctionOnComplex1: Complex => Complex = (in1: Complex) => {
+          val repfun: (Rep[Int] => Rep[Int]) = (in: Rep[Int]) => in
+          val reps = doLambda(repfun)
+          Complex(in1.im, reps(in.re))
         }
-          /*{
-          val ret: Def[_ => _] = funtp.rhs match {
-            case il: InternalLambda => il
-            case _ => {
-              ??? //should not happen
-            }
-          }
-          ret
-        }
-        val vec2t: Vector[Exp[_]] => (A => R) = (in: Vector[Exp[_]]) => {
-          val ret: (A => R) = funtp.rhs match {
-            case il: InternalLambda => {
-              il.createApply(in.head.asInstanceOf[Exp[_=>_]])
-            }
-            case _ => {
-              ??? //should not happen
-            }
-          }
-        }
-         => Vector(funtp.sym)
-      }  */
 
 
 
-      
-      val FunctionOnComplex: Complex => (Complex => Complex) = (in: Complex) => {
-        //val sh = doLambda(innerh)
-        //Complex(in.im,sh(in.re))
-        val FunctionOnComplex1: (Complex => Complex) = (in1: Complex) => {
-          Complex(in1.im, in.re)
-        }
         val sf = doLambda(FunctionOnComplex1)
         sf
       }
 
 
-      def mystagedf(x: Complex => Complex): (Complex => Complex) = {
-        //val complex = Complex(Const(1) + Const(1),Const(2) + Const(2))
-        //val sf = doLambda(innerf)
-        //val stageFunctiononComplex = doLambda(FunctionOnComplex)
-        //val retf = stageFunctiononComplex(complex)
-        /*val r2 = retf(complex)
-        r2.re*/
+      def mystagedf(x: StagedFunction[Complex,Complex]): StagedFunction[Complex,Complex] = {
+        /*val g: StagedFunction[Complex,Complex] => StagedFunction[Complex,Complex] =
+          (inf: StagedFunction[Complex,Complex] ) => inf
+        val sf = doLambda(g)
 
-        //retf
-        //val ret = stageFunctiononComplex(complex)
-        //ret
-        //x(complex)
+        val c1 = sf(x)
+        c1*/
+        val c = Complex(unit(3),unit(4))
+        val sf = doLambda(FunctionOnComplex)
+        val ret = sf(c)
+        ret
 
-        x
-
-        //val retcomplex = stageFunctiononComplex(complex)
-        //val ret = sf(retcomplex.im)
-        //val sg = doLambda(innerf)
-        //sg(x)
-        //retcomplex.re
-        //nest(nest(boolean_negate(x)))
       }
 
       //val iarg = exposeRepFromRep[Int]
@@ -203,6 +159,76 @@ class TestCompile extends Suite {
     //println("hae?")
   }
 }
+/*
 
 
 
+//Rep[A] => Rep[B]
+implicit def exposeFunction[A,R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[A => R] =
+new ExposeRep[A => R]() {
+val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
+//we do not have any knowledge about the internals of the function - just its arg / return type
+/*            val tf: (A => R) = (in: A) => {
+              returns.vec2t(returns.freshExps())
+            }
+            val fun = doLambda(tf)
+            val funtp = fun2tp(fun)
+            Vector(funtp.sym)*/
+val ret: Rep[_ => _] = Arg[_ => _]
+Vector(ret)
+}
+val vec2t: Vector[Exp[_]] => (A => R) = (in: Vector[Exp[_]]) => {
+//val ftp = exp2tp(in.head)
+val f: A => R = (in: A) => ???
+/*ftp.rhs match {
+  case ReturnArg(f,newsym,pos,tuple,last) => {
+    val ftp2 = exp2tp(newsym)
+    val fun = tp2fun(ftp2)
+    val ret: Function[A, R] = fun match {
+      case x: Function[A, R] => x
+      case _ => ???
+    }
+    ret
+  }
+  case InternalLambda(f,x,y,args,returns)=> {
+    val fun = tp2fun(ftp)
+    val ret: Function[A, R] = fun match {
+      case x: Function[A, R] => x
+      case _ => ???
+    }
+    ret
+  }
+  case _ => ???
+}*/
+f
+}
+val t2vec: (A => R) => Vector[Exp[_]] = (in: (A => R)) => {
+val ftp = fun2tp(in)
+Vector(ftp.sym)
+
+}
+}
+/*{
+val ret: Def[_ => _] = funtp.rhs match {
+  case il: InternalLambda => il
+  case _ => {
+    ??? //should not happen
+  }
+}
+ret
+}
+val vec2t: Vector[Exp[_]] => (A => R) = (in: Vector[Exp[_]]) => {
+val ret: (A => R) = funtp.rhs match {
+  case il: InternalLambda => {
+    il.createApply(in.head.asInstanceOf[Exp[_=>_]])
+  }
+  case _ => {
+    ??? //should not happen
+  }
+}
+}
+=> Vector(funtp.sym)
+}  */
+
+*/
+*/

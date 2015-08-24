@@ -20,7 +20,7 @@ case class CodeDescriptor(
 
                            )
 
-trait GenRandomOps extends ExposeRepBase{
+trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
 
   case class cTP(sym: Any, tag: GenTypes)
 
@@ -277,15 +277,27 @@ trait GenRandomOps extends ExposeRepBase{
               val functionexp = x.head //we construct function applys such that the function is always the first arg
               val functiontp: TP[_] = exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
               //println(functiontp)
-              val functionuntypedo = fun2tp.find(p => p._2 == functiontp)
+
+              val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
+
+
+
+              /*val functionuntypedo = fun2tp.find(p => p._2 == functiontp)
               val functionuntyped = if(functionuntypedo.isDefined)
                 functionuntypedo.get._1
               else
-                assert(false, "hm")
-              val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
+                assert(false, "hm")*/
+              val stagedFunction = funexp2StagedFunction(functiontp.sym)
 
-              val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
-              val res: Vector[cTP] = functiontyped(inasctp)
+              val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[cTP],Vector[cTP]]]
+
+              //val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
+
+
+              //val res: Vector[cTP] = ??? //functiontyped(inasctp)
+              val res: Vector[cTP] = lamops(inasctp) //functiontyped(inasctp)
+
+
               val withouttag: Vector[Any] = res.map(ele => ele.sym)
               withouttag
             }

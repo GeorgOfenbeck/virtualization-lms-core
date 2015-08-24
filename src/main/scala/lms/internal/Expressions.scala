@@ -3,6 +3,9 @@ import scala.lms._
 
 
 import org.scala_lang.virtualized.SourceContext
+
+
+
 /**
  * The Expressions trait houses common AST nodes. It also manages a list of encountered Definitions which
  * allows for common sub-expression elimination (CSE).
@@ -90,8 +93,7 @@ trait Expressions extends TypeRepBase with Logging{
   var exp2tp: Map[Exp[_], TP[_]] = Map.empty
  var def2tp: Map[Def[_], TP[_]] = Map.empty
  var id2tp: Map[Int, TP[_]] = Map.empty
-  var fun2tp: Map[(_ => _), TP[_]] = Map.empty
-  var tp2fun: Map[TP[_], (_ => _)] = Map.empty
+
 
  def reifySubGraph[T](b: =>T): (T, Vector[TP[T]]) = {
   val r = b
@@ -247,8 +249,7 @@ trait Expressions extends TypeRepBase with Logging{
   exp2tp = Map.empty
   def2tp = Map.empty
   id2tp = Map.empty
-  fun2tp = Map.empty
-  tp2fun = Map.empty
+
  }
 
 }

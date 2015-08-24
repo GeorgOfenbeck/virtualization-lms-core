@@ -96,7 +96,7 @@ trait GenRandomFunctions extends GenRandomOps{
       val resctp = callstackstaged(ctpv)
       resctp.map(t => t.sym)*/
       val lambda = fun(callstack_staged)(exposeargs,exposeres)
-      val lambdatp: TP[_] = fun2tp(lambda)
+      val lambdatp: TP[_] = exp2tp(lambda.exp)
       Vector(lambdatp.sym)
       //Vector(x.head)
      }

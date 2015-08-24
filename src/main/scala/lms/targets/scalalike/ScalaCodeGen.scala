@@ -86,6 +86,8 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
 
   def myhelp(tp: IR.TP[_]): String = {
     val rm:String = tp.rhs match {
+
+
       case IR.InternalLambda(f,x,y,args,returns) => {
         val av: Vector[String] = x.map(ele => remap(ele.tag.mf))
         val rv: Vector[String] = y.res.map(ele => myhelp(IR.exp2tp(ele)))
@@ -103,6 +105,34 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         val applynodetp = IR.exp2tp(f)
         myhelp(newsymtp)
       }
+      case IR.ArgDef(id) => {
+        if (tp.tag.toString.contains("Function")){
+          val funexp = tp.sym
+          val aro = IR.funexp2StagedFunction.get(funexp)
+          aro match{
+            case Some(sf) =>{
+              val args = sf.args.freshExps()
+              val returns = sf.returns.freshExps()
+              val av: Vector[String] = args.map(ele => myhelp(IR.exp2tp(ele)))
+              val rv: Vector[String] = returns.map(ele => myhelp(IR.exp2tp(ele)))
+              val a = tupledeclarehelper(av, "")
+              val r = tupledeclarehelper(rv, "")
+              "scala.Function1[" + a + "," + r + "]"
+            }
+            case None => {
+              println("Function - but not found in map")
+              remap(tp.tag.mf)
+            }
+
+          }
+        }
+        else
+          remap(tp.tag.mf)
+
+      }
+
+
+
       case _ => {
         remap(tp.tag.mf)
       }
@@ -178,7 +208,9 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       else
         emitValDef(tp,quote(f))
     }
-    case IR.ArgDef(id) => "" //args are handled in the according lambda
+    case IR.ArgDef(id) => {
+      ""
+    } //args are handled in the according lambda
     case IR.ConstDef(x) => "" //are handeled through remaps
     case _ => super.emitNode(tp,acc,block_callback)
   }
