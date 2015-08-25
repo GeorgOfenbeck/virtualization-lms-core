@@ -64,6 +64,26 @@ trait GenRandomFunctions extends GenRandomOps{
  }
 
 
+ def genReturns(desc: CodeDescriptor, curfnest: Vector[FNest]): Gen[Vector[FNest]] = {
+  for {
+   nrrets <- Gen.chooseNum(1,desc.max_returns)
+   indicies2 <- Gen.pick(nrrets,curfnest.last.syms.zipWithIndex)
+  } yield {
+   val indicies = indicies2.map(ele => ele._2).toVector
+   val lastfnest = curfnest.last
+   val syms = indicies.foldLeft(Vector.empty[cTP]) {
+    (acc,ele) => acc :+ lastfnest.syms(ele)
+   }
+   val f: Vector[cTP] => Vector[cTP] = (in: Vector[cTP]) => {
+    indicies.foldLeft(Vector.empty[cTP]) {
+     (acc,ele) => acc :+ in(ele)
+    }
+   }
+   curfnest :+ FNest(syms,f,f,lastfnest.localfs)
+  }
+ }
+
+
  override def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[(Op,Option[(Vector[cTP],Vector[cTP])])] = {
   if (op == createinternalfunction_placeholder){
    println("doing a internal! " + desc.cur_nest_depth)
@@ -71,10 +91,12 @@ trait GenRandomFunctions extends GenRandomOps{
 
    for {
     args <- genExistingArgs(desc.max_args,fNest.syms)
-    tail <- genNodes(desc.copy(cur_nodes_per_block = 0, cur_nest_depth = desc.cur_nest_depth + 1),Vector(FNest(args,null,null, Map.empty))) //this doesn't take any outside symbol
+    tailm1 <- genNodes(desc.copy(cur_nodes_per_block = 0, cur_nest_depth = desc.cur_nest_depth + 1),Vector(FNest(args,null,null, Map.empty))) //this doesn't take any outside symbol
+    tail <- genReturns(desc,tailm1)
    } yield {
 
     //println("seems we survive the recursion")
+    //val tail = tails.toVector
     val callstack = chainHeadf(tail)
     val callstack_staged = chainHeadsf(tail)
 

@@ -39,6 +39,8 @@ libraryDependencies <<= (scalaVersion, libraryDependencies) { (ver, deps) =>
      deps :+ compilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin" % contVersion cross CrossVersion.full)
 }
 
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "3")
+
 scalacOptions += "-P:continuations:enable"
 
 val paradiseVersion = "2.0.1"

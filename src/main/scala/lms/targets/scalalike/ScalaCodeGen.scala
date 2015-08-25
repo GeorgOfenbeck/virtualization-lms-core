@@ -120,8 +120,12 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
               "scala.Function1[" + a + "," + r + "]"
             }
             case None => {
+              //val otp = IR.id2tp(id)
               println("Function - but not found in map")
-              remap(tp.tag.mf)
+              val r = myhelp(IR.id2tp(id))
+              println(r)
+              r
+              //remap(tp.tag.mf)
             }
 
           }
@@ -144,7 +148,6 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
       val returntuple = tupledeclarehelper(y.res.map(a => myhelp(IR.exp2tp(a)) ),"")
-      val argtuple = tupledeclarehelper(x.map(a => myhelp(a)),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
         x.zipWithIndex.map(a => {
@@ -156,6 +159,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
         "val " + quote(x.head) + " : " + myhelp(x.head) + " = helper\n"
       }
+      val argtuple = tupledeclarehelper(x.map(a => myhelp(a)),"")
 
       if (head == null || head == tp) {
         head = tp

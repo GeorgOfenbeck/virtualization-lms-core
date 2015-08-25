@@ -1,7 +1,7 @@
 package scala.lms
 package internal
 
-
+import scala.lms.util._
 /*
   The general assumption of the new Codemotion is, that there cannot be a Sym without a corresponding TP! (which was different in previous LMS versions)
  */
@@ -75,8 +75,9 @@ trait CodeMotion {
    * @return A Hashmap of Block -> BlockInfo which also contains info about the root block
    */
   protected def getBlockInfo(block: Block): IRBlockInfo = {
+    TimeLog.timer("CodeMotion_getBlockInfo", true)
     val res = block.res
-
+    println("doing CM")
     if (true) {//TODO - RF!
       //if (!bcache.contains(resid)) { //this should always be true
       /*if (block.res.size > 1)
@@ -106,7 +107,10 @@ trait CodeMotion {
         "never end up here!")
     }
     assert(bcache.contains(block),"sanity check fails?")
-    IRBlockInfo(reifiedIR.def2tp(reifiedIR.rootlambda),bcache)
+    println("finished CM")
+    val r = IRBlockInfo(reifiedIR.def2tp(reifiedIR.rootlambda),bcache)
+    TimeLog.timer("CodeMotion_getBlockInfo", false)
+    r
   }
 
   /**

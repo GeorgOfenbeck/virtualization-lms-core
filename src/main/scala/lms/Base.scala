@@ -16,9 +16,10 @@ trait TypeRepBase {
   def runtimeClass: java.lang.Class[_]
   def erasure: java.lang.Class[_]
   def <:<(that: TypeRep[_]): Boolean
+  def dynTags: Option[ Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]])]
  }
 
- case class TypeExp[T](mf: Manifest[T]) extends TypeRep[T] {
+ case class TypeExp[T](mf: Manifest[T], dynTags: Option[ Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]])] = None) extends TypeRep[T] {
   def typeArguments: List[Manifest[_]]   = mf.typeArguments
   def arrayManifest: Manifest[Array[T]] = mf.arrayManifest
   def runtimeClass: java.lang.Class[_] = mf.runtimeClass

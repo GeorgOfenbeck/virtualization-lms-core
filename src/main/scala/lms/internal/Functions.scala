@@ -107,9 +107,30 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCo
 
 
 
+
   override def doLambda[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A,R] = {
+    def helper[T](d: Def[T])(implicit tag: TypeRep[T]): TypeRep[T] = {
+      tag match {
+        case x@TypeExp(mf,dynTags) => {
+          val f: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+            val a = args.freshExps().map( ele => exp2tp(ele).tag)
+            val r = returns.freshExps().map( ele => exp2tp(ele).tag)
+            //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
+            (a,r)
+          }
+          x.copy(dynTags = Some(f))
+        }
+        case _ => {
+          assert(false, "this should never match")
+          tag
+        }
+      }
+    }
+
+
     val y = doLambdaDef(f)(args, returns)
-    val exp = toAtom(y)
+    val tag = helper(y)
+    val exp = toAtom(y)(tag,null)
     val tp = id2tp(exp.id).asInstanceOf[TP[_=>_]]
     //val returnf = y.createApply(exp)
     val stagedFunction: StagedFunction[A,R] = StagedFunction(f,exp,y.args,y.returns)

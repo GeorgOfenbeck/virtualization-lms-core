@@ -15,6 +15,7 @@ case class CodeDescriptor(
                            max_args: Int,
                            max_nest_depth: Int,
                            max_functions: Int,
+                           max_returns: Int,
                            cur_nodes_per_block: Int = 0,
                            cur_nest_depth: Int = 0
 

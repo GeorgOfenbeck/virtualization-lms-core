@@ -174,7 +174,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(10, 2, 2, 5, 3)
+  val desc = CodeDescriptor(10, 2, 2, 5, 20, 2)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -189,10 +189,24 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
     val code: Vector[dsl.FNest]
   }
 
-  def genDSLwCode(desc: CodeDescriptor): Gen[DSLwCode] = org.scalacheck.Gen.lzy {
+
+  //had to introduce this indirection cause otherwise ScalaCheck will assume the class constant
+  def genDSL(): Gen[MRandomClass] = {
+    def workaround(i: Int) = new MRandomClass()
     for {
-      dslr <- new MRandomClass
-      coder <- dslr.genCode(desc)
+      nr <- Gen.posNum[Int]
+      dsl <- workaround(nr)
+    } yield dsl
+  }
+
+  def genDSLwCode(desc: CodeDescriptor): Gen[DSLwCode] = //org.scalacheck.Gen.lzy {
+  {
+    for {
+      dslr <- genDSL()
+      coder <- {
+        println("dslr.cur_nr_functions" + dslr.cur_nr_functions)
+        dslr.genCode(desc)
+      }
     } yield new DSLwCode {
       override val dsl: dslr.type = dslr
       override val code: Vector[dslr.FNest] = coder
@@ -232,6 +246,10 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
     Prop.forAll(genDSLwCode(desc)) {
       dslwcode => {
         import dslwcode._
+        import scala.lms.util._
+
+        TimeLog.setupTimer("test")
+
         /*val dsl = dslwcode.dsl
         val dslwcode.code = dslwcode.code*/
 
@@ -297,11 +315,13 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
                 println("dropit: " + dropit)
                 worked = dropit.isEmpty
               }
-
-              val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+              val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala")
+              val stream2 = new java.io.PrintWriter(file)
               val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
               stream2.flush()
               stream2.close()
+              file.flush()
+              file.close()
 
               worked
 
@@ -309,10 +329,13 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
         }
               catch {
                 case ex: Throwable => {
-                  val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+                  val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala")
+                  val stream2 = new java.io.PrintWriter(file)
                   val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
                   stream2.flush()
                   stream2.close()
+                  file.flush()
+                  file.close()
                   println("caught")
                   println("msg: " + ex.getMessage)
                   worked = false
@@ -324,7 +347,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
    println("args + result")*/
         //println(callstack(rargs))
 
-
+        TimeLog.saveTiming("C:\\Phd\\git\\code\\deleteme\\src\\main\\")
         worked
       }
     }
