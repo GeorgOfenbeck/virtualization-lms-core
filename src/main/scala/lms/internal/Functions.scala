@@ -89,9 +89,14 @@ trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCo
     val returnNodes = if (newsyms.size > 1) {
       newsyms.zipWithIndex.map(fsym => {
         //had do to this ugly version since the compile time type is not know at this stage (of the return - Rep[_])
-        val tag: TypeRep[Any] = exp2tp(fsym._1).tag.asInstanceOf[TypeRep[Any]]
+        val otp = exp2tp(fsym._1)
+        val tag: TypeRep[Any] = otp.tag.asInstanceOf[TypeRep[Any]]
         val cc: Def[Any] = ReturnArg(applynodeexp, fsym._1, fsym._2, true, newsyms.size == fsym._2+1)
         val newx = toAtom(cc)(tag,null)
+        if (tag.mf.toString().contains("Function")) {
+          val newtp = exp2tp(newx)
+          println(newtp)
+        }
         newx
       })
     } else {

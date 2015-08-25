@@ -1,4 +1,4 @@
-/*
+
 package examples
 
 
@@ -84,10 +84,28 @@ class TestCompile extends Suite {
             //create a new StagedFunction
             //val fargs = args.freshExps()
             //val freturns = returns.freshExps()
-            val lambda: Exp[Function[_,_]] = Arg[_ => _ ]
+            def helper[T]()(implicit tag: TypeRep[T]): TypeRep[T] = {
+              tag match {
+                case x@TypeExp(mf,dynTags) => {
+                  val f: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+                    val a = args.freshExps().map( ele => exp2tp(ele).tag)
+                    val r = returns.freshExps().map( ele => exp2tp(ele).tag)
+                    //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
+                    (a,r)
+                  }
+                  x.copy(dynTags = Some(f))
+                }
+                case _ => {
+                  assert(false, "this should never match")
+                  tag
+                }
+              }
+            }
+            val tagnew = helper[_ => _ ]
+            val lambda: Exp[Function[_,_]] = Arg[_ => _ ](tagnew)
             //val ele: (Vector[Exp[_]],Vector[Exp[_]]) = (fargs,freturns)
             //funexp2AR = funexp2AR + (lambda -> ele)
-            funexp2StagedFunction = funexp2StagedFunction + (lambda -> StagedFunction(null,lambda,args,returns))
+            //funexp2StagedFunction = funexp2StagedFunction + (lambda -> StagedFunction(null,lambda,args,returns))
             Vector(lambda)
           }
           val vec2t: Vector[Exp[_]] => StagedFunction[A,R] = (in: Vector[Exp[_]]) => {
@@ -232,4 +250,3 @@ val ret: (A => R) = funtp.rhs match {
 
 */
 
-  */

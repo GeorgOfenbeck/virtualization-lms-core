@@ -1,4 +1,4 @@
-
+/*
 
 
 package test
@@ -114,7 +114,7 @@ with ScalaCompile {
     val withindex = y.zipWithIndex
     val withvalues = withindex.map(ele => {
       val (e, idx) = ele
-      codegen.tupleaccesshelper(idx, "helper", idx == withindex.size)
+      codegen.tupleaccesshelper(idx, "helper", idx == withindex.size-1)
     }).mkString(",")
     if (this.compiler eq null)
       setupCompiler()
@@ -174,7 +174,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(10, 2, 2, 5, 20, 2)
+  val desc = CodeDescriptor(20, 2, 20, 5, 20, 20)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -241,7 +241,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
     println("trigger implicit")
     dsl.ShrinkMe.shrinkCode
    }*/
-
+  var cnt = 0
   property("my prop test ") =
     Prop.forAll(genDSLwCode(desc)) {
       dslwcode => {
@@ -315,13 +315,15 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
                 println("dropit: " + dropit)
                 worked = dropit.isEmpty
               }
-              val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala")
+              val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test" + cnt + ".scala")
               val stream2 = new java.io.PrintWriter(file)
-              val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
+              val esc = dsl.codegen.emitSource(callstack_staged, "testClass" + cnt, stream2)(exposeargs, exposeres)
               stream2.flush()
               stream2.close()
               file.flush()
               file.close()
+
+              cnt = cnt + 1
 
               worked
 
@@ -329,9 +331,9 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
         }
               catch {
                 case ex: Throwable => {
-                  val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala")
+                  val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Fail" + cnt + ".scala")
                   val stream2 = new java.io.PrintWriter(file)
-                  val esc = dsl.codegen.emitSource(callstack_staged, "testClass", stream2)(exposeargs, exposeres)
+                  val esc = dsl.codegen.emitSource(callstack_staged, "failClass" + cnt, stream2)(exposeargs, exposeres)
                   stream2.flush()
                   stream2.close()
                   file.flush()
@@ -354,3 +356,4 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
 }
 
+  */

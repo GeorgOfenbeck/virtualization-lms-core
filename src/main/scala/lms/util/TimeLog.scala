@@ -48,7 +48,8 @@ object TimeLog {
  // Usage: call once to start the timer, and once to stop it, using the same timer name parameter
  //
  def timer(timerName: String, start: Boolean) = {
-  assert(cur_timer != null, "tried to do timing without prior setup")
+  //assert(cur_timer != null, "tried to do timing without prior setup")
+  if (cur_timer != null){
   if (cur_timer.timers contains timerName) {
    val ele = cur_timer.timers(timerName)
    if (start){
@@ -68,5 +69,6 @@ object TimeLog {
    val time = System.nanoTime()
    cur_timer.timers = cur_timer.timers + (timerName -> Vector((System.nanoTime(),(0).toLong)))
   }
+ }
  }
 }

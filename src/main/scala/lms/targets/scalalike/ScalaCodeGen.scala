@@ -82,6 +82,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       tupledeclarehelper(rest.drop(tuplesize),start) + ")"
     }
   }
+/*
 
 
   def myhelp(tp: IR.TP[_]): String = {
@@ -143,23 +144,50 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     }
     rm
   }
+*/
+
+  def remap(tag: IR.TypeRep[_]): String = {
+    tag match {
+      case IR.TypeExp(mf,dyntags) => {
+        dyntags match {
+          case Some(f) => {
+            val (args,returns) = f()
+            val rargs = args.map(a => remap(a))
+            val rrets = returns.map(r => remap(r))
+            val a = tupledeclarehelper(rargs, "")
+            val r = tupledeclarehelper(rrets, "")
+            "scala.Function1[" + a + "," + r + "]"
+          }
+          case None => {
+            //if (mf.toString().contains("Function"))
+            remap(mf)
+          }
+        }
+      }
+      case _ => {
+        assert(false, "this should just never happen")
+        ""
+      }
+    }
+  }
+
 
   override def emitNode(tp: self.IR.TP[_], acc: String,
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
     case IR.InternalLambda(f,x,y,args,returns) => {
-      val returntuple = tupledeclarehelper(y.res.map(a => myhelp(IR.exp2tp(a)) ),"")
+      val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
         x.zipWithIndex.map(a => {
           val (tp,index) = a
           val typ = remap(tp.tag.mf)
-          "val " + quote(tp) + " : " + myhelp(tp) + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
+          "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
         }).mkString("\n")
       } else {
         //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
-        "val " + quote(x.head) + " : " + myhelp(x.head) + " = helper\n"
+        "val " + quote(x.head) + " : " + remap(x.head.tag) + " = helper\n"
       }
-      val argtuple = tupledeclarehelper(x.map(a => myhelp(a)),"")
+      val argtuple = tupledeclarehelper(x.map(a => remap(a.tag)),"")
 
       if (head == null || head == tp) {
         head = tp
@@ -173,9 +201,9 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
             "  Emitting Generated Code                  \n"+
             "*******************************************/\n" +
             "class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tag).mkString(",")+")")+
-            " extends (("+ argtuple +")=>" + returntuple + ") {" +
+            " extends (("+ argtuple +")=> (" + returntuple + ")) {" +
             //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
-            "\ndef apply( helper: "+ argtuple +"): ("+returntuple+") = {\n" + helper + "\n"
+            "\ndef apply( helper: ("+ argtuple +")): ("+returntuple+") = {\n" + helper + "\n"
 
 
         val res = stringheader + block_callback(y,"") +
@@ -189,8 +217,8 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       }
       else {
           "val " + quote(tp) + ": " +
-          "("+ argtuple +") => " + returntuple + " = " +
-           "(helper: "+ argtuple+") =>{\n" + helper + "\n" +
+          "("+ argtuple +") => (" + returntuple + ") = " +
+           "(helper: ("+ argtuple+")) =>{\n" + helper + "\n" +
           block_callback(y,"") +
             "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}\n"
@@ -204,6 +232,15 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
     }
     case IR.ReturnArg(f,sym,posx,tuple,last) => {
+      tp.tag match {
+        case x@IR.TypeExp(mf,dyntags) => {
+          println("..........")
+          println(dyntags)
+        }
+        case _ => {
+          assert(false, "should never happen")
+        }
+      }
       if (tuple) {
         //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
         val start = "val " + quote(tp) + " = " + quote(f)
