@@ -36,11 +36,11 @@ trait InternalFunctions extends Base with ExposeRepBase {
 trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCompare {
   implicit def liftFunction2[T, R](implicit t: TypeRep[T], r: TypeRep[R]): TypeRep[T => R] = typeRep[T => R]
 
-  var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
+  //var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
   //var tp2fun: Map[TP[_ => _], StagedFunction[_,_]] = Map.empty
 
    override def reset() = {
-     funexp2StagedFunction = Map.empty
+    // funexp2StagedFunction = Map.empty
     // tp2fun = Map.empty
      super.reset()
   }

@@ -12,6 +12,7 @@ trait GenRandomFunctions extends GenRandomOps{
 
  var cur_nr_functions = 0
 
+
  //this is just a placeholder which will always be a fitting option during Op selection
   val createinternalfunction_placeholder: Op = {
    val f: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => ???
@@ -64,29 +65,11 @@ trait GenRandomFunctions extends GenRandomOps{
  }
 
 
- def genReturns(desc: CodeDescriptor, curfnest: Vector[FNest]): Gen[Vector[FNest]] = {
-  for {
-   nrrets <- Gen.chooseNum(1,desc.max_returns)
-   indicies2 <- Gen.pick(nrrets,curfnest.last.syms.zipWithIndex)
-  } yield {
-   val indicies = indicies2.map(ele => ele._2).toVector
-   val lastfnest = curfnest.last
-   val syms = indicies.foldLeft(Vector.empty[cTP]) {
-    (acc,ele) => acc :+ lastfnest.syms(ele)
-   }
-   val f: Vector[cTP] => Vector[cTP] = (in: Vector[cTP]) => {
-    indicies.foldLeft(Vector.empty[cTP]) {
-     (acc,ele) => acc :+ in(ele)
-    }
-   }
-   curfnest :+ FNest(syms,f,f,lastfnest.localfs)
-  }
- }
 
 
  override def createFunction(desc: CodeDescriptor, op: Op, fNest: FNest): Gen[(Op,Option[(Vector[cTP],Vector[cTP])])] = {
   if (op == createinternalfunction_placeholder){
-   println("doing a internal! " + desc.cur_nest_depth)
+   //println("doing a internal! " + desc.cur_nest_depth)
    cur_nr_functions = cur_nr_functions + 1
 
    for {
@@ -117,17 +100,28 @@ trait GenRandomFunctions extends GenRandomOps{
       /*val ctpv = args.zipWithIndex.map(symwIndex => cTP(x(symwIndex._2),symwIndex._1.tag))
       val resctp = callstackstaged(ctpv)
       resctp.map(t => t.sym)*/
-      val lambda = fun(callstack_staged)(exposeargs,exposeres)
 
+
+      val lambda = fun(callstack_staged)(exposeargs,exposeres)
       val lambdatp: TP[_] = exp2tp(lambda.exp)
       funexp2StagedFunction = funexp2StagedFunction + (lambda.exp -> lambda)
       Vector(lambdatp.sym)
       //Vector(x.head)
      }
+
      val argsyms: Vector[GenTypes] = args.map(t => t.tag)
      val returnsyms: Vector[GenTypes] = tail.last.syms.map(t => t.tag)
      //val op = OpDescription(argsyms,returnsyms, f, sf)
-     val op = OpDescription(Vector.empty,Vector(manifest[Function[_,_]]), f, sf, None)
+
+     val dyntypes: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+      val args = exposeargs.freshExps()
+      val rets = exposeres.freshExps()
+      val a = args.map(_.tp)
+      val r = rets.map(_.tp)
+      (a,r)
+     }
+     val rettype = cTPType(manifest[Function[_,_]],Some(dyntypes))
+     val op = OpDescription(Vector.empty,Vector(rettype), f, sf, None)
      //val op = OpDescription(Vector.empty,Vector.empty, f, sf)
      val declaration = Op("createinternalfunction"+fNest.syms.size, op) //giving the op a number depending on the fnest size (not unique in nested case?)
      declaration

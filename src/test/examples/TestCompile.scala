@@ -92,6 +92,7 @@ class TestCompile extends Suite {
                     val r = returns.freshExps().map( ele => exp2tp(ele).tag)
                     //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
                     (a,r)
+
                   }
                   x.copy(dynTags = Some(f))
                 }

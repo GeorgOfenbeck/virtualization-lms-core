@@ -1,4 +1,4 @@
-/*
+
 
 
 package test
@@ -174,7 +174,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
 
-  val desc = CodeDescriptor(20, 2, 20, 5, 20, 20)
+  val desc = CodeDescriptor(100, 2, 20, 5, 20, 20)
 
 
   def genNewDSL(): Gen[MRandomClass] = {
@@ -290,17 +290,20 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
               //println(rargs)
               //println()
 
-
+              println("tuple the input")
               val tupler = dsl.tupler(rargs)
               val tuple = tupler(rargs)
-              //println(tuple)
+
+              println("calling the code")
               val rettuple = compiled_staged(tuple)
               //println(rettuple)
+              println("detuple the output")
               val dtupler = dsl.detupler(resultsyms)
               val asvec = dtupler(rettuple)
+
               //println(asvec)
               //println("-----")
-
+            println("got the result")
               val castit = asvec.asInstanceOf[Vector[Any]]
 
               val widx = castit.zipWithIndex
@@ -356,4 +359,3 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
 }
 
-  */

@@ -159,7 +159,10 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
             "scala.Function1[" + a + "," + r + "]"
           }
           case None => {
-            //if (mf.toString().contains("Function"))
+            if (mf.toString().contains("Function"))
+            {
+              println("bla")
+            }
             remap(mf)
           }
         }
@@ -232,7 +235,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
     }
     case IR.ReturnArg(f,sym,posx,tuple,last) => {
-      tp.tag match {
+      /*tp.tag match {
         case x@IR.TypeExp(mf,dyntags) => {
           println("..........")
           println(dyntags)
@@ -240,7 +243,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         case _ => {
           assert(false, "should never happen")
         }
-      }
+      }*/
       if (tuple) {
         //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
         val start = "val " + quote(tp) + " = " + quote(f)

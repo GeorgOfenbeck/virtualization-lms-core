@@ -23,7 +23,9 @@ case class CodeDescriptor(
 
 trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
 
+
   case class cTP(sym: Any, tag: GenTypes)
+  var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
 
   class Wildcard1 //using this for generic Types e.g. foo[T](x : T)
   class Wildcard2 //using this for generic Types e.g. foo[T](x : T)
@@ -33,9 +35,10 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
   class Wildcard6 //using this for generic Types e.g. foo[T](x : T)
   class Wildcard7 //using this for generic Types e.g. foo[T](x : T)
 
+  implicit def mani2cTPType(mf: Manifest[_]): cTPType = cTPType(mf)
+  case class cTPType(mf: Manifest[_],dynTags: Option[ Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]])] = None)
 
-
-  type GenTypes = Manifest[_]
+  type GenTypes = cTPType
 
   type AvailOps = Map[Set[GenTypes], Set[Op]]
   type AvailUniqueTypes = Set[GenTypes]
@@ -130,28 +133,31 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
     val nestcheck = flattened.filter(p => filterNestDepth(desc,fnest,p))
     for {
       randomop <- Gen.oneOf(nestcheck.toSeq)
-    } yield randomop
+    } yield {
+      val t = randomop
+      t
+    }
   }
 
 
   private def isWildCard(targetType: GenTypes): Boolean = {
-      targetType == manifest[Wildcard1] ||
-      targetType == manifest[Wildcard2] ||
-      targetType == manifest[Wildcard3] ||
-      targetType == manifest[Wildcard4] ||
-      targetType == manifest[Wildcard5] ||
-      targetType == manifest[Wildcard6] ||
-      targetType == manifest[Wildcard7]
+      targetType.mf == manifest[Wildcard1] ||
+      targetType.mf == manifest[Wildcard2] ||
+      targetType.mf == manifest[Wildcard3] ||
+      targetType.mf == manifest[Wildcard4] ||
+      targetType.mf == manifest[Wildcard5] ||
+      targetType.mf == manifest[Wildcard6] ||
+      targetType.mf == manifest[Wildcard7]
   }
 
   private def WildCardNr(targetType: GenTypes): Int = {
-    if (targetType == manifest[Wildcard1]) 1
-    else if(targetType == manifest[Wildcard2]) 2
-    else if(targetType == manifest[Wildcard3]) 3
-    else if(targetType == manifest[Wildcard4]) 4
-    else if(targetType == manifest[Wildcard5]) 5
-    else if(targetType == manifest[Wildcard6]) 6
-    else if(targetType == manifest[Wildcard7]) 7
+    if (targetType.mf == manifest[Wildcard1]) 1
+    else if(targetType.mf == manifest[Wildcard2]) 2
+    else if(targetType.mf == manifest[Wildcard3]) 3
+    else if(targetType.mf == manifest[Wildcard4]) 4
+    else if(targetType.mf == manifest[Wildcard5]) 5
+    else if(targetType.mf == manifest[Wildcard6]) 6
+    else if(targetType.mf == manifest[Wildcard7]) 7
     else { assert(false, "invalid wildcard")
     0
     }
@@ -279,26 +285,11 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
               val functiontp: TP[_] = exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
               //println(functiontp)
               val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
-
-
-
-              /*val functionuntypedo = fun2tp.find(p => p._2 == functiontp)
-              val functionuntyped = if(functionuntypedo.isDefined)
-                functionuntypedo.get._1
-              else
-                assert(false, "hm")*/
               val stagedFunction = funexp2StagedFunction(functiontp.sym)
-
-
               val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[cTP],Vector[cTP]]]
-
               //val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
-
-
               //val res: Vector[cTP] = ??? //functiontyped(inasctp)
               val res: Vector[cTP] = lamops(inasctp) //functiontyped(inasctp)
-
-
               val withouttag: Vector[Any] = res.map(ele => ele.sym)
               withouttag
             }
@@ -322,10 +313,31 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
     }
   }
 
+  //used to limit the number of returns
+  def genReturns(desc: CodeDescriptor, curfnest: Vector[FNest]): Gen[Vector[FNest]] = {
+    for {
+      nrrets <- Gen.chooseNum(1,desc.max_returns)
+      indicies2 <- Gen.pick(nrrets,curfnest.last.syms.zipWithIndex)
+    } yield {
+      val indicies = indicies2.map(ele => ele._2).toVector
+      val lastfnest = curfnest.last
+      val syms = indicies.foldLeft(Vector.empty[cTP]) {
+        (acc,ele) => acc :+ lastfnest.syms(ele)
+      }
+      val f: Vector[cTP] => Vector[cTP] = (in: Vector[cTP]) => {
+        indicies.foldLeft(Vector.empty[cTP]) {
+          (acc,ele) => acc :+ in(ele)
+        }
+      }
+      curfnest :+ FNest(syms,f,f,lastfnest.localfs)
+    }
+  }
+
   def genCode(desc: CodeDescriptor): Gen[Vector[FNest]] = {
     for {
       ini <- genArgs(desc.max_toplevel_args)
-      tail <- genNodes(desc, Vector(FNest(ini, null, null,Map.empty)))
+      tailuf <- genNodes(desc, Vector(FNest(ini, null, null,Map.empty)))
+      tail <- genReturns(desc,tailuf)
     } yield tail
   }
 
@@ -394,7 +406,7 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
   def genTypeInstance(targetcTP: cTP): Gen[cTP] = {
     val boolm: String = manifest[Boolean].toString()
     val intm: String = manifest[Int].toString()
-    val target:String = targetcTP.tag.toString()
+    val target:String = targetcTP.tag.mf.toString()
     target match {
       case `boolm` => {
         //println("this is supposed to be bool: " + boolm + " " + target)
@@ -438,7 +450,34 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
   def genExposeRep(v: Vector[cTP]): ExposeRep[Vector[cTP]] = {
     val tags = v.map(e => e.tag)
     new ExposeRep[Vector[cTP]]{
-      val freshExps = (u: Unit) => tags.foldLeft(Vector.empty[Exp[_]])((acc,ele) => acc :+ Arg(ele))
+      val freshExps = (u: Unit) => {
+        def helpert[T](args: Vector[TypeRep[_]], returns: Vector[TypeRep[_]])(implicit tag: TypeRep[T]): TypeRep[T] = {
+          tag match {
+            case x@TypeExp(mf,dynTags) => {
+              val f: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+                //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
+                (args,returns)
+              }
+              x.copy(dynTags = Some(f))
+            }
+            case _ => {
+              assert(false, "this should never match")
+              tag
+            }
+          }
+        }
+        tags.foldLeft(Vector.empty[Exp[_]])((acc,ele) => {
+          ele.dynTags match {
+            case Some(ftags) => {
+              val (args,rets) = ftags()
+              val tagnew: TypeRep[_=>_] = helpert(args,rets)
+              val exp = Arg[_=>_](tagnew)
+              acc :+ exp
+            }
+            case None => acc :+ Arg(ele.mf)
+          }
+        })
+      }
       val vec2t: Vector[Exp[_]] => Vector[cTP] =
       //(v: Vector[Exp[_]]) => Vector.empty
         (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[cTP])( (acc,ele) => acc :+ cTP(ele,exp2tp(ele).tag.mf))

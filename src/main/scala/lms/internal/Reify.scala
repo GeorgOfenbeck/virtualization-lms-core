@@ -12,7 +12,7 @@ trait ReificationPure{
  val id2tp: Map[Int, IR.TP[_]]
  val rootlambda: IR.InternalLambda[_,_]
  //val funexp2AR: Map[IR.Exp[_], (Vector[IR.Exp[_]],Vector[IR.Exp[_]])]
- val funexp2StagedFunction: Map[IR.Exp[_], IR.StagedFunction[_,_]]
+ //val funexp2StagedFunction: Map[IR.Exp[_], IR.StagedFunction[_,_]]
 // val fun2tp: Map[IR.StagedFunction[_,_], IR.TP[_=>_]]
  //val tp2fun: Map[IR.TP[_=>_],IR.StagedFunction[_,_]]
 
@@ -66,7 +66,7 @@ trait ReifyPure{
    val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
    val id2tp: Map[Int,IR.TP[_]] = self.IR.id2tp
    //val funexp2AR: Map[Exp[_], (Vector[Exp[_]],Vector[Exp[_]])] = self.IR.funexp2AR
-   val funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = self.IR.funexp2StagedFunction
+   //val funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = self.IR.funexp2StagedFunction
    //val fun2tp: Map[StagedFunction[_,_], IR.TP[_=>_]] = self.IR.fun2tp
    //val tp2fun: Map[IR.TP[_=>_],StagedFunction[_,_]] = self.IR.tp2fun
 
