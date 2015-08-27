@@ -36,6 +36,38 @@ trait InternalFunctions extends Base with ExposeRepBase {
 trait InternalFunctionsExp extends InternalFunctions with BaseExp with ClosureCompare {
   implicit def liftFunction2[T, R](implicit t: TypeRep[T], r: TypeRep[R]): TypeRep[T => R] = typeRep[T => R]
 
+  implicit def exposeFunction[A,R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[StagedFunction[A,R]] =
+    new ExposeRep[StagedFunction[A,R]]() {
+      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
+        def helper[T]()(implicit tag: TypeRep[T]): TypeRep[T] = {
+          tag match {
+            case x@TypeExp(mf,dynTags) => {
+              val f: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+                val a = args.freshExps().map( ele => exp2tp(ele).tag)
+                val r = returns.freshExps().map( ele => exp2tp(ele).tag)
+                (a,r)
+              }
+              x.copy(dynTags = Some(f))
+            }
+            case _ => {
+              assert(false, "this should never match")
+              tag
+            }
+          }
+        }
+        val tagnew = helper[_ => _ ]
+        val lambda: Exp[Function[_,_]] = Arg[_ => _ ](tagnew)
+        Vector(lambda)
+      }
+      val vec2t: Vector[Exp[_]] => StagedFunction[A,R] = (in: Vector[Exp[_]]) => {
+        val f : (A => R) = (ina: A) => ???
+        StagedFunction(f,in.head.asInstanceOf[Rep[_=>_]],args,returns)
+      }
+      val t2vec: StagedFunction[A,R] => Vector[Exp[_]] = (in: StagedFunction[A,R]) => {
+        Vector(in.exp)
+      }
+    }
+
   //var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
   //var tp2fun: Map[TP[_ => _], StagedFunction[_,_]] = Map.empty
 

@@ -52,6 +52,8 @@ trait Base extends TypeRepBase {
  implicit def unitToRepUnit(x: Unit) = unit(x)
  implicit def nullToRepNull(x: Null) = unit(x)
  def typeRep[T](implicit tr: TypeRep[T]): TypeRep[T]
+
+
 }
 
 
@@ -67,9 +69,10 @@ trait BaseExp extends Base with InternalFunctions with Blocks { //with Effects{
   def unit[T:TypeRep](x: T) = Const(x)
 
 
-  implicit def exposeRepFromRep[T](implicit tag: TypeRep[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
-    val freshExps = (u: Unit) => Vector(Arg[T](tag))
-    val vec2t: Vector[Exp[_]] => Exp[T] = (v: Vector[Exp[_]]) => v.head.asInstanceOf[Exp[T]] //TODO: Horrible cast - get rid of it
-    val t2vec: Exp[T] => Vector[Exp[T]] = (x: Rep[T]) => Vector(x)
-  }
+ implicit def exposeRepFromRep[T](implicit tag: TypeRep[T]): ExposeRep[Rep[T]] = new ExposeRep[Exp[T]](){
+  val freshExps = (u: Unit) => Vector(Arg[T](tag))
+  val vec2t: Vector[Exp[_]] => Exp[T] = (v: Vector[Exp[_]]) => v.head.asInstanceOf[Exp[T]] //TODO: Horrible cast - get rid of it
+  val t2vec: Exp[T] => Vector[Exp[T]] = (x: Rep[T]) => Vector(x)
+ }
+
 }

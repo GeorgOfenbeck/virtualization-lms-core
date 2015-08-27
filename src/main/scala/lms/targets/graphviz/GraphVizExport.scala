@@ -34,7 +34,7 @@ trait GraphVizExport {
 
   def emitNode(node: cm.EnrichedGraphNode): String = {
    val tp = cm.reifiedIR.id2tp(node.irdef)
-   val nodestring = tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + tp.rhs) +
+   val nodestring = tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()) +
    "\n,shape=box]"
 
    val sucessorstring = node.successors.foldLeft(""){
