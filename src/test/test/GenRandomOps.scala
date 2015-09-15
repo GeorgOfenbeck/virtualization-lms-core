@@ -16,9 +16,9 @@ case class CodeDescriptor(
                            max_nest_depth: Int,
                            max_functions: Int,
                            max_returns: Int,
+                           max_calls: Int,
                            cur_nodes_per_block: Int = 0,
                            cur_nest_depth: Int = 0
-
                            )
 
 trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
@@ -26,6 +26,7 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
 
   case class cTP(sym: Any, tag: GenTypes)
   var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
+  var dynOpNrTimesUsed: Map[Op,Int] = Map.empty
 
   class Wildcard1 //using this for generic Types e.g. foo[T](x : T)
   class Wildcard2 //using this for generic Types e.g. foo[T](x : T)
@@ -55,6 +56,7 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
 
   case class Instructions(val syms: Vector[cTP])
   case class FNest(syms: Vector[cTP], f: Vector[cTP] => Vector[cTP], sf: Vector[cTP] => Vector[cTP], localfs: AvailOps)
+
   def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = availTypes
 
   def ops(availOps: AvailOps): AvailOps = availOps
@@ -130,11 +132,21 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
     val availTypes: AvailUniqueTypes = fnest.syms.map(e => e.tag).toSet
     val availOps = filterOps(availTypes, fnest)
     val flattened = availOps.flatMap(opset => opset._2)
-    val nestcheck = flattened.filter(p => filterNestDepth(desc,fnest,p))
+    val nestcheck = flattened.filter(p => {
+      filterNestDepth(desc,fnest,p) &&
+      (dynOpNrTimesUsed.get(p).isEmpty || dynOpNrTimesUsed.get(p).get < desc.max_calls) //checking that a dynamic function is only called max_calls times
+    })
     for {
       randomop <- Gen.oneOf(nestcheck.toSeq)
     } yield {
       val t = randomop
+      if(t.desc.localfidx.isDefined) //if we selected a dynamic function - increase the call counter
+        dynOpNrTimesUsed = {
+          if (dynOpNrTimesUsed.get(t).isDefined)
+            dynOpNrTimesUsed + (t -> (dynOpNrTimesUsed(t) + 1) )
+          else
+            dynOpNrTimesUsed + (t ->  1)
+        }
       t
     }
   }
@@ -283,9 +295,8 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
             val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
               val functionexp = x.head //we construct function applys such that the function is always the first arg
               val functiontp: TP[_] = exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
-              //println(functiontp)
-              val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
               val stagedFunction = funexp2StagedFunction(functiontp.sym)
+              val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
               val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[cTP],Vector[cTP]]]
               //val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
               //val res: Vector[cTP] = ??? //functiontyped(inasctp)
@@ -488,7 +499,8 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
   }
 
   def resetRandom () = {
-
+    funexp2StagedFunction = Map.empty
+    dynOpNrTimesUsed = Map.empty
   }
 
 }
