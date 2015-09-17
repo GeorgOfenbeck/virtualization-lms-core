@@ -41,6 +41,8 @@ libraryDependencies <<= (scalaVersion, libraryDependencies) { (ver, deps) =>
 
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "3")
 
+//testOptions in Test += Tests.Argument("-F")
+
 scalacOptions += "-P:continuations:enable"
 
 val paradiseVersion = "2.0.1"

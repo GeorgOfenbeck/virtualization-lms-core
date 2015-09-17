@@ -308,14 +308,15 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
               val widx = castit.zipWithIndex
 
-              if (false) {
+              if (true) {
                 //should we compare with unstaged?
                 val unstagedresult = callstack(rargs)
                 val dropit = widx.dropWhile(ele => {
                   val (e, idx) = ele
-                  e == unstagedresult(idx).sym
+                  e == unstagedresult(idx).sym || unstagedresult(idx).sym.toString().contains("function")
                 })
-                println("dropit: " + dropit)
+                if (!dropit.isEmpty)
+                  println("dropit: " + dropit)
                 worked = dropit.isEmpty
               }
               val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test" + cnt + ".scala")
@@ -334,6 +335,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
         }
               catch {
                 case ex: Throwable => {
+
                   val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Fail" + cnt + ".scala")
                   val stream2 = new java.io.PrintWriter(file)
                   val esc = dsl.codegen.emitSource(callstack_staged, "failClass" + cnt, stream2)(exposeargs, exposeres)
@@ -343,6 +345,8 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
                   file.close()
                   println("caught")
                   println("msg: " + ex.getMessage)
+                  val trace = ex.getStackTrace
+                  println(trace)
                   worked = false
                 }
           }

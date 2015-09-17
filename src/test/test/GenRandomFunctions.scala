@@ -94,19 +94,17 @@ trait GenRandomFunctions extends GenRandomOps{
       /*val ctpv = args.zipWithIndex.map(symwIndex => cTP(x(symwIndex._2),symwIndex._1.tag))
       val resctp = callstack(ctpv)
       resctp.map(t => t.sym)*/
-      ???
+      val lambda = callstack
+      Vector(lambda)
      }
      val sf: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => {
       /*val ctpv = args.zipWithIndex.map(symwIndex => cTP(x(symwIndex._2),symwIndex._1.tag))
       val resctp = callstackstaged(ctpv)
       resctp.map(t => t.sym)*/
-
-
       val lambda = fun(callstack_staged)(exposeargs,exposeres)
       val lambdatp: TP[_] = exp2tp(lambda.exp)
       funexp2StagedFunction = funexp2StagedFunction + (lambda.exp -> lambda)
       Vector(lambdatp.sym)
-      //Vector(x.head)
      }
 
      val argsyms: Vector[GenTypes] = args.map(t => t.tag)

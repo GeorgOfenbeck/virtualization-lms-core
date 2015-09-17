@@ -1,4 +1,5 @@
 
+
 package examples
 
 
@@ -77,7 +78,7 @@ class TestCompile extends Suite {
       }
 
       //Rep[A] => Rep[B]
-      implicit def exposeFunction[A,R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[StagedFunction[A,R]] =
+/*      implicit def exposeFunction[A,R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[StagedFunction[A,R]] =
         new ExposeRep[StagedFunction[A,R]]() {
           val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
             //we have no knowledge of the function body which we don't care for
@@ -92,7 +93,6 @@ class TestCompile extends Suite {
                     val r = returns.freshExps().map( ele => exp2tp(ele).tag)
                     //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
                     (a,r)
-
                   }
                   x.copy(dynTags = Some(f))
                 }
@@ -116,19 +116,15 @@ class TestCompile extends Suite {
           val t2vec: StagedFunction[A,R] => Vector[Exp[_]] = (in: StagedFunction[A,R]) => {
             Vector(in.exp)
           }
-        }
+        }*/
 
 
       val FunctionOnComplex: Complex => StagedFunction[Complex,Complex] = (in: Complex) => {
-
         val FunctionOnComplex1: Complex => Complex = (in1: Complex) => {
           val repfun: (Rep[Int] => Rep[Int]) = (in: Rep[Int]) => in
           val reps = doLambda(repfun)
           Complex(in1.im, reps(in.re))
         }
-
-
-
         val sf = doLambda(FunctionOnComplex1)
         sf
       }
@@ -142,8 +138,13 @@ class TestCompile extends Suite {
         val c1 = sf(x)
         c1*/
         val c = Complex(unit(3),unit(4))
-        val sf = doLambda(FunctionOnComplex)
-        val ret = sf(c)
+
+        val innerf: Complex => Complex = (in: Complex) => {
+          Complex(c.re + c.re, c.im + c.im)
+        }
+
+        //val sf = doLambda(FunctionOnComplex)
+        val ret = doLambda(innerf)
         ret
 
       }
@@ -248,6 +249,7 @@ val ret: (A => R) = funtp.rhs match {
 }
 => Vector(funtp.sym)
 }  */
-
 */
+
+
 

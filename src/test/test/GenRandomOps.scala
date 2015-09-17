@@ -254,7 +254,14 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
             acc :+ in(ele).sym
           }
         }
-        val ret: Vector[Any] = op.desc.rf(argsyms)
+        val ret: Vector[Any] =
+          if (op.desc.localfidx.isDefined) {
+            val fplusargsyms = in(op.desc.localfidx.get).sym +: argsyms
+            //op.desc.sf(fplusargsyms)
+            op.desc.rf(fplusargsyms)
+          }
+          else op.desc.rf(argsyms)
+        //val ret: Vector[Any] = op.desc.rf(argsyms)
         val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
         in ++ retctp
       }
@@ -290,11 +297,22 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
 
           val applyop: Op = {
             val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
-              ???
+              val functionsym = x.head
+              val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
+              val lamops = functionsym.asInstanceOf[Vector[cTP] => Vector[cTP]]
+              val res = lamops(inasctp)
+              val withouttag: Vector[Any] = res.map(ele => ele.sym)
+              withouttag
             }
             val sf: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
               val functionexp = x.head //we construct function applys such that the function is always the first arg
-              val functiontp: TP[_] = exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
+              val functiontp: TP[_] = if (!functionexp.isInstanceOf[Exp[_]])
+              {
+                println("TIETLJKAJEDGKJ")
+                ???
+              }
+              else
+               exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
               val stagedFunction = funexp2StagedFunction(functiontp.sym)
               val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
               val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[cTP],Vector[cTP]]]
@@ -494,7 +512,11 @@ trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
         (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[cTP])( (acc,ele) => acc :+ cTP(ele,exp2tp(ele).tag.mf))
       val t2vec: Vector[cTP] => Vector[Exp[_]] =
           //(x: Vector[cTP]) => Vector.empty
-        (x: Vector[cTP]) => x.foldLeft(Vector.empty[Exp[_]])( (acc,ele) => acc :+ ele.sym.asInstanceOf[Exp[_]])
+        (x: Vector[cTP]) => x.foldLeft(Vector.empty[Exp[_]])( (acc,ele) => {
+          if (!ele.sym.isInstanceOf[Exp[_]])
+            assert(false, "cast error")
+          acc :+ ele.sym.asInstanceOf[Exp[_]]
+        })
     }
   }
 

@@ -13,15 +13,12 @@ trait IfThenElse extends Base {
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext): Rep[T]
 
 }
-
 // TODO: it would be nice if IfThenElseExp would extend IfThenElsePureExp
 // but then we would need to use different names.
 
 trait IfThenElsePureExp extends IfThenElse with BaseExp {
-
   case class IfThenElse[T:TypeRep](cond: Exp[Boolean], thenp: Exp[T], elsep: Exp[T]) extends Def[T]
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = IfThenElse(cond, thenp, elsep)
-
 }
 
 
