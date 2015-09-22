@@ -3,7 +3,7 @@ package scala.lms.internal
 
 import org.scala_lang.virtualized.SourceContext
 
-trait Effects extends InternalFunctions with Blocks with Logging {
+trait Effects extends Functions with Blocks with Logging {
 
  // TODO: transform over Summary currently lives in common/Base.scala. move it here?
  // --- context
@@ -98,8 +98,9 @@ trait Effects extends InternalFunctions with Blocks with Logging {
   u.mayWrite, u.mstWrite
  )
 
- def summarizeEffects(e: Block) = e match {
-  case Block(Vector(Def(Reify(_,u,_)))) => u
+ def summarizeEffects(e: Block) = e.res match {
+  //case Block(Vector(Def(Reify(_,u,_)))) => u
+  case Vector(Def(Reify(_,u,_))) => u //RF: correct me after the block change
   case _ => Pure()
  }
 

@@ -6,7 +6,7 @@ import scala.reflect._
 
 trait GenericCodegen extends Emit[String]{
   self =>
-  val IR: BaseExp with InternalFunctionsExp
+  val IR: BaseExp with FunctionsExp
   import IR._
 
   def emitDataStructures(): String = {""}
@@ -24,9 +24,8 @@ trait GenericCodegen extends Emit[String]{
   }
 
   //
-  def getBlockResults[A](s: Block): Vector[Exp[_]] = s match {
-    case Block(x) => x
-  }
+  def getBlockResults[A](s: Block): Vector[Exp[_]] = s.res
+
 
 
 

@@ -5,20 +5,64 @@ package ops
 import java.io.PrintWriter
 import org.scala_lang.virtualized.SourceContext
 
-import scala.lms.internal.Effects
+import scala.lms.internal.{FunctionsExp, ExposeRepBase, Effects}
 
 
 
-trait IfThenElse extends Base {
+trait IfThenElse extends Base with ExposeRepBase  {
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext): Rep[T]
-
+  def myifThenElse[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A
 }
 // TODO: it would be nice if IfThenElseExp would extend IfThenElsePureExp
 // but then we would need to use different names.
 
-trait IfThenElsePureExp extends IfThenElse with BaseExp {
+trait IfThenElsePureExp extends IfThenElse with BaseExp with FunctionsExp{
   case class IfThenElse[T:TypeRep](cond: Exp[Boolean], thenp: Exp[T], elsep: Exp[T]) extends Def[T]
   def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = IfThenElse(cond, thenp, elsep)
+
+  case class myIfThenElse[A](cond: Exp[Boolean], thenp: Exp[_ => _],
+                             elsep: Exp[_ => _], branch: ExposeRep[A]) extends Def[Any]
+
+
+  def myifThenElse[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A =
+  {
+    val thenf: Rep[Unit] => A = (u: Rep[Unit]) => thenp
+    val elsef: Rep[Unit] => A = (u: Rep[Unit]) => elsep
+    val thenlambda = doInternalLambda(thenf)
+    val elselambda = doInternalLambda(elsef)
+
+    val newsyms = branch.freshExps()
+    val block = new Block(newsyms)
+    val ifthenelsenode = myIfThenElse(cond, thenlambda.exp, elselambda.exp,branch)
+    val ifthenelseexp = toAtom(ifthenelsenode)
+
+
+    val returnNodes = if (newsyms.size > 1) {
+      newsyms.zipWithIndex.map(fsym => {
+        //had do to this ugly version since the compile time type is not know at this stage (of the return - Rep[_])
+        val otp = exp2tp(fsym._1)
+        val tag: TypeRep[Any] = otp.tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(ifthenelseexp, fsym._1, fsym._2, true, newsyms.size == fsym._2 + 1)
+        val newx = toAtom(cc)(tag, null)
+        /*if (tag.mf.toString().contains("Function")) {
+          val newtp = exp2tp(newx)
+          println(newtp)
+        }*/
+        newx
+      })
+    } else {
+      newsyms.zipWithIndex.map(fsym => {
+        val tag: TypeRep[Any] = exp2tp(fsym._1).tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(ifthenelseexp, fsym._1, fsym._2, false, true)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    }
+    branch.vec2t(returnNodes)
+
+  }
+
+
 }
 
 
@@ -31,9 +75,7 @@ trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
   }
   
   case class IfThenElse[T:TypeRep](cond: Exp[Boolean], thenp: Block, elsep: Block) extends AbstractIfThenElse[T]
-
   case class IfThenElseLamda[R](cond: Exp[Boolean], thenp: R, elsep: R) extends Def[_ => _]
-
   def ifThenElseLambda[R](cond: Rep[Boolean], thenpf: Function1[Rep[Unit],R], elsepf: Function1[Rep[Unit],R])
                          (implicit pos: SourceContext, returns: ExposeRep[R]): R = {
     /*val f1 = doLambda(thenpf)
@@ -45,6 +87,10 @@ trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
     sf*/
     ???
   }
+
+
+
+
 
   override def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])
                                       (implicit pos: SourceContext) = {

@@ -7,7 +7,7 @@ import scala.lms.internal._
 
 trait GraphVizExport {
  self =>
- val IR: BaseExp with InternalFunctionsExp
+ val IR: BaseExp with FunctionsExp
 
  type specCM = CodeMotion {
   val reifiedIR: ReificationPure {
@@ -49,8 +49,16 @@ trait GraphVizExport {
     (acc,ele) => acc + "\n\"" + node.irdef + "\" -> \"" + ele + "\"" + " [label=\"b\"] "
    }
 
+   val blockCMcontained: Set[Vector[Int]] = node.blocks.map(b => IR.block2tps(b).map(tp => tp.sym.id))
 
-   nodestring + sucessorstring + predecessorstring + blockdepstring
+   val blockCMdepstring: String  = blockCMcontained.map(b => b.foldLeft(""){
+    (acc,ele) => acc + "\n\"" + node.irdef + "\" -> \"" + ele + "\"" + " [label=\"cm\"] "
+   }).mkString("\n")
+
+
+
+
+   nodestring + sucessorstring + predecessorstring + blockdepstring + blockCMdepstring
 
   }
   //we emit the head node and all blocks
@@ -69,6 +77,7 @@ trait GraphVizExport {
      }
      acc ++ blockres
     })
+
 
 
   "digraph G {\n" + head + "\n" + graphstring.mkString("\n") + "\n}"

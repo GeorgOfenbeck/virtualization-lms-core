@@ -49,7 +49,7 @@ trait ScalaGenTest extends ScalaCodegen {
 class TestCompile extends Suite {
   def testdsl(): Unit =  {
 
-    class DSL extends BooleanOpsExp with PurePrimitiveOpsExp with InternalFunctionsExp with IfThenElseExp with ScalaCompile with TestExp with ImplicitOpsExp{
+    class DSL extends BooleanOpsExp with PurePrimitiveOpsExp with FunctionsExp with IfThenElsePureExp with ScalaCompile with TestExp with ImplicitOpsExp{
       self =>
       override val codegen = new ScalaCodegen
         with EmitHeadInternalFunctionAsClass
@@ -140,8 +140,12 @@ class TestCompile extends Suite {
         val c = Complex(unit(3),unit(4))
 
         val innerf: Complex => Complex = (in: Complex) => {
-          Complex(c.re + c.re, c.im + c.im)
+          val b = Complex(c.re + c.re, c.im + c.im)
+          val res = myifThenElse(unit(true),c,b)
+          res
         }
+
+
 
         //val sf = doLambda(FunctionOnComplex)
         val ret = doLambda(innerf)

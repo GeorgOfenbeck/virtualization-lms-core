@@ -14,7 +14,7 @@ import scala.lms.targets.scalalike.{EmitHeadInternalFunctionAsClass, ScalaGenBoo
 
 
 
-trait DSL2 extends BooleanOpsExp with InternalFunctionsExp{
+trait DSL2 extends BooleanOpsExp with FunctionsExp{
 
  case class BContainer(x: Rep[Boolean], y: Rep[Boolean])
  implicit val exposeBContainer = new ExposeRep[BContainer](){

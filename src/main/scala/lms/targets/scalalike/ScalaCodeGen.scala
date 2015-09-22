@@ -9,7 +9,7 @@ import scala.lms.internal._
 
 trait ScalaCodegen extends GenericCodegen with Config {
   self =>
-  val IR: BaseExp with InternalFunctionsExp
+  val IR: BaseExp with FunctionsExp
   import IR._
 
   var className: String = ""
@@ -177,7 +177,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
 
   override def emitNode(tp: self.IR.TP[_], acc: String,
                block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
-    case IR.InternalLambda(f,x,y,args,returns) => {
+    case IR.ExternalLambda(f,x,y,args,returns) => {
       val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
@@ -256,6 +256,8 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       ""
     } //args are handled in the according lambda
     case IR.ConstDef(x) => "" //are handeled through remaps
+    case IR.InternalLambda(f,x,y,a,r) => "" //are inlined by the symbol containing them
+
     case _ => super.emitNode(tp,acc,block_callback)
   }
 

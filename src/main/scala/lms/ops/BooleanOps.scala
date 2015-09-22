@@ -4,7 +4,7 @@ package ops
 import java.io.PrintWriter
 import org.scala_lang.virtualized.SourceContext
 
-import scala.lms.internal.InternalFunctionsExp
+import scala.lms.internal.FunctionsExp
 
 trait LiftBoolean {
   this: Base =>
@@ -28,7 +28,7 @@ trait BooleanOps extends Base {
   def boolean_or(lhs: Rep[Boolean], rhs: Rep[Boolean])(implicit pos: SourceContext): Rep[Boolean]
 }
 
-trait BooleanOpsExp extends BooleanOps with BaseExp with InternalFunctionsExp{
+trait BooleanOpsExp extends BooleanOps with BaseExp with FunctionsExp{
   case class BooleanNegate(lhs: Exp[Boolean]) extends Def[Boolean]
   case class BooleanAnd(lhs: Exp[Boolean], rhs: Exp[Boolean]) extends Def[Boolean]
   case class BooleanOr(lhs: Exp[Boolean], rhs: Exp[Boolean]) extends Def[Boolean]

@@ -13,7 +13,7 @@ import scala.lms.targets.scalalike.{EmitHeadInternalFunctionAsClass, ScalaGenBoo
  */
 
 
-trait DSL extends BooleanOpsExp with InternalFunctionsExp{
+trait DSL extends BooleanOpsExp with FunctionsExp{
 
  def test(x: Rep[Boolean])= {
 

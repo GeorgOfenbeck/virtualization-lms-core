@@ -23,7 +23,7 @@ import scala.tools.nsc.util
 
 /*
 trait MyRemap extends ScalaCodegen {
-  val IR: GenRandomOps with InternalFunctionsExp
+  val IR: GenRandomOps with FunctionsExp
 
   override def remap[A](m: Manifest[A]): String = {
     m match {
@@ -35,9 +35,9 @@ trait MyRemap extends ScalaCodegen {
 
 class MRandomClass extends BooleanOpsExp
 with PurePrimitiveOpsExp
-with IfThenElseExp
+with IfThenElsePureExp
 with ImplicitOpsExp
-with InternalFunctionsExp
+with FunctionsExp
 
 with GenRandomBooleanOps
 with GenRandomPrimitiveOps

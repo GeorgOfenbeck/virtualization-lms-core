@@ -7,7 +7,7 @@ import scala.lms.targets.scalalike.{ScalaGenBooleanOps, EmitHeadInternalFunction
 trait GenRandomCode extends ScalaCompile{
   self =>
 
-  val IR: BaseExp with InternalFunctionsExp with BooleanOpsExp
+  val IR: BaseExp with FunctionsExp with BooleanOpsExp
 
   override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps{
     val IR: self.IR.type = self.IR

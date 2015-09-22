@@ -3,10 +3,10 @@ package targets
 package scalalike
 
 import ops.IfThenElseExp
-import scala.lms.internal.InternalFunctionsExp
+import scala.lms.internal.FunctionsExp
 
 trait ScalaGenFunctions extends ScalaCodegen{
- val IR: IfThenElseExp with InternalFunctionsExp
+ val IR: IfThenElseExp with FunctionsExp
  import IR._
 
  override def emitNode(tp: TP[_], acc: String,

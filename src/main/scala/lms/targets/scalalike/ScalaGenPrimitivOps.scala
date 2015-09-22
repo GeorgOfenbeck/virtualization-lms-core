@@ -5,7 +5,7 @@ package scalalike
 import ops.PurePrimitiveOpsExp
 
 trait ScalaGenPrimitivOps extends ScalaCodegen{
- val IR: PurePrimitiveOpsExp with internal.InternalFunctionsExp
+ val IR: PurePrimitiveOpsExp with internal.FunctionsExp
  import IR._
 
  override def emitNode(tp: TP[_], acc: String,

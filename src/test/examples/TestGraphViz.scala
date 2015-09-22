@@ -19,7 +19,7 @@ import scala.lms.targets.scalalike._
 class TestGraphViz  extends Suite {
  def testdsl(): Unit =  {
 
-  class DSL extends BooleanOpsExp with InternalFunctionsExp{
+  class DSL extends BooleanOpsExp with FunctionsExp{
    self =>
    val emitGraph = new GraphVizExport {
     override val IR: self.type = self

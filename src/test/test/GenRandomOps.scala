@@ -21,7 +21,7 @@ case class CodeDescriptor(
                            cur_nest_depth: Int = 0
                            )
 
-trait GenRandomOps extends ExposeRepBase with InternalFunctionsExp{
+trait GenRandomOps extends ExposeRepBase with FunctionsExp{
 
 
   case class cTP(sym: Any, tag: GenTypes)

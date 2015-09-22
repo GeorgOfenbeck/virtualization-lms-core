@@ -6,7 +6,7 @@ package internal
 
 trait Emit[C]{
  self =>
- val IR: BaseExp with InternalFunctionsExp
+ val IR: BaseExp with FunctionsExp
 
 
  type specCM = CodeMotion {
