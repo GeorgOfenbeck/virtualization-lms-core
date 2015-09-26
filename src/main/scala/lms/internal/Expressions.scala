@@ -58,7 +58,7 @@ trait Expressions extends TypeRepBase with Logging{
 
  case class Variable[+T](val e: Exp[Variable[T]]) // TODO: decide whether it should stay here ... FIXME: should be invariant
 
- abstract class Def[+T] { // operations (composite)
+ abstract class Def[+T] extends Product { // operations (composite)
   //override final lazy val hashCode = scala.runtime.ScalaRunTime._hashCode(this.asInstanceOf[Product])
  }
 
@@ -144,12 +144,7 @@ trait Expressions extends TypeRepBase with Logging{
    findOrCreateDefinitionExp(d, Vector(pos))
  }
 
- // symbols which are bound in a definition
- def boundExps(e: Any): Vector[Exp[_]] = e match {
-  case ss: Iterable[Any] => ss.toVector.flatMap(boundExps(_))
-  case p: Product => p.productIterator.toVector.flatMap(boundExps(_))
-  case _ => Vector.empty
- }
+
 
  // regular data (and effect) dependencies
  def syms(e: Any): Vector[Exp[_]] = e match {

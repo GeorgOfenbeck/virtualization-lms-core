@@ -18,7 +18,7 @@ import scala.lms.targets.scalalike._
 import scala.lms.targets.graphviz.GraphVizExport
 
 
-trait TestExp extends BooleanOpsExp{
+/*trait TestExp extends BooleanOpsExp{
 
   case class Nest(b: Block) extends Def[Boolean]
   def nest(b: Exp[Boolean]) = Nest(Block(Vector(b)))
@@ -29,8 +29,8 @@ trait TestExp extends BooleanOpsExp{
       super.boundExps(e)
     }
   }
-}
-
+}*/
+/*
 trait ScalaGenTest extends ScalaCodegen {
   val IR: TestExp
 
@@ -44,19 +44,19 @@ trait ScalaGenTest extends ScalaCodegen {
     }
     ma
   }
-}
+}*/
 
 class TestCompile extends Suite {
   def testdsl(): Unit =  {
 
-    class DSL extends BooleanOpsExp with PurePrimitiveOpsExp with FunctionsExp with IfThenElsePureExp with ScalaCompile with TestExp with ImplicitOpsExp{
+    class DSL extends BooleanOpsExp with PurePrimitiveOpsExp with FunctionsExp with IfThenElsePureExp with ScalaCompile  with ImplicitOpsExp{
       self =>
       override val codegen = new ScalaCodegen
         with EmitHeadInternalFunctionAsClass
         with ScalaGenBooleanOps
         with ScalaGenPrimitivOps
         with ScalaGenIfThenElse
-        with ScalaGenTest
+        //with ScalaGenTest
       {
         val IR: self.type = self
       }
@@ -138,11 +138,20 @@ class TestCompile extends Suite {
         val c1 = sf(x)
         c1*/
         val c = Complex(unit(3),unit(4))
-
         val innerf: Complex => Complex = (in: Complex) => {
-          val b = Complex(c.re + c.re, c.im + c.im)
+          /*val b = Complex(c.re + c.re, c.im + c.im)
           val res = myifThenElse(unit(true),c,b)
-          res
+          res*/
+
+          val g: Complex => Complex = (in: Complex ) => {
+            in
+          }
+
+          val ret = doLambda(g)
+          g(in)
+
+
+
         }
 
 

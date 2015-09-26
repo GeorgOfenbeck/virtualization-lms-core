@@ -178,12 +178,15 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
     case InternalLambda(f, x, y, args, returns) => {
       Vector.empty
     }
+    case ExternalLambda(f, x, y, args, returns) => {
+      Vector.empty
+    }
     case _ => {
       super.syms(e)
     }
   }
 
-  override def boundExps(e: Any): Vector[Exp[_]] = e match {
+  override def boundSyms(e: Any): Vector[Exp[_]] = e match {
     case a@InternalApply(f, arg) => {
       Vector.empty
     }
@@ -193,7 +196,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
       t
     }
     case _ => {
-      super.boundExps(e)
+      super.boundSyms(e)
     }
   }
 
