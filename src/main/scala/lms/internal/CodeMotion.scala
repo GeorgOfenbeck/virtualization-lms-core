@@ -187,7 +187,7 @@ trait CodeMotion {
       }*/
 
     val starttmp = RetTmp(Set.empty[Int], Set.empty[Int], Vector.empty[Int], children, Set.empty[Int], Set.empty[Int])
-    val r = visit_nested2(res,starttmp.tmark, starttmp.pmark, starttmp.sort, starttmp.curr_scope, starttmp.uplinks - res.head, starttmp.root)
+    val r = visit_nested2(res, starttmp.tmark, starttmp.pmark, starttmp.sort, starttmp.curr_scope, starttmp.uplinks - res.head, starttmp.root)
     val cache_entry: (Block, BlockInfo2) = (block, BlockInfo2(children, r.sort, r.uplinks, r.root))
     bcache2 = bcache2 + cache_entry
 
@@ -330,7 +330,7 @@ trait CodeMotion {
    * @param roots All symbols that do not have a predecessor in the current scope (might have in a higher nest)
    * @return
    */
-  @tailrec
+
   private def visit_nested2(nexts: Set[Int], tmark: Set[Int], pmark: Set[Int], sort: Vector[Int],
                             curr_scope: Map[Int, GraphNodeLocalView],
                             uplinks: Set[Int],
@@ -356,21 +356,20 @@ trait CodeMotion {
                 //-------------------
                 if (bcache2.contains(fblock)) acc_scope //RF - check
                 else {
-                  /*
                   val blockrestail = fblock.res.tail.map(r => r.id).toSet
                   val roots = blockrestail + fblock.res.head.id
                   val children = depGraph2(roots, roots ++ focused.bounds, Map.empty)
-                    val starttmp = RetTmp(Set.empty[Int], Set.empty[Int], Vector.empty[Int],
-                      curr_scope, Set.empty[Int], Set.empty[Int])
+                  val starttmp = RetTmp(Set.empty[Int], Set.empty[Int], Vector.empty[Int],
+                    curr_scope, Set.empty[Int], Set.empty[Int])
 
-                    val allnext = fblock.res.map(x => x.id).toSet
-                    val r = visit_nested2(allnext, starttmp.tmark, starttmp.pmark, starttmp.sort, starttmp.curr_scope, starttmp.uplinks - allnext.head, starttmp.root)
+                  val allnext = fblock.res.map(x => x.id).toSet
+                  val r = visit_nested2(allnext, starttmp.tmark, starttmp.pmark, starttmp.sort, starttmp.curr_scope, starttmp.uplinks - allnext.head, starttmp.root)
                   val binfo = BlockInfo2(children, r.sort, r.uplinks, r.root)
                   val cache_entry: (Block, BlockInfo2) = (fblock, binfo)
                   bcache2 = bcache2 + cache_entry
 
 
-*/
+
                   curr_scope
                 }
                 //------------------
@@ -399,6 +398,75 @@ trait CodeMotion {
   }
 
   case class RetTmp(val tmark: Set[Int], val pmark: Set[Int], val sort: Vector[Int], val curr_scope: Map[Int, GraphNodeLocalView], val uplinks: Set[Int], root: Set[Int])
+
+
+  @tailrec
+  private def visit_nested3(n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], curr_scope: Map[Int, EnrichedGraphNode], uplinks: Set[Int]):
+  (Int, Vector[(Int, Set[Int])], Set[Int], Map[Int, EnrichedGraphNode], Set[Int]) = {
+    val (ln, lnext) = nexts.last
+    if (!lnext.contains(n)) assert(false, "this should not happen")
+    val nlnext = lnext - n //performance problem?
+
+    if (!curr_scope.contains(n)) {
+      if (nlnext.isEmpty) {
+        // this node has no neighbour so we can remove its next entry
+        val nnext = nexts.dropRight(1)
+        if (nnext.isEmpty) (n, nnext, pmark, curr_scope, uplinks + n)
+        else
+          visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks + n)
+      } else {
+        val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
+        visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+      }
+    } else {
+      if (pmark.contains(n)) {
+        if (nlnext.isEmpty) {
+          //we finished this note already - might still need to add reverse edge
+          val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
+          visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+        } else {
+          val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
+          visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+        }
+      } else {
+        val focused = curr_scope(n)
+        val fnext = focused.predecessors
+        if (fnext.isEmpty) {
+          //it has no predecessor - therefore we are done with the node
+          if (nlnext.isEmpty) {
+            // this node has no predecessors - and was the last predec. of its sucessor
+            val nnext = nexts.dropRight(1)
+            if (nnext.isEmpty) (n, nnext, pmark + n, curr_scope, uplinks)
+            else
+              visit_nested3(nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
+          } else {
+            val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
+            visit_nested3(nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
+          }
+        } else {
+          //it has predecessors - also the only case we have to create successor entries
+          val t: (Int, Set[Int]) = (n, fnext) //the predecssors entry
+          val nscope = fnext.foldLeft(curr_scope) { //create successor entries
+              (acc, ele) => {
+                if (acc.contains(ele)) {
+                  val entry = acc(ele)
+                  val nentry = entry.copy(successors = entry.successors + n)
+                  acc + (ele -> nentry)
+                } else acc
+              }
+            }
+          if (nlnext.isEmpty) {
+            // this node has no neighbour so we can remove its next entry
+            val nnext = nexts.dropRight(1) :+ t
+            visit_nested3(nnext.last._2.head, nnext, pmark + n, nscope, uplinks)
+          } else {
+            val nnext = nexts.dropRight(1) :+(ln, nlnext) :+ t //remove our self from the next list and recurse
+            visit_nested3(nnext.last._2.head, nnext, pmark + n, nscope, uplinks)
+          }
+        }
+      }
+    }
+  }
 
 
   /**
