@@ -245,6 +245,26 @@ trait CodeMotion {
     //val precessors_without_blocks = precessors -- blocksyms
   }
 
+  /**
+   *
+   * @param defentry the target TP of which we gather all information available from its position
+   * @return a Node carrying all local Information
+   */
+  protected def TP2EnrichedGraphNode(defentry: TP[_]):  EnrichedGraphNode= {
+    val sym = defentry.sym
+    val node = defentry.rhs
+    val tag = defentry.tag
+    val out = node.productIterator.toSet
+    val id = sym.id
+    val nsyms = syms(node)
+    val bound = boundSyms(node).map(x => x.id).toSet
+    val precessors = nsyms.map(x => x.id).toSet
+    val embedded_blocks = blocks(node).toSet
+    EnrichedGraphNode(id, precessors, Set.empty, bound, embedded_blocks)
+    //RF - make sure that this is not an issue
+    //val blocksyms = embedded_blocks.flatMap(x => x.res.map(exp => exp.id))
+    //val precessors_without_blocks = precessors -- blocksyms
+  }
 
   /**
    *
@@ -400,73 +420,54 @@ trait CodeMotion {
   case class RetTmp(val tmark: Set[Int], val pmark: Set[Int], val sort: Vector[Int], val curr_scope: Map[Int, GraphNodeLocalView], val uplinks: Set[Int], root: Set[Int])
 
 
+
   @tailrec
-  private def visit_nested3(n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], curr_scope: Map[Int, EnrichedGraphNode], uplinks: Set[Int]):
-  (Int, Vector[(Int, Set[Int])], Set[Int], Map[Int, EnrichedGraphNode], Set[Int]) = {
+  private def visit_nested3(successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], scope: Map[Int, EnrichedGraphNode], uplinks: Set[Int]): (Int, Vector[(Int, Set[Int])], Set[Int], Map[Int, EnrichedGraphNode], Set[Int]) = {
     val (ln, lnext) = nexts.last
     if (!lnext.contains(n)) assert(false, "this should not happen")
-    val nlnext = lnext - n //performance problem?
+    val nlnext = lnext - n
 
-    if (!curr_scope.contains(n)) {
-      if (nlnext.isEmpty) {
-        // this node has no neighbour so we can remove its next entry
-        val nnext = nexts.dropRight(1)
-        if (nnext.isEmpty) (n, nnext, pmark, curr_scope, uplinks + n)
-        else
-          visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks + n)
+    val curr_scope =
+      if (scope.contains(n)) {
+        val entry = scope(n)
+        if (successor == -1) scope + (n -> entry) else scope + (n -> entry.copy(successors = entry.successors + successor))//if its -1 we did come from a recursion
       } else {
-        val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
-        visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+        val entry = TP2EnrichedGraphNode(id2tp(n))//getNode(n)
+        if (successor == -1) scope + (n -> entry) else scope + (n -> entry.copy(successors = entry.successors + successor))//if its -1 we did come from a recursion
+      }
+    if (pmark.contains(n)) {
+      if (nlnext.isEmpty) { //we finished this note already - might still need to add reverse edge
+      val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
+        visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+      } else {
+        val nnext = nexts.dropRight(1) :+ (ln, nlnext) //remove our self from the next list and recurse
+        visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
       }
     } else {
-      if (pmark.contains(n)) {
-        if (nlnext.isEmpty) {
-          //we finished this note already - might still need to add reverse edge
-          val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
-          visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+      val focused = curr_scope(n)
+      val fnext = focused.predecessors
+      if (fnext.isEmpty) { //it has no predecessor - therefore we are done with the node
+        if (nlnext.isEmpty) { // this node has no predecessors - and was the last predec. of its sucessor
+        val nnext = nexts.dropRight(1)
+          if (nnext.isEmpty) (n, nnext, pmark + n, curr_scope, uplinks) else
+            visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
         } else {
-          val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
-          visit_nested3(nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
+          val nnext = nexts.dropRight(1) :+ (ln, nlnext) //remove our self from the next list and recurse
+          visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
         }
-      } else {
-        val focused = curr_scope(n)
-        val fnext = focused.predecessors
-        if (fnext.isEmpty) {
-          //it has no predecessor - therefore we are done with the node
-          if (nlnext.isEmpty) {
-            // this node has no predecessors - and was the last predec. of its sucessor
-            val nnext = nexts.dropRight(1)
-            if (nnext.isEmpty) (n, nnext, pmark + n, curr_scope, uplinks)
-            else
-              visit_nested3(nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
-          } else {
-            val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
-            visit_nested3(nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
-          }
+      } else { //it has predecessors - also the only case we have to create sucessor entries
+      val t: (Int, Set[Int]) = (n, fnext) //the predecssors entry
+        if (nlnext.isEmpty) { // this node has no neighbour so we can remove its next entry
+        val nnext = nexts.dropRight(1) :+ t
+          visit_nested3(n, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
         } else {
-          //it has predecessors - also the only case we have to create successor entries
-          val t: (Int, Set[Int]) = (n, fnext) //the predecssors entry
-          val nscope = fnext.foldLeft(curr_scope) { //create successor entries
-              (acc, ele) => {
-                if (acc.contains(ele)) {
-                  val entry = acc(ele)
-                  val nentry = entry.copy(successors = entry.successors + n)
-                  acc + (ele -> nentry)
-                } else acc
-              }
-            }
-          if (nlnext.isEmpty) {
-            // this node has no neighbour so we can remove its next entry
-            val nnext = nexts.dropRight(1) :+ t
-            visit_nested3(nnext.last._2.head, nnext, pmark + n, nscope, uplinks)
-          } else {
-            val nnext = nexts.dropRight(1) :+(ln, nlnext) :+ t //remove our self from the next list and recurse
-            visit_nested3(nnext.last._2.head, nnext, pmark + n, nscope, uplinks)
-          }
+          val nnext = nexts.dropRight(1) :+ (ln, nlnext) :+ t //remove our self from the next list and recurse
+          visit_nested3(n, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
         }
       }
     }
   }
+
 
 
   /**
