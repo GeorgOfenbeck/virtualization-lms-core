@@ -12,6 +12,7 @@ trait ScalaGenPrimitivOps extends ScalaCodegen{
                        block_callback: (Block,String) => String): String = {
   val ma = tp.rhs match {
    case IntPlus(lhs,rhs) => emitValDef(tp, src"$lhs + $rhs")
+   case IntMinus(lhs,rhs) => emitValDef(tp, src"$lhs - $rhs")
    case _ => super.emitNode(tp,acc,block_callback)
   }
   ma

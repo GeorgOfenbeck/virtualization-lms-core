@@ -129,7 +129,7 @@ class TestCompile extends Suite {
         sf
       }
 
-
+      /*
       def mystagedf(x: StagedFunction[Complex,Complex]): StagedFunction[Complex,Complex] = {
         /*val g: StagedFunction[Complex,Complex] => StagedFunction[Complex,Complex] =
           (inf: StagedFunction[Complex,Complex] ) => inf
@@ -161,15 +161,37 @@ class TestCompile extends Suite {
         ret
 
       }
+      */
 
+
+      def createsf(deepth: Int): StagedFunction[Rep[Int],Rep[Int]] = {
+
+        if (deepth == 0) {
+          val f: Rep[Int] => Rep[Int] = (i: Rep[Int]) => i + i
+          val sf = doLambda(f)
+          sf
+        } else {
+          val f = createsf(deepth - 1)
+          val g = createsf(deepth - 1)
+          val h: Rep[Int] => Rep[Int] = (i: Rep[Int]) => f.apply(i - i) + g.apply(i - i)
+          val sf = doLambda(h)
+          sf
+        }
+      }
+
+      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(2).apply(i)
       //val iarg = exposeRepFromRep[Int]
       //val inest = exposeFunction[Complex,Complex]
       //val iret = exposeFunction[Complex,Complex => Complex](exposeComplex,inest)
       //val iret = exposeFunction[Complex,Complex]
       //val iret = exposeComplex
+      val iarg = exposeRepFromRep[Int]
+      val iret = exposeRepFromRep[Int]
+      //val iarg = exposeComplex
+      //val iret = exposeComplex
 
-      val iarg = exposeFunction[Complex,Complex]
-      val iret = exposeFunction[Complex,Complex]
+      //val iarg = exposeFunction[Complex,Complex]
+      //val iret = exposeFunction[Complex,Complex]
     }
     val dsl = new DSL
     //val (code, esc) = dsl.emitString.emit("",dsl.mystagedf)(dsl.iarg,dsl.iret)
