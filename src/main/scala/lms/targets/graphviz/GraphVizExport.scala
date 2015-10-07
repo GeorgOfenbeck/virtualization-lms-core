@@ -63,11 +63,13 @@ trait GraphVizExport {
   }
   //we emit the head node and all blocks
   //this is assuming that head node is always a function and everything else is contained within
-  val lamdbaid: Int = cm.block_cache.root.sym.id
-  val head = emitNode(cm.enriched_graph(lamdbaid))
+  val lamdbaid: Int = cm.block_cache3.root.sym.id
+  val check = cm.enriched_graph
+  val head = emitNode(check(lamdbaid))
 
 
-   val graphstring = cm.block_cache.blockinfo.foldLeft(Vector.empty[String])( (acc,ele) => {
+
+   val graphstring = cm.block_cache3.blockinfo.foldLeft(Vector.empty[String])( (acc,ele) => {
      val (block, blockinfo) = ele
      val blockres = blockinfo.children.foldLeft(Vector.empty[String]) {
       (iacc,iele) => {

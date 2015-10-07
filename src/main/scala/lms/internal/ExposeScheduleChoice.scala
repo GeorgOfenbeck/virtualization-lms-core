@@ -11,7 +11,7 @@ trait ScheduleChoice {
  }
  val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice2)]
 
- protected def getNewFront(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int, done : Set[Int]): Set[Int] = {
+ protected def getNewFront(block: cminfo.BlockInfo3, current_roots: Set[Int], root: Int, done : Set[Int]): Set[Int] = {
   //val onblocks =
   val ir = cminfo.reifiedIR
   //val tp = ir.id2tp(root)
@@ -47,7 +47,7 @@ trait ScheduleChoice {
   newroots
  }
 
- def getNewScheduleChoice(block: cminfo.BlockInfo, current_roots: Set[Int], root: Int, done: Set[Int]): MyScheduleChoice2 = {
+ def getNewScheduleChoice(block: cminfo.BlockInfo3, current_roots: Set[Int], root: Int, done: Set[Int]): MyScheduleChoice2 = {
   val newfront = getNewFront(block,current_roots,root, done).toVector
   val newfs: Vector[(Int , Unit => MyScheduleChoice2)] = newfront map (
     node => {
@@ -90,7 +90,7 @@ trait ExposeScheduleChoice {
   }
   val newfs: Vector[(Int , Unit => MyScheduleChoice)] = {
    val id = cminfo.reifiedIR.def2tp(lam).sym.id
-   val cache = cminfo.block_cache
+   val cache = cminfo.block_cache3
    val f: (Unit => MyScheduleChoice) = (u: Unit) => {
     val blockinfo = cache.blockinfo(lam.y)
     //t.getNewScheduleChoice(blockinfo,blockinfo.roots.tail,blockinfo.roots.head, Set.empty)
@@ -123,7 +123,7 @@ trait ExposeScheduleChoice {
    val explored: Vector[Int] = Vector()
   }
 
-  val binfo = cminfo.block_cache.blockinfo(block)
+  val binfo = cminfo.block_cache3.blockinfo(block)
   val roots =  binfo.roots
 
   val newfs: Vector[(Int , Unit => MyScheduleChoice)] = roots.toVector map (
