@@ -37,9 +37,10 @@ trait CodeMotion {
   import reifiedIR.IR._
 
 
-  case class BlockInfo3(childnodes: Set[EnrichedGraphNode], roots: Set[Int]){
-    val children: Map[Int,EnrichedGraphNode] = childnodes.map(x => x.irdef -> x).toMap
+  case class BlockInfo3(childnodes: Set[EnrichedGraphNode], roots: Set[Int]) {
+    val children: Map[Int, EnrichedGraphNode] = childnodes.map(x => x.irdef -> x).toMap
   }
+
   /**
    * @param irdef ID of the TP
    * @param predecessors Set of Nodes that we depend on (IDs)
@@ -47,7 +48,7 @@ trait CodeMotion {
    * @param bounds Symbols bound under the current TP
    * @param blocks The IDs of symbols bound within Blocks of this Node (e.g. (Block{ Vector(Sym(4)}, Block{ Vector(Sym(4),Sym(3)} - we would save 3,4)
    */
-  case class EnrichedGraphNode(irdef: Int, predecessors: Set[Int], successors: Set[Int], bounds: Set[Int], blocks: Set[Block])
+  case class EnrichedGraphNode(irdef: Int, predecessors: Set[Int], successors: Set[Int], bounds: Set[Int], blocks: Set[Block], level: Int)
 
 
   /**
@@ -61,7 +62,7 @@ trait CodeMotion {
    * @param defentry the target TP of which we gather all information available from its position
    * @return a Node carrying all local Information
    */
-  protected def TP2EnrichedGraphNode(defentry: TP[_]):  EnrichedGraphNode= {
+  protected def TP2EnrichedGraphNode(defentry: TP[_], level: Int): EnrichedGraphNode = {
     val sym = defentry.sym
     val node = defentry.rhs
     val tag = defentry.tag
@@ -71,79 +72,108 @@ trait CodeMotion {
     val bound = boundSyms(node).map(x => x.id).toSet
     val precessors = nsyms.map(x => x.id).toSet
     val embedded_blocks = blocks(node).toSet
-    EnrichedGraphNode(id, precessors, Set.empty, bound, embedded_blocks)
+    EnrichedGraphNode(id, precessors, Set.empty, bound, embedded_blocks, level)
     //RF - make sure that this is not an issue
     //val blocksyms = embedded_blocks.flatMap(x => x.res.map(exp => exp.id))
     //val precessors_without_blocks = precessors -- blocksyms
   }
 
+
+  def iscold(b: Block): Boolean = true
+
+
   @tailrec
-  private def visit_nested3(curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], bmark: Set[Int], roots: Set[Int],
+  private def visit_nested3(curr_tlevel: Int, curr_level: Int, curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], bmark: Map[Int,Int], roots: Set[Int],
                             scope: Map[Int, EnrichedGraphNode], uplinks: Set[Int],
-                            block_nexts: Vector[(Int,Block)], blockinfo: Map[Block, BlockInfo3])
-  : (Block, Int, Vector[(Int, Set[Int])], Set[Int], Map[Int, EnrichedGraphNode], Set[Int], Vector[(Int,Block)], Map[Block, BlockInfo3]) = {
+                            block_nexts: Vector[(Int, Block)], blockinfo: Map[Block, BlockInfo3], level2block: Map[Int, Block], block2level: Map[Block, Int],
+                            lastcold: Map[Block, Int]
+                             )
+  : (Block, Int, Vector[(Int, Set[Int])], Set[Int], Map[Int, EnrichedGraphNode], Set[Int], Vector[(Int, Block)], Map[Block, BlockInfo3]) = {
     val (ln, lnext) = nexts.last
     if (!lnext.contains(n)) assert(false, "this should not happen")
     val nlnext = lnext - n
 
-    val (nblocks_next,curr_scope) =
+    val (rlastcold, rlevel2block: Map[Int, Block], rblock2level: Map[Block, Int], nblocks_next, curr_scope) =
       if (scope.contains(n)) {
         val entry = scope(n)
-        if (successor == -1) (block_nexts, scope + (n -> entry)) else (block_nexts,scope + (n -> entry.copy(successors = entry.successors + successor)))//if its -1 we did come from a recursion
+        if (successor == -1) (lastcold, level2block, block2level, block_nexts, scope + (n -> entry))
+        else (lastcold, level2block, block2level, block_nexts, scope + (n -> entry.copy(successors = entry.successors + successor))) //if its -1 we did come from a recursion
       } else {
-        val entry = TP2EnrichedGraphNode(id2tp(n))//getNode(n)
-        val nblocks = block_nexts ++ entry.blocks.toVector.map(b => (entry.irdef,b))
-        if (successor == -1) (nblocks,scope + (n -> entry)) else (nblocks,scope + (n -> entry.copy(successors = entry.successors + successor)))//if its -1 we did come from a recursion
+        val entry = TP2EnrichedGraphNode(id2tp(n), curr_level) //getNode(n)
+        val nodeblocks = entry.blocks
+        val levelcounter = level2block.size
+        val nlevel2block = level2block ++ nodeblocks.zipWithIndex.map(b => ((levelcounter + b._2 + 1) -> b._1)).toMap
+        val nblock2level = block2level ++ nodeblocks.zipWithIndex.map(b => (b._1 -> (levelcounter + b._2 + 1))).toMap
+        val cur_lastcold = lastcold(curr_block)
+        val nlastcold = lastcold ++ nodeblocks.map(b => if(iscold(b)) (b -> nblock2level(b)) else (b -> nblock2level(curr_block)) ).toMap
+        val nblocks = block_nexts ++ entry.blocks.toVector.map(b => (entry.irdef, b))
+        if (successor == -1) (nlastcold, nlevel2block, nblock2level, nblocks, scope + (n -> entry))
+        else (nlastcold, nlevel2block, nblock2level, nblocks, scope + (n -> entry.copy(successors = entry.successors + successor))) //if its -1 we did come from a recursion
       }
     if (pmark.contains(n)) {
-      if (nlnext.isEmpty) { //we finished this note already - might still need to add reverse edge
-      val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
-        visit_nested3(curr_block,nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks,nblocks_next,blockinfo)
+      if (nlnext.isEmpty) {
+        //we finished this note already - might still need to add reverse edge
+        val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
+        visit_nested3(curr_tlevel,curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
       } else {
-        val nnext = nexts.dropRight(1) :+ (ln, nlnext) //remove our self from the next list and recurse
-        visit_nested3(curr_block,nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks,nblocks_next,blockinfo)
+        val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
+        visit_nested3(curr_tlevel,curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
       }
     } else {
       val focused = curr_scope(n)
       val fnext = focused.predecessors
-      if (fnext.isEmpty) { //it has no predecessor - therefore we are done with the node
+      if (fnext.isEmpty) {
+        //it has no predecessor - therefore we are done with the node
         val nroots = roots + n
         if (nlnext.isEmpty) {
           // this node has no predecessors - and was the last predec. of its sucessor
           val nnext = nexts.dropRight(1)
           if (nnext.isEmpty) {
             //this path is the "we are done with the graph - check for subgraphs"
-            val children = bmark.map(id => curr_scope(id)) + curr_scope(n)
-            val binfo = BlockInfo3(children, nroots)
-            val nblockinfo = blockinfo + (curr_block -> binfo)
+            val binfo = BlockInfo3(Set.empty, nroots)
+            val tblockinfo = blockinfo + (curr_block -> binfo)
+
+            //RF - we can do that a bit more efficient (first acc all children per node and only then copy)
+            val nblockinfo = bmark.foldLeft(tblockinfo){ (acc,ele) => {
+              val tblock = ele._2
+              val id = ele._1
+              val b = level2block(tblock)
+              val sofar = acc(b)
+              val nentry = sofar.copy(childnodes = sofar.childnodes + curr_scope(id))
+              acc + (b -> nentry)
+            }}
+            //val children = bmark.map(id => curr_scope(id)) + curr_scope(n)
+
             if (nblocks_next.isEmpty) //we are also done with all subgraphs - therefore we are done
             {
               //val children = pmark.foldLeft(Map.empty[Int, EnrichedGraphNode]){ (acc,ele) => acc + (ele -> curr_scope(ele)) }
               (curr_block, n, nnext, pmark + n, curr_scope, uplinks, nblocks_next, nblockinfo)
             }
             else {
+              //we recurse into a sub block
               val (id, block) = nblocks_next.head
-              val cold = true //RF!
               val ids: Set[Int] = block.res.map(t => t.id).toSet
-              val rnexts = Vector((-1,ids))
-              visit_nested3(block, -1, block.res.head.id, rnexts, pmark + n, Set.empty, Set.empty, curr_scope, uplinks, nblocks_next.tail, nblockinfo)
+              val rnexts = Vector((-1, ids))
+              val ntlevel = rlastcold(block)
+              visit_nested3(ntlevel, block2level(block),block, -1, block.res.head.id, rnexts, pmark + n, Map.empty, Set.empty, curr_scope, uplinks, nblocks_next.tail, nblockinfo, rlevel2block, rblock2level, rlastcold)
             }
-
           }
           else
-            visit_nested3(curr_block,nnext.last._1, nnext.last._2.head, nnext, pmark + n, bmark + n, nroots, curr_scope, uplinks,nblocks_next,blockinfo)
+            visit_nested3(curr_tlevel,curr_level,curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark + n, bmark + (n -> curr_tlevel), nroots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
         } else {
-          val nnext = nexts.dropRight(1) :+ (ln, nlnext) //remove our self from the next list and recurse
-          visit_nested3(curr_block,nnext.last._1, nnext.last._2.head, nnext, pmark + n, bmark + n, nroots, curr_scope, uplinks,nblocks_next,blockinfo)
+          val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
+          visit_nested3(curr_tlevel,curr_level,curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark + n, bmark + (n -> curr_tlevel), nroots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
         }
-      } else { //it has predecessors - also the only case we have to create sucessor entries
-      val t: (Int, Set[Int]) = (n, fnext) //the predecssors entry
-        if (nlnext.isEmpty) { // this node has no neighbour so we can remove its next entry
-        val nnext = nexts.dropRight(1) :+ t
-          visit_nested3(curr_block,n, nnext.last._2.head, nnext, pmark + n, bmark + n, roots, curr_scope, uplinks,nblocks_next,blockinfo)
+      } else {
+        //it has predecessors - also the only case we have to create sucessor entries
+        val t: (Int, Set[Int]) = (n, fnext) //the predecssors entry
+        if (nlnext.isEmpty) {
+          // this node has no neighbour so we can remove its next entry
+          val nnext = nexts.dropRight(1) :+ t
+          visit_nested3(curr_tlevel,curr_level,curr_block, n, nnext.last._2.head, nnext, pmark + n, bmark + (n -> curr_tlevel), roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
         } else {
-          val nnext = nexts.dropRight(1) :+ (ln, nlnext) :+ t //remove our self from the next list and recurse
-          visit_nested3(curr_block,n, nnext.last._2.head, nnext, pmark + n, bmark + n, roots, curr_scope, uplinks,nblocks_next,blockinfo)
+          val nnext = nexts.dropRight(1) :+(ln, nlnext) :+ t //remove our self from the next list and recurse
+          visit_nested3(curr_tlevel,curr_level,curr_block, n, nnext.last._2.head, nnext, pmark + n, bmark + (n -> curr_tlevel), roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
         }
       }
     }
@@ -160,30 +190,32 @@ trait CodeMotion {
    * @param block The bottom most symbol of the graph which should always be the block contained in the root lambda
    * @return A Hashmap of Block -> BlockInfo which also contains info about the root block
    */
-  protected def getBlockInfo3[A,B](lambda: AbstractLambda[A,B]): (Map[Int, EnrichedGraphNode],Map[Block,BlockInfo3]) = {
+  protected def getBlockInfo3[A, B](lambda: AbstractLambda[A, B]): (Map[Int, EnrichedGraphNode], Map[Block, BlockInfo3]) = {
     TimeLog.timer("CodeMotion_getBlockInfo3", true)
-    val nexts = Vector((-1,lambda.y.res.map(t => t.id).toSet))
+    val nexts = Vector((-1, lambda.y.res.map(t => t.id).toSet))
     val n = lambda.y.res.head.id
-    val r = visit_nested3(lambda.y,-1,n,nexts,Set.empty,Set.empty,Set.empty,Map.empty,Set.empty,Vector.empty,Map.empty)
+    val l2b: Map[Int, Block] = Map(0 -> lambda.y)
+    val b2l: Map[Block, Int] = Map(lambda.y -> 0)
+    val lastcold: Map[Block, Int] = Map(lambda.y -> 0)
+    val r = visit_nested3(0,0,lambda.y, -1, n, nexts, Set.empty, Map.empty, Set.empty, Map.empty, Set.empty, Vector.empty, Map.empty, l2b, b2l, lastcold)
 
     printlog("finished CM")
     TimeLog.timer("CodeMotion_getBlockInfo", false)
-    (r._5,r._8)
+    (r._5, r._8)
   }
 
   /**
    * This is the actual starting point of the CM - we start the CM process on the Block contained in the toplevel
    * lambda of our staged program
    */
-  lazy val (enriched_graph,block_cache3): (Map[Int, EnrichedGraphNode],IRBlockInfo3) = {
+  lazy val (enriched_graph, block_cache3): (Map[Int, EnrichedGraphNode], IRBlockInfo3) = {
     TimeLog.timer("CodeMotion_getBlockInfo", true)
-    val (fulldag,binfo) = getBlockInfo3(reifiedIR.rootlambda)
-    val entry = TP2EnrichedGraphNode(def2tp(reifiedIR.rootlambda))
+    val (fulldag, binfo) = getBlockInfo3(reifiedIR.rootlambda)
+    val entry = TP2EnrichedGraphNode(def2tp(reifiedIR.rootlambda), 0)
     val r = IRBlockInfo3(reifiedIR.def2tp(reifiedIR.rootlambda), binfo)
     TimeLog.timer("CodeMotion_getBlockInfo", false)
-    (fulldag + (entry.irdef -> entry),r)
+    (fulldag + (entry.irdef -> entry), r)
   }
-
 
 
   /**
@@ -198,13 +230,11 @@ trait CodeMotion {
       }
     }
   }
+
 }
 
 
-
-
-
-    //------------------------------------------------------
+//------------------------------------------------------
 /*
 
   /**
