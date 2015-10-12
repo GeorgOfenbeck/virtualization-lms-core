@@ -167,19 +167,29 @@ class TestCompile extends Suite {
       def createsf(deepth: Int): StagedFunction[Rep[Int],Rep[Int]] = {
 
         if (deepth == 0) {
-          val f: Rep[Int] => Rep[Int] = (i: Rep[Int]) => i + i
+          val f: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
+            val t = unit(1)
+            i + t
+
+          }
           val sf = doLambda(f)
           sf
         } else {
           val f = createsf(deepth - 1)
           val g = createsf(deepth - 1)
-          val h: Rep[Int] => Rep[Int] = (i: Rep[Int]) => f.apply(i - i) + g.apply(i - i)
+          val h: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
+            val t1 = unit(deepth)
+            val t2 = unit(-deepth)
+            val t3 = t1 + t2
+            val c = i - t3
+            f.apply(c) + g.apply(c)
+          }
           val sf = doLambda(h)
           sf
         }
       }
 
-      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(15).apply(i)
+      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(2).apply(i)
       //val iarg = exposeRepFromRep[Int]
       //val inest = exposeFunction[Complex,Complex]
       //val iret = exposeFunction[Complex,Complex => Complex](exposeComplex,inest)
@@ -199,11 +209,11 @@ class TestCompile extends Suite {
 
     //val esc = dsl.codegen.emitSource(dsl.mystagedf,"testClass",new PrintWriter(System.out))(dsl.iarg,dsl.iret)
 
-    /*val (code, cm) = dsl.emitGraph.emitDepGraphf(dsl.mystagedf)(dsl.iarg,dsl.iret)
+    val (code, cm) = dsl.emitGraph.emitDepGraphf(dsl.mystagedf)(dsl.iarg,dsl.iret)
     val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check.dot"))
     stream.println(code)
     stream.flush()
-    stream.close()*/
+    stream.close()
 
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
     val esc = dsl.codegen.emitSource(dsl.mystagedf,"testClass",stream2)(dsl.iarg,dsl.iret)

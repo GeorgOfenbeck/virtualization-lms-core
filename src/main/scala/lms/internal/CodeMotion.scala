@@ -81,6 +81,23 @@ trait CodeMotion {
 
   def iscold(b: Block): Boolean = true
 
+  private def createBlockInfo(nroots: Set[Int],  blockinfo: Map[Block, BlockInfo3], curr_block: Block, bmark: Map[Int,Int], n: Int, curr_tlevel: Int, level2block: Map[Int, Block] , curr_scope: Map[Int, EnrichedGraphNode], addn: Boolean): Map[Block, BlockInfo3] = {
+    //this path is the "we are done with the graph - check for subgraphs"
+    val binfo = BlockInfo3(Set.empty, nroots)
+    val tblockinfo = blockinfo + (curr_block -> binfo)
+    val nbmark = if(addn) bmark + (n -> curr_tlevel) else bmark
+    //RF - we can do that a bit more efficient (first acc all children per node and only then copy)
+    val nblockinfo = nbmark.foldLeft(tblockinfo){ (acc,ele) => {
+      val tblock = ele._2
+      val id = ele._1
+      val b = level2block(tblock)
+      val sofar = acc(b)
+      val nentry = sofar.copy(childnodes = sofar.childnodes + curr_scope(id))
+      acc + (b -> nentry)
+    }}
+    nblockinfo
+  }
+
 
   @tailrec
   private def visit_nested3(curr_tlevel: Int, curr_level: Int, curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], bmark: Map[Int,Int], roots: Set[Int],
@@ -114,7 +131,22 @@ trait CodeMotion {
       if (nlnext.isEmpty) {
         //we finished this note already - might still need to add reverse edge
         val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
-        visit_nested3(curr_tlevel,curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
+        if (nnext.isEmpty) //we are actually done
+        {
+          val nblockinfo = createBlockInfo(roots,blockinfo,curr_block, bmark, n, curr_tlevel, level2block, curr_scope, false)
+          if (nblocks_next.isEmpty){ //we are also done with all subgraphs - therefore we are done
+            (curr_block, n, nnext, pmark + n, curr_scope, uplinks, nblocks_next, nblockinfo)
+          } else {
+            //we recurse into a sub block
+            val (id, block) = nblocks_next.head
+            val ids: Set[Int] = block.res.map(t => t.id).toSet
+            val rnexts = Vector((-1, ids))
+            val ntlevel = rlastcold(block)
+            visit_nested3(ntlevel, block2level(block),block, -1, block.res.head.id, rnexts, pmark, Map.empty, Set.empty, curr_scope, uplinks, nblocks_next.tail, nblockinfo, rlevel2block, rblock2level, rlastcold)
+          }
+        }
+        else
+          visit_nested3(curr_tlevel,curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
       } else {
         val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
         visit_nested3(curr_tlevel,curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, pmark, bmark, roots, curr_scope, uplinks, nblocks_next, blockinfo, rlevel2block, rblock2level, rlastcold)
@@ -129,24 +161,8 @@ trait CodeMotion {
           // this node has no predecessors - and was the last predec. of its sucessor
           val nnext = nexts.dropRight(1)
           if (nnext.isEmpty) {
-            //this path is the "we are done with the graph - check for subgraphs"
-            val binfo = BlockInfo3(Set.empty, nroots)
-            val tblockinfo = blockinfo + (curr_block -> binfo)
-
-            //RF - we can do that a bit more efficient (first acc all children per node and only then copy)
-            val nblockinfo = bmark.foldLeft(tblockinfo){ (acc,ele) => {
-              val tblock = ele._2
-              val id = ele._1
-              val b = level2block(tblock)
-              val sofar = acc(b)
-              val nentry = sofar.copy(childnodes = sofar.childnodes + curr_scope(id))
-              acc + (b -> nentry)
-            }}
-            //val children = bmark.map(id => curr_scope(id)) + curr_scope(n)
-
-            if (nblocks_next.isEmpty) //we are also done with all subgraphs - therefore we are done
-            {
-              //val children = pmark.foldLeft(Map.empty[Int, EnrichedGraphNode]){ (acc,ele) => acc + (ele -> curr_scope(ele)) }
+            val nblockinfo = createBlockInfo(nroots,blockinfo,curr_block, bmark, n, curr_tlevel, level2block, curr_scope, true)
+            if (nblocks_next.isEmpty){ //we are also done with all subgraphs - therefore we are done
               (curr_block, n, nnext, pmark + n, curr_scope, uplinks, nblocks_next, nblockinfo)
             }
             else {
@@ -178,6 +194,9 @@ trait CodeMotion {
       }
     }
   }
+
+
+
 
 
   /**
