@@ -189,7 +189,7 @@ class TestCompile extends Suite {
         }
       }
 
-      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(2).apply(i)
+      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(3).apply(i)
       //val iarg = exposeRepFromRep[Int]
       //val inest = exposeFunction[Complex,Complex]
       //val iret = exposeFunction[Complex,Complex => Complex](exposeComplex,inest)
