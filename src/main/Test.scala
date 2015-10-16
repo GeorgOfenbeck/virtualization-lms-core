@@ -1,79 +1,164 @@
 
-import scala.annotation.tailrec
 
-object BLA extends App {
+package examples
 
- case class Block(res: Int)
- case class EnrichedGraphNode(irdef: Int, predecessors: Set[Int], successors: Set[Int])
 
- val t1 = EnrichedGraphNode(1, Set(3, 9), Set.empty)
- val t2 = EnrichedGraphNode(2, Set(4), Set.empty)
- val t3 = EnrichedGraphNode(3, Set(5, 6), Set.empty)
- val t4 = EnrichedGraphNode(4, Set(6, 7), Set.empty)
- val t5 = EnrichedGraphNode(5, Set(8), Set.empty)
- val t6 = EnrichedGraphNode(6, Set(8), Set.empty)
- val t7 = EnrichedGraphNode(7, Set.empty, Set.empty)
- val t8 = EnrichedGraphNode(8, Set.empty, Set.empty)
- val t9 = EnrichedGraphNode(9, Set.empty, Set.empty)
+import java.io.PrintWriter
 
- val nxts = Vector((0, Set(1, 2)))
+import scala.lms._
+import scala.lms.internal._
+import scala.lms.ops._
 
- val cs = Map(1 -> t1, 2 -> t2, 3 -> t3, 4 -> t4, 5 -> t5, 6 -> t6, 7 -> t7, 8 -> t8, 9 -> t9)
 
- val x = visit_nested3(-1, 1, nxts, Set.empty, Map.empty, Set.empty)
- println(x._3)
- println(x._4)
- println(x._5)
 
- def getNode(n: Int): EnrichedGraphNode = {
-  cs(n)
- }
 
- @tailrec
- private def visit_nested3(successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Set[Int], scope: Map[Int, EnrichedGraphNode], uplinks: Set[Int]): (Int, Vector[(Int, Set[Int])], Set[Int], Map[Int, EnrichedGraphNode], Set[Int]) = {
-  val (ln, lnext) = nexts.last
-  if (!lnext.contains(n)) assert(false, "this should not happen")
-  val nlnext = lnext - n
+import scala.lms.targets.scalalike._
 
-  val curr_scope =
-   if (scope.contains(n)) {
-    val entry = scope(n)
-    if (successor == -1) scope + (n -> entry) else scope + (n -> entry.copy(successors = entry.successors + successor))//if its -1 we did come from a recursion
-   } else {
-    val entry = getNode(n)
-    if (successor == -1) scope + (n -> entry) else scope + (n -> entry.copy(successors = entry.successors + successor))//if its -1 we did come from a recursion
-   }
-  if (pmark.contains(n)) {
-   if (nlnext.isEmpty) { //we finished this note already - might still need to add reverse edge
-   val nnext = nexts.dropRight(1) // this node has no neighbour so we can remove its next entry
-    visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
-   } else {
-    val nnext = nexts.dropRight(1) :+ (ln, nlnext) //remove our self from the next list and recurse
-    visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark, curr_scope, uplinks)
-   }
-  } else {
-   val focused = curr_scope(n)
-   val fnext = focused.predecessors
-   if (fnext.isEmpty) { //it has no predecessor - therefore we are done with the node
-    if (nlnext.isEmpty) { // this node has no predecessors - and was the last predec. of its sucessor
-    val nnext = nexts.dropRight(1)
-     if (nnext.isEmpty) (n, nnext, pmark + n, curr_scope, uplinks) else
-      visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
-    } else {
-     val nnext = nexts.dropRight(1) :+ (ln, nlnext) //remove our self from the next list and recurse
-     visit_nested3(nnext.last._1, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
+import scala.lms.targets.graphviz.GraphVizExport
+
+
+/*trait TestExp extends BooleanOpsExp{
+
+  case class Nest(b: Block) extends Def[Boolean]
+  def nest(b: Exp[Boolean]) = Nest(Block(Vector(b)))
+
+  override def boundExps(e: Any): Vector[Exp[_]] = e match{
+    case Nest(b) => b.res
+    case _ => {
+      super.boundExps(e)
     }
-   } else { //it has predecessors - also the only case we have to create sucessor entries
-   val t: (Int, Set[Int]) = (n, fnext) //the predecssors entry
-    if (nlnext.isEmpty) { // this node has no neighbour so we can remove its next entry
-    val nnext = nexts.dropRight(1) :+ t
-     visit_nested3(n, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
-    } else {
-     val nnext = nexts.dropRight(1) :+ (ln, nlnext) :+ t //remove our self from the next list and recurse
-     visit_nested3(n, nnext.last._2.head, nnext, pmark + n, curr_scope, uplinks)
-    }
-   }
   }
- }
+}*/
+/*
+trait ScalaGenTest extends ScalaCodegen {
+  val IR: TestExp
 
+  import IR._
+
+  override def emitNode(tp: TP[_], acc: String,
+                        block_callback: (Block, String) => String): String = {
+    val ma = tp.rhs match {
+      case Nest(b) => "<Nest" + quote(tp) + ">\n" + block_callback(b, "") + "</Nest" + quote(tp) + ">\n"
+      case _ => super.emitNode(tp, acc, block_callback)
+    }
+    ma
+  }
+}*/
+
+object TestCompile extends App {
+ testdsl()
+ def testdsl(): Unit =  {
+
+  class DSL extends BooleanOpsExp with PurePrimitiveOpsExp with FunctionsExp with IfThenElsePureExp with ScalaCompile  with ImplicitOpsExp{
+   self =>
+   override val codegen = new ScalaCodegen
+     with EmitHeadInternalFunctionAsClass
+     with ScalaGenBooleanOps
+     with ScalaGenPrimitivOps
+     with ScalaGenIfThenElse
+     //with ScalaGenTest
+   {
+    val IR: self.type = self
+   }
+   val emitGraph = new GraphVizExport {
+    override val IR: self.type = self
+   }
+
+   def f (x: Int) = x
+   sameFunction(f _, f _)
+
+
+
+   case class Complex(re: Rep[Int], im: Rep[Int])
+
+   implicit val exposeComplex = new ExposeRep[Complex](){
+    val freshExps = (u: Unit) => Vector(Arg[Int],Arg[Int])
+    val vec2t: Vector[Exp[_]] => Complex = (in: Vector[Exp[_]]) => Complex(in.head.asInstanceOf[Rep[Int]],in.tail.head.asInstanceOf[Rep[Int]])
+    val t2vec: Complex => Vector[Exp[_]] = (in: Complex) => Vector(in.re,in.im)
+   }
+
+
+   val FunctionOnComplex: Complex => StagedFunction[Complex,Complex] = (in: Complex) => {
+    val FunctionOnComplex1: Complex => Complex = (in1: Complex) => {
+     val repfun: (Rep[Int] => Rep[Int]) = (in: Rep[Int]) => in
+     val reps = doLambda(repfun)
+     Complex(in1.im, reps(in.re))
+    }
+    val sf = doLambda(FunctionOnComplex1)
+    sf
+   }
+
+
+   def createsf(deepth: Int): StagedFunction[Rep[Int],Rep[Int]] = {
+
+    if (deepth == 0) {
+     val f: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
+      val t = unit(1)
+      i + t
+
+     }
+     val sf = doLambda(f)
+     sf
+    } else {
+     val f = createsf(deepth - 1)
+     val g = createsf(deepth - 1)
+     val h: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
+
+      val nums = for (j <- 0 until 100)
+       yield (i + unit(j))
+
+      val t0 = nums.reduce( (a,b) => {
+       val t = a + b
+       t
+      })
+
+      val t1 = t0
+      val t2 = t0 * unit(-1)
+
+      val t3 = t1 + t2
+      val c = i - t3
+      f.apply(c) + g.apply(c)
+     }
+     val sf = doLambda(h)
+     sf
+    }
+   }
+
+   val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(5).apply(i)
+   //val iarg = exposeRepFromRep[Int]
+   //val inest = exposeFunction[Complex,Complex]
+   //val iret = exposeFunction[Complex,Complex => Complex](exposeComplex,inest)
+   //val iret = exposeFunction[Complex,Complex]
+   //val iret = exposeComplex
+   val iarg = exposeRepFromRep[Int]
+   val iret = exposeRepFromRep[Int]
+   //val iarg = exposeComplex
+   //val iret = exposeComplex
+
+   //val iarg = exposeFunction[Complex,Complex]
+   //val iret = exposeFunction[Complex,Complex]
+  }
+  val dsl = new DSL
+  //val (code, esc) = dsl.emitString.emit("",dsl.mystagedf)(dsl.iarg,dsl.iret)
+
+
+  //val esc = dsl.codegen.emitSource(dsl.mystagedf,"testClass",new PrintWriter(System.out))(dsl.iarg,dsl.iret)
+
+  val (code, cm) = dsl.emitGraph.emitDepGraphf(dsl.mystagedf)(dsl.iarg,dsl.iret)
+  val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check.dot"))
+  stream.println(code)
+  stream.flush()
+  stream.close()
+
+  val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+  val esc = dsl.codegen.emitSource(dsl.mystagedf,"testClass",stream2)(dsl.iarg,dsl.iret)
+  stream2.flush()
+  stream2.close()
+  //dsl.compile(dsl.mystagedf)(dsl.iarg,dsl.iret)
+  //println(code)
+  //println("hae?")
+ }
 }
+
+
+

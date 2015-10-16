@@ -178,8 +178,18 @@ class TestCompile extends Suite {
           val f = createsf(deepth - 1)
           val g = createsf(deepth - 1)
           val h: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
-            val t1 = unit(deepth)
-            val t2 = unit(-deepth)
+
+            val nums = for (j <- 0 until 100)
+              yield (i + unit(j))
+
+            val t0 = nums.reduce( (a,b) => {
+              val t = a + b
+              t
+            })
+
+            val t1 = t0
+            val t2 = t0 * unit(-1)
+
             val t3 = t1 + t2
             val c = i - t3
             f.apply(c) + g.apply(c)
@@ -189,7 +199,7 @@ class TestCompile extends Suite {
         }
       }
 
-      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(10).apply(i)
+      val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(5).apply(i)
       //val iarg = exposeRepFromRep[Int]
       //val inest = exposeFunction[Complex,Complex]
       //val iret = exposeFunction[Complex,Complex => Complex](exposeComplex,inest)
