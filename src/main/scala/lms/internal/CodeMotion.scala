@@ -128,9 +128,6 @@ trait CodeMotion {
     }
     val nlnext = lnext - n
 
-    if (n == 10)
-      println("bla")
-
     val (rlastcold: Map[Block, LevelInfo], rlevel2block: Map[LevelInfo, Block], rblock2level: Map[Block, LevelInfo], nblocks_next, curr_scope, alllevels: Map[Int, LevelInfo]) =
       if (scope.contains(n)) {
         val entry = scope(n)
@@ -156,7 +153,8 @@ trait CodeMotion {
 
         val cur_lastcold = lastcold(curr_block)
         val nlastcold = lastcold ++ nodeblocks.map(b => if (iscold(b)) (b -> nblock2level(b)) else (b -> nblock2level(curr_block))).toMap
-        val nblocks = block_nexts ++ entry.blocks.toVector.map(b => (entry.irdef, b))
+        //val nblocks = block_nexts ++ entry.blocks.toVector.map(b => (entry.irdef, b)) //this would be breath first
+        val nblocks = entry.blocks.toVector.map(b => (entry.irdef, b)) ++ block_nexts
         if (successor == -1) (nlastcold, nlevel2block, nblock2level, nblocks, scope + (n -> entry),newalllevels)
         else (nlastcold, nlevel2block, nblock2level, nblocks, scope + (n -> entry.copy(successors = entry.successors + successor)),newalllevels) //if its -1 we did come from a recursion
       }
@@ -415,11 +413,14 @@ trait CodeMotion {
     //val check = r.pmark.filter(p => p.)
 
     val binfo = r.pmark.foldLeft(Map.empty[Block, BlockInfo3]) {
-      (acc, ele) => {
+      (oacc, ele) => {
         val nodeid = ele._1
+        if (nodeid == 2) {
+          println("bla")
+        }
         val treeids = ele._2
-        treeids.foldLeft(acc){
-          (acc2,treeid) => {
+        treeids.foldLeft(oacc){
+          (acc,treeid) => {
             val blevel = r.alllevels(treeid)
             val block = r.level2block(blevel)
             if (acc.contains(block)) {
@@ -466,6 +467,8 @@ trait CodeMotion {
         }
       }
     }*/
+    val t = binfo(r.level2block(r.alllevels(3)))
+    val u = binfo(r.level2block(r.alllevels(4)))
     printlog("finished CM")
     TimeLog.timer("CodeMotion_getBlockInfo", false)
     (r.scope, binfo)
