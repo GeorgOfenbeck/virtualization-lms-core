@@ -186,8 +186,7 @@ class TestCompile extends Suite {
               val t = a + b
               t
             })
-
-            val t1 = t0
+                                                                                  val t1 = t0
             val t2 = t0 * unit(-1)
 
             val t3 = t1 + t2

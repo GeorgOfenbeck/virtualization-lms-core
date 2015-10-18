@@ -313,7 +313,7 @@ trait CodeMotion {
                 val ids: Set[Int] = block.res.map(t => t.id).toSet
                 val rnexts = Vector((-1, ids))
                 val ntlevel = rlastcold(block)
-                visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, pmark, nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level,alllevels)
+                visit_nested3(ntlevel, rblock2level(block), block, -1, block.res.head.id, rnexts, pmark, nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level,alllevels)
               }
             }
             else {
@@ -361,7 +361,7 @@ trait CodeMotion {
               val ids: Set[Int] = block.res.map(t => t.id).toSet
               val rnexts = Vector((-1, ids))
               val ntlevel = rlastcold(block)
-              visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, npmark, nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level,alllevels)
+              visit_nested3(ntlevel, rblock2level(block), block, -1, block.res.head.id, rnexts, npmark, nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level,alllevels)
             }
           }
           else {
@@ -467,8 +467,8 @@ trait CodeMotion {
         }
       }
     }*/
-    val t = binfo(r.level2block(r.alllevels(3)))
-    val u = binfo(r.level2block(r.alllevels(4)))
+    /*val t = binfo(r.level2block(r.alllevels(3)))
+    val u = binfo(r.level2block(r.alllevels(4)))*/
     printlog("finished CM")
     TimeLog.timer("CodeMotion_getBlockInfo", false)
     (r.scope, binfo)
