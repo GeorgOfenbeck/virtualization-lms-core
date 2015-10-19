@@ -257,12 +257,12 @@ trait CodeMotion {
     }       */
 
 
-    if (pmarkcontain && ((rtparent || rtlevel || rbtwlevel))) {
+    if (pmarkcontain && ((rtparent || rtlevel || rbtwlevel)) && successor != -1)   {
       //the node exists somewhere on the path already
       assert(((rtparent != rtlevel) != rbtwlevel), "this should not happen - why is it on more then one?!")
 
 
-      if (rtlevel) {
+      if (rtlevel ) {
         //the node exits on the level where we want to put it already - nothing do
         if (nlnext.isEmpty) {
           // this node might have predecessors - but they are already done - and was the last predec. of its sucessor
