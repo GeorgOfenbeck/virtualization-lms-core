@@ -2,6 +2,8 @@ package scala.lms
 package internal
 
 import scala.annotation.tailrec
+import scala.lms.ops.{OrderingOpsExp, IfThenElsePureExp}
+import scala.lms.targets.graphviz.{InstGraphVizExport, MyRange}
 import scala.lms.util._
 
 /*
@@ -35,7 +37,6 @@ trait CodeMotion {
   val reifiedIR: ReificationPure
 
   import reifiedIR.IR._
-
 
   case class BlockInfo3(childnodes: Set[EnrichedGraphNode], roots: Set[Int]) {
     val children: Map[Int, EnrichedGraphNode] = childnodes.map(x => x.irdef -> x).toMap
@@ -113,6 +114,8 @@ trait CodeMotion {
 
   private case class LevelInfo(treelevel: Int, treeid: Int, parentlevelid: Int, allparents: Set[Int], allneighbour: Set[Int])
 
+  var graphnr = 1000
+
   //pmark is a Set of treeids
   @tailrec
   private def visit_nested3(curr_tlevel: LevelInfo, curr_level: LevelInfo, curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Map[Int, Set[Int]], roots: Map[Int, Set[Int]],
@@ -122,6 +125,65 @@ trait CodeMotion {
                              )
   //: (Block, Int, Vector[(Int, Set[Int])], Map[Int, (Int, Int)], Map[Int, EnrichedGraphNode], Set[Int], Vector[(Int, Block)] /*, Map[Block, BlockInfo3]*/) = {
   : RetTmp = {
+
+    reifiedIR.IR match {
+      case ir: BaseExp with FunctionsExp with MyRange with IfThenElsePureExp with OrderingOpsExp => {
+        def quote(x: Any) = "\"" + x + "\""
+        def emitPlainNode(tp: ir.TP[_]): String = {
+          val (sym, rhs) = (tp.sym, tp.rhs)
+          //val str = tp.sym.id + " [label=" + quote(sym + " \\n " + rhs) + "shape=box]"
+          val str = emitNodeString(tp)
+          val deps = ir.syms(rhs)
+          val depsstr = for (dep <- deps) yield {
+            ("\"" + dep.id + "\" -> \"" + sym.id + "\"")
+          }
+          val blocks = ir.blocks(rhs)
+          val blockstr = for (b <- blocks) yield {
+            b.res.map(res => "\"" + sym.id + "\" -> \"" + res.id + "\"[style=dotted]").mkString("\n")
+          }
+          val args: String = rhs match {
+            case ir.ExternalLambda(f, x, y, args, returns) => x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
+            case ir.InternalLambda(f, x, y, a, r) => x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
+            case _ => ""
+          }
+          str + depsstr.mkString("\n") + blockstr.mkString("\n") + args
+        }
+        def emitNodeString(tp: ir.TP[_]): String = {
+          val nodestring = tp.rhs match {
+            case ir.ConstDef(x) => x
+            case ir.ExternalLambda(f, x, y, args, returns) => "EntryF"
+            case ir.InternalLambda(f, x, y, a, r) => "InternalF"
+            case ir.RangeMap(s, e, b) => "Range"
+            case ir.myIfThenElse(c, t, e, b) => "IF"
+            case ir.ExpensiveF(x, y) => "ExpensiveF"
+            case ir.IntPlus(x, y) => "+"
+            case ir.IntDivide(x, y) => " / "
+            case ir.OrderingLTEQ(x, y) => "<="
+            case ir.ArgDef(id) => "Function Argument"
+            case ir.IntMod(x, y) => "%"
+            case ir.ReturnArg(x, y, pos, tuple, last) => "ReturnTuple"
+            case _ => tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()
+          }
+          if (pmark.contains(tp.sym.id))
+            tp.sym.id + " [label=" + quote(nodestring) + "\n,shape=box,style=filled,color=\".7 .3 1.0\"]"
+          else
+            tp.sym.id + " [label=" + quote(nodestring) + "\n,shape=box]"
+        }
+        val nodes = ir.id2tp.map(ele => emitPlainNode(ele._2))
+        val code = "digraph G {\n" + nodes.mkString("\n") + "\n}"
+        val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DCE" + graphnr + ".dot"))
+        stream.println(code)
+        stream.flush()
+        stream.close()
+        graphnr = graphnr + 1
+      }
+    }
+
+
+
+
+
+
     val (ln, lnext) = nexts.last
     if (!lnext.contains(n)) {
       assert(false, "this should not happen")
@@ -407,6 +469,7 @@ trait CodeMotion {
     val l2b: Map[LevelInfo, Block] = Map(rlinfo -> lambda.y)
     val b2l: Map[Block, LevelInfo] = Map(lambda.y -> rlinfo)
     val lastcold: Map[Block, LevelInfo] = Map(lambda.y -> rlinfo)
+    graphnr = 0
     val r = visit_nested3(rlinfo, rlinfo, lambda.y, -1, n, nexts, Map.empty, Map.empty, Map.empty, Vector.empty, l2b, b2l, lastcold, Map.empty, rlinfo, Map(0 -> rlinfo))
     val rlevel2block = r.level2block
 
@@ -442,6 +505,13 @@ trait CodeMotion {
         }
       }
     }
+
+
+    val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DCE1000.bat"))
+    for (i <- 1000 until 1000+graphnr)
+      stream.println("\"C:\\Program Files (x86)\\Graphviz2.30\\bin\\dot.exe\" -Tpng DCE"+ i + ".dot -o DCE"+ i + ".png")
+    stream.flush()
+    stream.close()
 
 
     /*val binfo = r.pmark.foldLeft(Map.empty[Block, BlockInfo3]) {

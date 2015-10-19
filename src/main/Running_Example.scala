@@ -73,11 +73,11 @@ object Running_Example extends App {
         val s = i + y
         val mod = int_mod(s, unit(2))
         val rbool = ordering_lteq(mod, unit(0))
-        val t1 = expensive_pure_f(i,unit(3))
+        val t1 = expensive_pure_f(i,unit(0))
         val r = myifThenElse(rbool, {
           t1
         }, {
-          val t2 = expensive_pure_f(x,i)
+          val t2 = expensive_pure_f(i,unit(2) + i)
           s
         })
         r
@@ -87,7 +87,7 @@ object Running_Example extends App {
 
 
     def graph() = {
-      val (code, cm) = emitGraph.emitDepGraphf(prog)
+      val (code, cm) = emitGraph.emitDepGraphf(prog,1)
       val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check2.dot"))
       stream.println(code)
       stream.flush()
@@ -115,18 +115,40 @@ object Running_Example extends App {
 
   def foo(x: Int) = {
     for (i <- 0 until 10) yield {
-      val t0 = expensive_pure_f(x, 2) //move this out
-      val y = x / t0 //move this out
-      val s = i + y //this stays
-      val t1 = expensive_pure_f(x, 3) //move in
+      val t0 = expensive_pure_f(x, 2)
+      val y = x / t0
+      val s = i + y
+      val t1 = expensive_pure_f(i, 0)
       if (s % 2 == 0)
         t1
       else {
-        val t3 = expensive_pure_f(x, i + 20) //deadcode
+        val t3 = expensive_pure_f(i, 2 + i)
         s
       }
     }
   }
+
+
+  /*
+
+      val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
+        val t0 = expensive_pure_f(x,unit(2))
+        val y = x / t0
+        val s = i + y
+        val mod = int_mod(s, unit(2))
+        val rbool = ordering_lteq(mod, unit(0))
+        val t1 = expensive_pure_f(i,unit(0))
+        val r = myifThenElse(rbool, {
+          t1
+        }, {
+          val t2 = expensive_pure_f(i,unit(2) + i)
+          s
+        })
+        r
+      })
+      t
+    }
+   */
 
 
   def foo2(x: Int) = {
