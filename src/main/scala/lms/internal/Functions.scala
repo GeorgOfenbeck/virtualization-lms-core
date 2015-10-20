@@ -16,11 +16,11 @@ trait ExposeRepBase extends Expressions {
 
 trait Functions extends Base with ExposeRepBase {
 
-  def doLambda[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
-  def doInternalLambda[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  def doLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
-  implicit def fun[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doLambda(f)
-  implicit def internalfun[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doInternalLambda(f)
+  implicit def fun[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doLambda(f, hot)
+  implicit def internalfun[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doInternalLambda(f, hot)
   //def doApply[A,R](fun: Rep[_ => _], arg: A)(implicit args: ExposeRep[A], returns: ExposeRep[R]): R
 
   case class StagedFunction[A, R](f: A => R, exp: Rep[_ => _], args: ExposeRep[A], returns: ExposeRep[R])
@@ -73,27 +73,30 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
   }
 
   case class ReturnArg(f: Exp[_], newsym: Exp[_], pos: Int, tuple: Boolean, last: Boolean) extends Def[Any]
-  abstract class AbstractLambda[CA, CR](val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], val x: Vector[TP[_]], val y: Block,
+  abstract class AbstractLambda[CA, CR](val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], val x: Vector[TP[_]], val y: Block, val hot: Boolean,
                                val args: ExposeRep[CA], val returns: ExposeRep[CR]) extends Def[_ => _]
 
   //seems we can only put any here since we cannot know at compile time
   case class InternalLambda[CA, CR](override val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], override val x: Vector[TP[_]],
                                     override val y: Block,
+                                    override val hot: Boolean,
                                     override val args: ExposeRep[CA],
-                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f,x,y,args,returns)
+                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f,x,y,hot,args,returns)
 
   //seems we can only put any here since we cannot know at compile time
   case class ExternalLambda[CA, CR](override val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], override val x: Vector[TP[_]],
                                     override val y: Block,
+                                    override val hot: Boolean,
                                     override val args: ExposeRep[CA],
-                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f,x,y,args,returns)
+                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f,x,y,hot,args,returns)
 
 
   case class InternalApply[CA, CR](f: Exp[_ => _], arg: Vector[Exp[_]]) extends Def[Any]
 
   //RF (any?)
 
-  def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): AbstractLambda[A, R] = {
+
+  def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): AbstractLambda[A, R] = {
     addBlockTPBuffer()
     val freshexps = args.freshExps()
     val tps = freshexps map (exp => id2tp(exp.id))
@@ -107,9 +110,9 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
     val block = new Block(explist)
     block2tps = block2tps + (block -> getBlockTPBuffer())
     if (internal)
-      InternalLambda(vecf, tps, block, args, returns)
+      InternalLambda(vecf, tps, block, hot, args, returns)
     else
-      ExternalLambda(vecf, tps, block, args, returns)
+      ExternalLambda(vecf, tps, block, hot, args, returns)
   }
 
   def doApplySF[A, R](fun: StagedFunction[A, R], arg: A, args: ExposeRep[A], returns: ExposeRep[R]): R = {
@@ -142,7 +145,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
   }
 
 
-  def doAbstractLambda[A, R](f: Function1[A, R], internal: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+  def doAbstractLambda[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
     def helper[T](d: Def[T])(implicit tag: TypeRep[T]): TypeRep[T] = {
       tag match {
         case x@TypeExp(mf, dynTags) => {
@@ -159,7 +162,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
         }
       }
     }
-    val y = doLambdaDef(f, internal)(args, returns)
+    val y = doLambdaDef(f, internal,hot)(args, returns)
     val tag = helper(y)
     val exp = toAtom(y)(tag, null)
     val tp = id2tp(exp.id).asInstanceOf[TP[_ => _]]
@@ -167,18 +170,18 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
     stagedFunction
   }
 
-  override def doLambda[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f,false)
+  override def doLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+    doAbstractLambda(f,false, hot)
   }
-  override def doInternalLambda[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f,true)
+  override def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+    doAbstractLambda(f,true, hot)
   }
 
   override def syms(e: Any): Vector[Exp[_]] = e match {
-    case InternalLambda(f, x, y, args, returns) => {
+    case InternalLambda(f, x, y, hot, args, returns) => {
       Vector.empty
     }
-    case ExternalLambda(f, x, y, args, returns) => {
+    case ExternalLambda(f, x, y, hot, args, returns) => {
       Vector.empty
     }
     case _ => {
@@ -190,7 +193,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
     case a@InternalApply(f, arg) => {
       Vector.empty
     }
-    case l@InternalLambda(f, x, y, _, _) => {
+    case l@InternalLambda(f, x, y, hot, _, _) => {
       val exps = l.x map (tp => tp.sym)
       val t = syms(exps)
       t
@@ -198,6 +201,16 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
     case _ => {
       super.boundSyms(e)
     }
+  }
+
+
+  override def symsFreq(e: Any): Vector[(Exp[_], Double)] = e match {
+    case TP(sym,rhs,tag) => rhs match {
+      case InternalLambda(f, x, y, hot, args, returns) => if (hot) freqHot(sym) else freqCold(sym)
+      case ExternalLambda(f, x, y, hot, args, returns) => if (hot) freqHot(sym) else freqCold(sym)
+      case _ => super.symsFreq(e)
+    }
+    case _ => super.symsFreq(e)
   }
 
 

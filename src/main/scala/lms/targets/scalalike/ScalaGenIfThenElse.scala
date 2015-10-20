@@ -16,7 +16,7 @@ trait ScalaGenIfThenElse extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       val elselambda = exp2tp(elsep)
 
       val rets: String = (thenlambda.rhs,elselambda.rhs) match {
-        case (InternalLambda(tf,tx,ty,targs,treturns),InternalLambda(ef,ex,ey,eargs,ereturns)) => {
+        case (InternalLambda(tf,tx,ty,thot,targs,treturns),InternalLambda(ef,ex,ey,ehot,eargs,ereturns)) => {
           val l1 = "val " + quote(tp) + " = if (" + quote(cond) + ") {\n"
           val l2 = block_callback(ty,l1)
           val trestuple: Vector[String] = ty.res.map(r => quote(r))

@@ -13,7 +13,7 @@ trait MyRange extends PurePrimitiveOpsExp with FunctionsExp with ImplicitOpsExp 
   case class RangeMap[T: Manifest](start: Exp[Int], end: Exp[Int], body: Exp[_ => _]) extends Def[IndexedSeq[T]]
 
   def range_map[T](s: Exp[Int], end: Exp[Int], block: Exp[Int] => Exp[T])(implicit tr: TypeRep[T], mf: Manifest[T]): Exp[IndexedSeq[T]] = {
-    val lambda = doInternalLambda(block)(exposeRepFromRep[Int], exposeRepFromRep[T])
+    val lambda = doInternalLambda(block,true)(exposeRepFromRep[Int], exposeRepFromRep[T])
     val cc = RangeMap[T](s, end, lambda.exp)
     toAtom(cc)
   }
@@ -32,11 +32,11 @@ trait ScalaGenMyRange extends ScalaCodegen with EmitHeadInternalFunctionAsClass 
   override def emitNode(tp: TP[_], acc: String,
                         block_callback: (Block, String) => String): String = {
     tp.rhs match {
-      case ExpensiveF(lhs, rhs) => emitValDef(tp, src"expensivedef($lhs,$rhs)")
+      case ExpensiveF(lhs, rhs) => emitValDef(tp, src"Math.max($lhs,$rhs)")
       case RangeMap(start, end, body) => {
         val thenlambda = exp2tp(body)
         val rets: String = (thenlambda.rhs) match {
-          case (InternalLambda(tf, tx, ty, targs, treturns)) => {
+          case (InternalLambda(tf, tx, ty, thot, targs, treturns)) => {
             val l1 = "val " + quote(tp) + " = for (" + quote(tx.head) + " <- " + quote(start) + " until " + quote(end) + " ) yield {\n" //TODO: fix me!
             val l2 = block_callback(ty, l1)
             val trestuple: Vector[String] = ty.res.map(r => quote(r))
@@ -83,8 +83,8 @@ trait InstGraphVizExport {
     def emitNodeString(tp: cm.reifiedIR.IR.TP[_]): String = {
       val nodestring = tp.rhs match {
         case IR.ConstDef(x) =>  x
-        case IR.ExternalLambda(f, x, y, args, returns) =>  "EntryF"
-        case IR.InternalLambda(f, x, y, a, r) => "InternalF"
+        case IR.ExternalLambda(f, x, y, hot, args, returns) =>  "EntryF"
+        case IR.InternalLambda(f, x, y, hot, a, r) => "InternalF"
         case IR.RangeMap(s, e, b) => "Range"
         case IR.myIfThenElse(c, t, e, b) => "IF"
         case IR.ExpensiveF(x, y) => "ExpensiveF"
@@ -144,8 +144,8 @@ trait InstGraphVizExport {
         b.res.map( res => "\"" + sym.id + "\" -> \"" + res.id + "\"[style=dotted]").mkString("\n")
       }
       val args: String = rhs match{
-        case IR.ExternalLambda(f, x, y, args, returns) =>  x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
-        case IR.InternalLambda(f, x, y, a, r) => x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
+        case IR.ExternalLambda(f, x, y, hot, args, returns) =>  x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
+        case IR.InternalLambda(f, x, y, hot, a, r) => x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
         case _ => ""
       }
 

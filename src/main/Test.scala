@@ -81,10 +81,10 @@ object TestCompile extends App {
    val FunctionOnComplex: Complex => StagedFunction[Complex,Complex] = (in: Complex) => {
     val FunctionOnComplex1: Complex => Complex = (in1: Complex) => {
      val repfun: (Rep[Int] => Rep[Int]) = (in: Rep[Int]) => in
-     val reps = doLambda(repfun)
+     val reps = doLambda(repfun, false)
      Complex(in1.im, reps(in.re))
     }
-    val sf = doLambda(FunctionOnComplex1)
+    val sf = doLambda(FunctionOnComplex1, false)
     sf
    }
 
@@ -97,7 +97,7 @@ object TestCompile extends App {
       i + t
 
      }
-     val sf = doLambda(f)
+     val sf = doLambda(f, false)
      sf
     } else {
      val f = createsf(deepth - 1)
@@ -119,7 +119,7 @@ object TestCompile extends App {
       val c = i - t3
       f.apply(c) + g.apply(c)
      }
-     val sf = doLambda(h)
+     val sf = doLambda(h,false)
      sf
     }
    }

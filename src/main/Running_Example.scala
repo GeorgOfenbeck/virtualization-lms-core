@@ -31,7 +31,7 @@ object Running_Example extends App {
       with ScalaGenOrderingOps {
       val IR: self.type = self
     }
-    val emitGraph = new InstGraphVizExport {
+    val emitGraph = new GraphVizExport {
       override val IR: self.type = self
     }
 
@@ -67,7 +67,7 @@ object Running_Example extends App {
       })
       r + s*/
 
-      val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
+     /* val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
         val t0 = expensive_pure_f(x,unit(2))
         val y = x / t0
         val s = i + y
@@ -75,19 +75,28 @@ object Running_Example extends App {
         val rbool = ordering_lteq(mod, unit(0))
         val t1 = expensive_pure_f(i,unit(0))
         val r = myifThenElse(rbool, {
-          t1
+          s + t1
         }, {
           val t2 = expensive_pure_f(i,unit(2) + i)
-          s
+          s + unit(10)
         })
         r
+      })
+      t
+    }*/
+
+      val t0 = expensive_pure_f(x,unit(2))
+      val y = x / t0
+      val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
+        y + i
       })
       t
     }
 
 
+
     def graph() = {
-      val (code, cm) = emitGraph.emitDepGraphf(prog,1)
+      val (code, cm) = emitGraph.emitDepGraphf(prog)
       val stream = new java.io.PrintWriter(new java.io.FileOutputStream("check2.dot"))
       stream.println(code)
       stream.flush()
@@ -120,7 +129,7 @@ object Running_Example extends App {
       val s = i + y
       val t1 = expensive_pure_f(i, 0)
       if (s % 2 == 0)
-        t1
+        t1 * t1
       else {
         val t3 = expensive_pure_f(i, 2 + i)
         s

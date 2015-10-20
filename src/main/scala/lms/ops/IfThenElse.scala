@@ -28,8 +28,8 @@ trait IfThenElsePureExp extends IfThenElse with BaseExp with FunctionsExp{
   {
     val thenf: Rep[Unit] => A = (u: Rep[Unit]) => thenp
     val elsef: Rep[Unit] => A = (u: Rep[Unit]) => elsep
-    val thenlambda = doInternalLambda(thenf)
-    val elselambda = doInternalLambda(elsef)
+    val thenlambda = doInternalLambda(thenf,false)
+    val elselambda = doInternalLambda(elsef, false)
 
     val newsyms = branch.freshExps()
     val block = new Block(newsyms)
@@ -59,10 +59,7 @@ trait IfThenElsePureExp extends IfThenElse with BaseExp with FunctionsExp{
       })
     }
     branch.vec2t(returnNodes)
-
   }
-
-
 }
 
 
@@ -164,7 +161,9 @@ trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
 
 
   override def symsFreq(e: Any): Vector[(Exp[_], Double)] = e match {
-    case IfThenElse(c, t, e) => freqNormal(c) ++ freqCold(t) ++ freqCold(e)
+    case IfThenElse(c, t, e) => {
+      freqNormal(c) ++ freqCold(t) ++ freqCold(e)
+    }
     case _ => super.symsFreq(e)
   }
 
