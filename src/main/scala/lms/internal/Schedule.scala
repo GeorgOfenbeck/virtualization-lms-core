@@ -9,7 +9,13 @@ trait Schedule {
   if (tps.isEmpty){
    assert(false, "this should just not happen")
   }
-  tps.head
+  val h = tps.dropWhile(p => { //RF! This is a nasty workaround to make sure block dependencies are done before unparsing
+    !IR.blocks(p).isEmpty
+  })
+  if( h.isEmpty)
+   tps.head
+  else h.head
+
  }
 
  class ScheduleIterable(val esc : ExposeScheduleChoice{

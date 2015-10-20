@@ -609,7 +609,7 @@ trait CodeMotion {
             // this node might have predecessors - but they are already done - and was the last predec. of its sucessor
             val nnext = nexts.dropRight(1)
             if (nnext.isEmpty) {
-              val xroots = backtrack.foldLeft(nroots) { (acc,ele) => {
+              val xroots = nbacktrack.foldLeft(nroots) { (acc,ele) => {
                 val (id, level) = ele
                 if (acc.contains(id)) {
                   val sofar = acc(id)
