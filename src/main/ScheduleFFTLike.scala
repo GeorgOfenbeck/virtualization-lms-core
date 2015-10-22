@@ -112,7 +112,7 @@ object ScheduleFFTLike extends App {
     size = size +1
   }
 
-  while (time < 60)
+  while (time < 600)
 
   Timings.map(t => println(t._1 + "  " + t._2))
 }
