@@ -1,6 +1,6 @@
 
 
-package examples
+
 
 
 import java.io.PrintWriter
@@ -15,7 +15,7 @@ import scala.lms.targets.scalalike._
 import scala.lms.targets.graphviz.{MyRange, ScalaGenMyRange, GraphVizExport}
 
 
-object ScheduleTestIF extends App {
+object ScheduleIF extends App {
 
 
   class DSL(psize: Int) extends BooleanOpsExp with PurePrimitiveOpsExp with FunctionsExp with IfThenElsePureExp with ScalaCompile with ImplicitOpsExp with MyRange with OrderingOpsExp{

@@ -11,11 +11,9 @@ import scala.lms.util._
  */
 
 
-
-
-
 object CodeMotion {
   val plot = false
+
   /** Takes a reified program as an input.
     * Traverses the resulting graph in reverse order (result to inputs). (which will result in DeadCode Elemination)
     * While doing so it stores also info such as reverse edges.
@@ -356,20 +354,19 @@ trait CodeMotion {
             } else {
               val b = binfo.filter(b => rblock2level(b._1).treeid == 0).head
 
-                val info = b._2
-                val id = rblock2level(b._1).treeid
-                if (id == 4)
-                  println(info.childnodes.size)
-                val childstr = info.childnodes.map(n => {
-                  val isroot = info.roots.contains(n.irdef)
-                  emitPlainNode2(ir.id2tp(n.irdef), "cm",id, false)
-                }).toVector
-                val connections = info.childnodes.map(n => {
-                  n.successors.filter(p => info.children.contains(p)).map(s => "cm" + n.irdef + id + " -> " + "cm" + s + id ).mkString("\n")
-                }).toVector
-                childstr.mkString("\n") + "\n" + connections.mkString("\n") + "\ncm80 -> cm240\n"
+              val info = b._2
+              val id = rblock2level(b._1).treeid
+              if (id == 4)
+                println(info.childnodes.size)
+              val childstr = info.childnodes.map(n => {
+                val isroot = info.roots.contains(n.irdef)
+                emitPlainNode2(ir.id2tp(n.irdef), "cm", id, false)
+              }).toVector
+              val connections = info.childnodes.map(n => {
+                n.successors.filter(p => info.children.contains(p)).map(s => "cm" + n.irdef + id + " -> " + "cm" + s + id).mkString("\n")
+              }).toVector
+              childstr.mkString("\n") + "\n" + connections.mkString("\n") + "\ncm80 -> cm240\n"
             }
-
 
 
           }
@@ -450,16 +447,20 @@ trait CodeMotion {
       // (isparent of tlevel, istlevel, tlevel > actual level >= currentlevel)
       //small early abort optimization opportunity here
       val checkbtwlevel = !(curr_level.treeid == curr_tlevel.treeid)
-      val (rtparent, rtlevel, rbtwlevel) = plevels.foldLeft((false, false, false)) {
-        (acc, ele) => {
-          val (tparent, tlevel, btwlevel) = acc
-          val ntparent = if (!tparent) curr_tlevel.allparents.contains(ele) else tparent
-          val ntlevel = if (!tlevel) curr_tlevel.treeid == ele else tlevel
-          val nbtwlevel = if (checkbtwlevel && !btwlevel) (curr_level.allparents.contains(ele) && !ntlevel) || curr_level.treeid == ele else btwlevel
-          (ntparent, ntlevel, nbtwlevel)
+
+      if (plevels.contains(curr_tlevel.treeid)) (true, false, true, false)
+      else {
+        val (rtparent, rtlevel, rbtwlevel) = plevels.foldLeft((false, false, false)) {
+          (acc, ele) => {
+            val (tparent, tlevel, btwlevel) = acc
+            val ntparent = if (!tparent) curr_tlevel.allparents.contains(ele) else tparent
+            val ntlevel = if (!tlevel) curr_tlevel.treeid == ele else tlevel
+            val nbtwlevel = if (checkbtwlevel && !btwlevel) (curr_level.allparents.contains(ele) && !ntlevel) || curr_level.treeid == ele else btwlevel
+            (ntparent, ntlevel, nbtwlevel)
+          }
         }
+        (true, rtparent, rtlevel, rbtwlevel)
       }
-      (true, rtparent, rtlevel, rbtwlevel)
     } else (false, false, false, false) //we didnt see it in fpmark
 
     /*
@@ -783,21 +784,23 @@ trait CodeMotion {
     val nrlevels = rlevel2block.size //we assume here that that levelids always go from 0 to n-1
 
     println("starting converting pmark")
-    val em: Vector[Set[Int]] = (0 until nrlevels+1).foldLeft(Vector.empty[Set[Int]]){(a,e) => a :+ Set.empty[Int]}
-    val children = r.pmark.foldLeft(em){(acc,ele) => {
-      ele._2.foldLeft(acc){
-        (acc2,level) => {
-          acc.updated(level,acc(level) + ele._1)
+    val em: Vector[Set[Int]] = (0 until nrlevels + 1).foldLeft(Vector.empty[Set[Int]]) { (a, e) => a :+ Set.empty[Int] }
+    val children = r.pmark.foldLeft(em) { (acc, ele) => {
+      ele._2.foldLeft(acc) {
+        (acc2, level) => {
+          acc.updated(level, acc(level) + ele._1)
         }
       }
-    }}
-    val roots = r.roots.foldLeft(em){(acc,ele) => {
-      ele._2.foldLeft(acc){
-        (acc2,level) => {
-          acc.updated(level,acc(level) + ele._1)
+    }
+    }
+    val roots = r.roots.foldLeft(em) { (acc, ele) => {
+      ele._2.foldLeft(acc) {
+        (acc2, level) => {
+          acc.updated(level, acc(level) + ele._1)
         }
       }
-    }}
+    }
+    }
     val binfo = r.block2level.foldLeft(Map.empty[Block, BlockInfo3]) {
       (acc, b) => {
         val (block, level) = b
@@ -807,51 +810,51 @@ trait CodeMotion {
     }
 
 
-/*
+    /*
 
 
-    println("are you kidding me?")
-    val empty = r.block2level.foldLeft(Map.empty[Block, BlockInfo3]) {
-      (acc, b) => {
-        val (block, level) = b
-        acc + (block -> BlockInfo3(Set.empty, Set.empty))
-      }
-    }
-    println("seriously?")
+        println("are you kidding me?")
+        val empty = r.block2level.foldLeft(Map.empty[Block, BlockInfo3]) {
+          (acc, b) => {
+            val (block, level) = b
+            acc + (block -> BlockInfo3(Set.empty, Set.empty))
+          }
+        }
+        println("seriously?")
 
 
 
 
 
-    val binfo = r.pmark.foldLeft(empty) {
-      (oacc, ele) => {
-        val nodeid = ele._1
-        val treeids = ele._2
-        treeids.foldLeft(oacc) {
-          (acc, treeid) => {
-            val blevel = r.alllevels(treeid)
-            val block = r.level2block(blevel)
-            if (acc.contains(block)) {
-              val sofar = acc(block)
-              val t = if (r.roots.contains(nodeid) && r.roots(nodeid).contains(treeid))
-                BlockInfo3(sofar.childnodes + r.scope(nodeid), sofar.roots + nodeid)
-              else
-                BlockInfo3(sofar.childnodes + r.scope(nodeid), sofar.roots)
-              acc + (block -> t)
-            }
-            else {
-              val t = if (r.roots.contains(nodeid) && r.roots(nodeid).contains(treeid))
-                BlockInfo3(Set(r.scope(nodeid)), Set(nodeid))
-              else
-                BlockInfo3(Set(r.scope(nodeid)), Set.empty)
-              acc + (block -> t)
+        val binfo = r.pmark.foldLeft(empty) {
+          (oacc, ele) => {
+            val nodeid = ele._1
+            val treeids = ele._2
+            treeids.foldLeft(oacc) {
+              (acc, treeid) => {
+                val blevel = r.alllevels(treeid)
+                val block = r.level2block(blevel)
+                if (acc.contains(block)) {
+                  val sofar = acc(block)
+                  val t = if (r.roots.contains(nodeid) && r.roots(nodeid).contains(treeid))
+                    BlockInfo3(sofar.childnodes + r.scope(nodeid), sofar.roots + nodeid)
+                  else
+                    BlockInfo3(sofar.childnodes + r.scope(nodeid), sofar.roots)
+                  acc + (block -> t)
+                }
+                else {
+                  val t = if (r.roots.contains(nodeid) && r.roots(nodeid).contains(treeid))
+                    BlockInfo3(Set(r.scope(nodeid)), Set(nodeid))
+                  else
+                    BlockInfo3(Set(r.scope(nodeid)), Set.empty)
+                  acc + (block -> t)
+                }
+              }
             }
           }
         }
-      }
-    }
-    println("finished converting pmark")
-*/
+        println("finished converting pmark")
+    */
 
 
 
