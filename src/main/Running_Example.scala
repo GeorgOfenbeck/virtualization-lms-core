@@ -1,7 +1,6 @@
 import org.scala_lang.virtualized.SourceContext
 
 
-
 import scala.lms.targets.scalalike._
 import scala.lms.internal.FunctionsExp
 import scala.lms.ops._
@@ -14,8 +13,6 @@ import scala.lms.targets.graphviz._
  * Date: 18/10/2015
  * Time: 11:10 
  */
-
-
 
 
 object Running_Example extends App {
@@ -66,33 +63,43 @@ object Running_Example extends App {
         s
       })
       r + s*/
+      /*
+      val t0 = expensive_pure_f(x, 2)
+      val z = x * 2
+      val y = z / t0
 
-     /* val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
-        val t0 = expensive_pure_f(x,unit(2))
+
+       */
+
+
+
+      val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
+        val t0 = expensive_pure_f(x, unit(2))
+        val z = int_times(x,unit(2))
         val y = x / t0
-        val s = i + y
+        val h = y + z
+        val s = i + h
         val mod = int_mod(s, unit(2))
         val rbool = ordering_lteq(mod, unit(0))
-        val t1 = expensive_pure_f(i,unit(0))
+        val t1 = expensive_pure_f(i, unit(0))
         val r = myifThenElse(rbool, {
           s + t1
         }, {
-          val t2 = expensive_pure_f(i,unit(2) + i)
+          val t2 = expensive_pure_f(i, unit(2) + i)
           s + unit(10)
         })
         r
       })
       t
-    }*/
-
-      val t0 = expensive_pure_f(x,unit(2))
-      val y = x / t0
-      val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
-        y + i
-      })
-      t
     }
 
+    /* val t0 = expensive_pure_f(x,unit(2))
+     val y = x / t0
+     val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
+       y + i
+     })
+     t
+      */
 
 
     def graph() = {
@@ -122,17 +129,73 @@ object Running_Example extends App {
   def expensive_pure_f(o: Int, p: Int): Int = ???
 
 
+  /*
+  val t = range_map(unit(0), unit(10), (i: Rep[Int]) => {
+    val t0 = expensive_pure_f(x,unit(2))
+    val y = x / t0
+    val s = i + y
+    val mod = int_mod(s, unit(2))
+    val rbool = ordering_lteq(mod, unit(0))
+    val t1 = expensive_pure_f(i,unit(0))
+    val r = myifThenElse(rbool, {
+      s + t1
+    }, {
+      val t2 = expensive_pure_f(i,unit(2) + i)
+      s + unit(10)
+    })
+    r
+  })
+  t
+  */
+
   def foo(x: Int) = {
     for (i <- 0 until 10) yield {
       val t0 = expensive_pure_f(x, 2)
+      val z = x * 2
       val y = x / t0
-      val s = i + y
+      val s = y + z + i
       val t1 = expensive_pure_f(i, 0)
       if (s % 2 == 0)
-        t1 * t1
+        s + t1
       else {
         val t3 = expensive_pure_f(i, 2 + i)
-        s
+        s + 10
+      }
+    }
+  }
+
+
+  def foo_after_CM1(x: Int) = {
+    val t0 = expensive_pure_f(x, 2)
+    val z = x * 2
+    val y = x / t0
+    val h = y + z
+
+    for (i <- 0 until 10) yield {
+      val s = h + i
+      if (s % 2 == 0) {
+        val t1 = expensive_pure_f(i, 0)
+        s + t1
+      } else {
+        s + 10
+      }
+    }
+  }
+
+  def foo_after_CM2(x: Int) = {
+    val t0 = expensive_pure_f(x, 2)
+    val y = x / t0
+    val z = x * 2
+    val h = y + z
+
+    for (i <- 0 until 10) yield {
+      val s = h + i
+
+      if (s % 2 == 0) {
+        val t1 = expensive_pure_f(i, 0)
+        s + t1
+      } else {
+        s + 10
       }
     }
   }

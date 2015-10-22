@@ -22,8 +22,8 @@ trait ScalaCodegen extends GenericCodegen with Config {
     self.className = className //RF!
     /*if (emitString.IR == null)
       assert(false, "wtf?")*/
-    val (source, esc) = self.emit("",f)(args, returns)
-    out.println(source)
+    val (source, esc) = self.emit(Vector.empty,f)(args, returns)
+    source.map(e => out.print(e))
     out.flush()
     esc
   }
@@ -175,9 +175,9 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   }
 
 
-  override def emitNode(tp: self.IR.TP[_], acc: String,
-               block_callback: (self.IR.Block,String) => String): String = tp.rhs match {
-    case IR.ExternalLambda(f,x,y,hot,args,returns) => {
+  override def emitNode(tp: self.IR.TP[_], acc: Vector[String],
+               block_callback: (self.IR.Block,Vector[String]) => Vector[String]): Vector[String] = tp.rhs match {
+    case IR.ExternalLambda(f,x,y,hot,args,returns) => Vector({
       val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
@@ -209,7 +209,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
             "\ndef apply( helper: ("+ argtuple +")): ("+returntuple+") = {\n" + helper + "\n"
 
 
-        val res = stringheader + block_callback(y,"") +
+        val res = stringheader + block_callback(y,Vector.empty) +
           "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}" +
           "}" +
@@ -222,19 +222,19 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
           "val " + quote(tp) + ": " +
           "("+ argtuple +") => (" + returntuple + ") = " +
            "(helper: ("+ argtuple+")) =>{\n" + helper + "\n" +
-          block_callback(y,"") +
+          block_callback(y,Vector.empty) +
             "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}\n"
 
         //emitValDef(tp,string)
         //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
       }
-    }
-    case IR.InternalApply(f,arg) => {
+    })
+    case IR.InternalApply(f,arg) => Vector( {
       //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
       emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
-    }
-    case IR.ReturnArg(f,sym,posx,tuple,last) => {
+    } )
+    case IR.ReturnArg(f,sym,posx,tuple,last) => Vector({
       /*tp.tag match {
         case x@IR.TypeExp(mf,dyntags) => {
           println("..........")
@@ -251,12 +251,10 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
       }
       else
         emitValDef(tp,quote(f))
-    }
-    case IR.ArgDef(id) => {
-      ""
-    } //args are handled in the according lambda
-    case IR.ConstDef(x) => "" //are handeled through remaps
-    case IR.InternalLambda(f,x,y,hot,a,r) => "" //are inlined by the symbol containing them
+    })
+    case IR.ArgDef(id) => Vector.empty //args are handled in the according lambda
+    case IR.ConstDef(x) => Vector.empty //are handeled through remaps
+    case IR.InternalLambda(f,x,y,hot,a,r) => Vector.empty //are inlined by the symbol containing them
 
     case _ => super.emitNode(tp,acc,block_callback)
   }

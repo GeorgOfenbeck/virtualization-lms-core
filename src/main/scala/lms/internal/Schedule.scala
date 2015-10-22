@@ -15,7 +15,6 @@ trait Schedule {
   if( h.isEmpty)
    tps.head
   else h.head
-
  }
 
  class ScheduleIterable(val esc : ExposeScheduleChoice{
@@ -24,34 +23,25 @@ trait Schedule {
     val IR: self.IR.type }}}) extends Iterable[self.IR.TP[_]] {
 
   class ScheduleIterator(val state: esc.MyScheduleChoice) extends Iterator[self.IR.TP[_]] {
-   private var typemadness: esc.MyScheduleChoice = state
-
-   //had issues with doing this without a var / therefore the strange name
-   private def getTrav(): esc.MyScheduleChoice = typemadness
-   private def setTrav(t: esc.MyScheduleChoice): Unit = {
-    typemadness = t
-   }
-
    override def hasNext(): Boolean = {
     val t = getTrav()
     !t.scheduleoptions.isEmpty
    }
 
-
    override def next(): self.IR.TP[_] = {
     val t = getTrav()
-    val id2tp = t.cminfo.reifiedIR.id2tp //short for function
-
-    val tps = t.scheduleoptions.map(p => id2tp(p._1))
+    val tps = t.scheduleoptions.map(p => t.cminfo.reifiedIR.id2tp(p._1))
     val choice = choose(tps)
-
     val choice_index = tps.indexOf(choice)
     setTrav(t.scheduleoptions(choice_index)._2())
     choice
-    //val tp: esc.cminfo.reifiedIR.IR.TP[_] = id2tp(t.scheduleoptions.head._1)
-    //val schedule_options = t.scheduleoptions
-    //setTrav(schedule_options.head._2())
-    //tp
+   }
+
+   private var typemadness: esc.MyScheduleChoice = state
+   //had issues with doing this without a var / therefore the strange name
+   private def getTrav(): esc.MyScheduleChoice = typemadness
+   private def setTrav(t: esc.MyScheduleChoice): Unit = {
+    typemadness = t
    }
   }
 

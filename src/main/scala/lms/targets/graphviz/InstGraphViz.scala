@@ -29,24 +29,24 @@ trait ScalaGenMyRange extends ScalaCodegen with EmitHeadInternalFunctionAsClass 
 
   import IR._
 
-  override def emitNode(tp: TP[_], acc: String,
-                        block_callback: (Block, String) => String): String = {
+  override def emitNode(tp: TP[_], acc: Vector[String],
+                        block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     tp.rhs match {
-      case ExpensiveF(lhs, rhs) => emitValDef(tp, src"Math.max($lhs,$rhs)")
-      case RangeMap(start, end, body) => {
+      case ExpensiveF(lhs, rhs) => Vector(emitValDef(tp, src"Math.max($lhs,$rhs)"))
+      case RangeMap(start, end, body) =>  {
         val thenlambda = exp2tp(body)
-        val rets: String = (thenlambda.rhs) match {
-          case (InternalLambda(tf, tx, ty, thot, targs, treturns)) => {
+        val rets: Vector[String] = (thenlambda.rhs) match {
+          case (InternalLambda(tf, tx, ty, thot, targs, treturns)) =>  Vector ({
             val l1 = "val " + quote(tp) + " = for (" + quote(tx.head) + " <- " + quote(start) + " until " + quote(end) + " ) yield {\n" //TODO: fix me!
-            val l2 = block_callback(ty, l1)
+            val l2 = block_callback(ty, Vector(l1))
             val trestuple: Vector[String] = ty.res.map(r => quote(r))
             val l3: String = l2 + tupledeclarehelper(trestuple, "")
             val l4 = l3 + "\n}"
             l4 + "\n"
-          }
+          })
           case _ => {
             assert(false, "got an if statment which does not contain lambdas for its branches")
-            ""
+            Vector.empty
           }
         }
         rets

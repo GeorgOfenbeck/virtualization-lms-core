@@ -31,6 +31,15 @@ trait Emit[C]{
  }
 
 
+  def emitc(start: C, it: Iterator[self.IR.TP[_]], block_callback: (self.IR.Block,C) => C ): C = {
+    it.foldLeft(start){
+      (acc,ele) => {
+        val t: C = emitNode(ele,acc,block_callback)
+        t
+      }
+    }
+  }
+
 
   def emit[A,R]( start: C, f: Function1[A,R])(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]):
   (C, specEsc)
@@ -66,14 +75,6 @@ trait Emit[C]{
     (acc,exposedScheduleChoice)
   }
 
- def emitc(start: C, it: Iterator[self.IR.TP[_]], block_callback: (self.IR.Block,C) => C ): C = {
-  it.foldLeft(start){
-   (acc,ele) => {
-    val t: C = emitNode(ele,acc,block_callback)
-     t
-   }
-  }
- }
 }
 
 

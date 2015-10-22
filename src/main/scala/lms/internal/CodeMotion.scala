@@ -11,7 +11,11 @@ import scala.lms.util._
  */
 
 
+
+
+
 object CodeMotion {
+  val plot = false
   /** Takes a reified program as an input.
     * Traverses the resulting graph in reverse order (result to inputs). (which will result in DeadCode Elemination)
     * While doing so it stores also info such as reverse edges.
@@ -119,20 +123,17 @@ trait CodeMotion {
 
   var graphnr = 1000
 
+  var markit = -1
+
   //pmark is a Set of treeids
   @tailrec
   private def visit_nested3(curr_tlevel: LevelInfo, curr_level: LevelInfo, curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Map[Int, Set[Int]], roots: Map[Int, Set[Int]],
                             scope: Map[Int, EnrichedGraphNode],
                             block_nexts: Vector[(Int, Block)] /*, blockinfo: Map[Block, BlockInfo3]*/ , level2block: Map[LevelInfo, Block], block2level: Map[Block, LevelInfo],
-                            lastcold: Map[Block, LevelInfo], potentialroot: Map[Int, Set[Int]], parentlevel: LevelInfo, all_levels: Map[Int, LevelInfo], backtrack: Set[(Int,Int)]
+                            lastcold: Map[Block, LevelInfo], potentialroot: Map[Int, Set[Int]], parentlevel: LevelInfo, all_levels: Map[Int, LevelInfo], backtrack: Set[(Int, Int)]
                              )
   //: (Block, Int, Vector[(Int, Set[Int])], Map[Int, (Int, Int)], Map[Int, EnrichedGraphNode], Set[Int], Vector[(Int, Block)] /*, Map[Block, BlockInfo3]*/) = {
   : RetTmp = {
-
-
-    if (n == 16)
-      println("do something")
-
 
     val (ln, lnext) = nexts.last
     if (!lnext.contains(n)) {
@@ -206,206 +207,241 @@ trait CodeMotion {
       }
 
 
-    reifiedIR.IR match {
-      case ir: BaseExp with FunctionsExp with MyRange with IfThenElsePureExp with OrderingOpsExp => {
-        def quote(x: Any) = "\"" + x + "\""
-        def emitPlainNode(tp: ir.TP[_], prefix: String): String = {
-          val (sym, rhs) = (tp.sym, tp.rhs)
-          val nodestring = emitNodeString(tp)
+    def bla(lmark: Map[Int, Set[Int]]) = {
+      reifiedIR.IR match {
+        case ir: BaseExp with FunctionsExp with MyRange with IfThenElsePureExp with OrderingOpsExp => {
+          def quote(x: Any) = "\"" + x + "\""
+          def emitPlainNode(tp: ir.TP[_], prefix: String): String = {
+            val (sym, rhs) = (tp.sym, tp.rhs)
+            val nodestring = emitNodeString(tp)
 
-          val str = if (fpmark.contains(tp.sym.id)) {
-            val levlstr = "" // if (prefix == "cm" && !levels.isEmpty) "\\n Levels: " + levels.map(l => l.treeid).mkString(",") else ""
-            prefix + tp.sym.id + " [label=" + quote(nodestring + levlstr) + "\n,shape=box,style=filled,fontcolor=white,color=\".5 .5 .5\"]"
-          }
-          else
-            prefix + tp.sym.id + " [label=" + quote(nodestring) + "\n,shape=box, fontcolor=white]"
-
-          /*
-          val str = if (fpmark.contains(tp.sym.id)){
-
-            val levels = fpmark(tp.sym.id)
-            val levelstr = "\\n Levels: " + levels.map(_.toString).mkString(",")
-            tp.sym.id + " [label=" + quote(nodestring+levelstr) + "\n,shape=box, fontcolor=white]"
-          }
-          else
-            tp.sym.id + " [label=" + quote(nodestring +  "\\n Levels: ") + "\n,shape=box, fontcolor=white]"
-           */
-          val deps = ir.syms(rhs)
-
-          val depsstr = for (dep <- deps) yield {
-            ("\"" + prefix + dep.id + "\" -> \"" + prefix + sym.id + "\"")
-          }
-
-
-
-          val blocks = ir.blocks(rhs)
-          val blockstr = for (b <- blocks) yield {
-            b.res.map(res => "\"" + prefix + sym.id + "\" -> \"" + prefix + res.id + "\"[style=dotted]").mkString("\n")
-          }
-          val args: String = rhs match {
-            case ir.ExternalLambda(f, x, y, hot, args, returns) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
-            case ir.InternalLambda(f, x, y, hot, a, r) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
-            case _ => ""
-          }
-          str + depsstr.mkString("\n") + blockstr.mkString("\n") + args
-        }
-
-
-        def emitPlainNode2(tp: ir.TP[_], prefix: String, id: Int, isroot: Boolean): String = {
-          val (sym, rhs) = (tp.sym, tp.rhs)
-          val nodestring = emitNodeString(tp)
-          val blx = curr_scope(tp.sym.id).blocks
-          val levels = blx.map(b => block2level(b))
-
-          val str = if (fpmark.contains(tp.sym.id)) {
-            val levlstr = if (!levels.isEmpty) "\\n Levels: " + levels.map(l => l.treeid).mkString(",") else ""
-            if (isroot)
-              prefix + tp.sym.id + id + " [label=" + quote(nodestring + levlstr) + ",shape=box,style=filled,fontcolor=white,color=blue]"
-            else
-              prefix + tp.sym.id + id + " [label=" + quote(nodestring + levlstr) + ",shape=box,style=filled,fontcolor=white,color=\".5 .5 .5\"]"
-          }
-          else
-            prefix + tp.sym.id + id + " [label=" + quote(nodestring) + ",shape=box, fontcolor=white]"
-
-          val deps = ir.syms(rhs)
-          val depsstr = for (dep <- deps.filter(p => fpmark.contains(p.id))) yield {
-            ("\"" + prefix + dep.id + "\" -> \"" + prefix + sym.id + "\"")
-          }
-          val blocks = ir.blocks(rhs)
-          val blockstr = for (b <- blocks) yield {
-            b.res.filter(r => fpmark.contains(r.id)).map(res => "\"" + prefix + sym.id + "\" -> \"" + prefix + res.id + "\"[style=dotted]").mkString("\n")
-          }
-          val args: String = rhs match {
-            case ir.ExternalLambda(f, x, y, hot, args, returns) => x.filter(p => fpmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
-            case ir.InternalLambda(f, x, y, hot, a, r) => x.filter(p => fpmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
-            case _ => ""
-          }
-          str //+ "\n" + depsstr.mkString("\n") //+ blockstr.mkString("\n") + args
-        }
-
-        def emitCMNode(): String = {
-
-          val empty = rblock2level.foldLeft(Map.empty[Block, BlockInfo3]) {
-            (acc, b) => {
-              val (block, level) = b
-              acc + (block -> BlockInfo3(Set.empty, Set.empty))
+            val str = if (lmark.contains(tp.sym.id)) {
+              val levlstr = "" // if (prefix == "cm" && !levels.isEmpty) "\\n Levels: " + levels.map(l => l.treeid).mkString(",") else ""
+              if (markit == tp.sym.id)
+                prefix + tp.sym.id + " [label=" + quote(nodestring + levlstr) + "\n,shape=box,style=filled,fontcolor=white,color=yellow]"
+              else
+                prefix + tp.sym.id + " [label=" + quote(nodestring + levlstr) + "\n,shape=box,style=filled,fontcolor=white,color=\".5 .5 .5\"]"
             }
+            else
+              prefix + tp.sym.id + " [label=" + quote(nodestring) + "\n,shape=box, fontcolor=white]"
+
+            /*
+            val str = if (lmark.contains(tp.sym.id)){
+  
+              val levels = lmark(tp.sym.id)
+              val levelstr = "\\n Levels: " + levels.map(_.toString).mkString(",")
+              tp.sym.id + " [label=" + quote(nodestring+levelstr) + "\n,shape=box, fontcolor=white]"
+            }
+            else
+              tp.sym.id + " [label=" + quote(nodestring +  "\\n Levels: ") + "\n,shape=box, fontcolor=white]"
+             */
+            val deps = ir.syms(rhs)
+
+            val depsstr = for (dep <- deps) yield {
+              ("\"" + prefix + dep.id + "\" -> \"" + prefix + sym.id + "\"")
+            }
+
+
+
+            val blocks = ir.blocks(rhs)
+            val blockstr = for (b <- blocks) yield {
+              b.res.map(res => "\"" + prefix + sym.id + "\" -> \"" + prefix + res.id + "\"[style=dotted]").mkString("\n")
+            }
+            val args: String = rhs match {
+              case ir.ExternalLambda(f, x, y, hot, args, returns) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
+              case ir.InternalLambda(f, x, y, hot, a, r) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
+              case _ => ""
+            }
+            str + depsstr.mkString("\n") + blockstr.mkString("\n") + args
           }
-          val binfo = fpmark.foldLeft(empty) {
-            (oacc, ele) => {
-              val nodeid = ele._1
-              val treeids = ele._2
-              treeids.foldLeft(oacc) {
-                (acc, treeid) => {
-                  val blevel = alllevels(treeid)
-                  val block = rlevel2block(blevel)
-                  if (acc.contains(block)) {
-                    val sofar = acc(block)
-                    val t = if (roots.contains(nodeid) && roots(nodeid).contains(treeid))
-                      BlockInfo3(sofar.childnodes + curr_scope(nodeid), sofar.roots + nodeid)
-                    else
-                      BlockInfo3(sofar.childnodes + curr_scope(nodeid), sofar.roots)
-                    acc + (block -> t)
-                  }
-                  else {
-                    val t = if (roots.contains(nodeid) && roots(nodeid).contains(treeid))
-                      BlockInfo3(Set(curr_scope(nodeid)), Set(nodeid))
-                    else
-                      BlockInfo3(Set(curr_scope(nodeid)), Set.empty)
-                    acc + (block -> t)
+
+
+          def emitPlainNode2(tp: ir.TP[_], prefix: String, id: Int, isroot: Boolean): String = {
+            val (sym, rhs) = (tp.sym, tp.rhs)
+            val nodestring = emitNodeString(tp)
+            val blx = curr_scope(tp.sym.id).blocks
+            val levels = blx.map(b => block2level(b))
+
+            val str = if (lmark.contains(tp.sym.id)) {
+              val levlstr = if (!levels.isEmpty) "\\n Levels: " + levels.map(l => l.treeid).mkString(",") else ""
+              if (isroot)
+                prefix + tp.sym.id + id + " [label=" + quote(nodestring + levlstr) + ",shape=box,style=filled,fontcolor=white,color=blue]"
+              else
+                prefix + tp.sym.id + id + " [label=" + quote(nodestring + levlstr) + ",shape=box,style=filled,fontcolor=white,color=\".5 .5 .5\"]"
+            }
+            else
+              prefix + tp.sym.id + id + " [label=" + quote(nodestring) + ",shape=box, fontcolor=white]"
+
+            val deps = ir.syms(rhs)
+            val depsstr = for (dep <- deps.filter(p => lmark.contains(p.id))) yield {
+              ("\"" + prefix + dep.id + "\" -> \"" + prefix + sym.id + "\"")
+            }
+            val blocks = ir.blocks(rhs)
+            val blockstr = for (b <- blocks) yield {
+              b.res.filter(r => lmark.contains(r.id)).map(res => "\"" + prefix + sym.id + "\" -> \"" + prefix + res.id + "\"[style=dotted]").mkString("\n")
+            }
+            val args: String = rhs match {
+              case ir.ExternalLambda(f, x, y, hot, args, returns) => x.filter(p => lmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
+              case ir.InternalLambda(f, x, y, hot, a, r) => x.filter(p => lmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
+              case _ => ""
+            }
+            str //+ "\n" + depsstr.mkString("\n") //+ blockstr.mkString("\n") + args
+          }
+
+          def emitCMNode(switch: Int): String = {
+
+            val empty = rblock2level.foldLeft(Map.empty[Block, BlockInfo3]) {
+              (acc, b) => {
+                val (block, level) = b
+                acc + (block -> BlockInfo3(Set.empty, Set.empty))
+              }
+            }
+            val binfo = lmark.foldLeft(empty) {
+              (oacc, ele) => {
+                val nodeid = ele._1
+                val treeids = ele._2
+                treeids.foldLeft(oacc) {
+                  (acc, treeid) => {
+                    val blevel = alllevels(treeid)
+                    val block = rlevel2block(blevel)
+                    if (acc.contains(block)) {
+                      val sofar = acc(block)
+                      val t = if (roots.contains(nodeid) && roots(nodeid).contains(treeid))
+                        BlockInfo3(sofar.childnodes + curr_scope(nodeid), sofar.roots + nodeid)
+                      else
+                        BlockInfo3(sofar.childnodes + curr_scope(nodeid), sofar.roots)
+                      acc + (block -> t)
+                    }
+                    else {
+                      val t = if (roots.contains(nodeid) && roots(nodeid).contains(treeid))
+                        BlockInfo3(Set(curr_scope(nodeid)), Set(nodeid))
+                      else
+                        BlockInfo3(Set(curr_scope(nodeid)), Set.empty)
+                      acc + (block -> t)
+                    }
                   }
                 }
               }
             }
-          }
 
-          val res = binfo.map(b => {
-            val info = b._2
-            val id = rblock2level(b._1).treeid
-            if (id == 4)
-              println(info.childnodes.size)
-            val childstr = info.childnodes.map(n => {
-              val isroot = info.roots.contains(n.irdef)
-              emitPlainNode2(ir.id2tp(n.irdef), "cm", id, isroot)
-            }).toVector
+            if (switch == 1) {
 
-            val childids = info.childnodes.zipWithIndex.map(n => {
-              val (node, index) = n
-              val tp = ir.id2tp(node.irdef)
-              "cm" + tp.sym.id + id
-            }).toVector
-            val edges = for (i <- 0 until childids.size - 1) yield {
-              if (i == 5) "" else childids(i) + "->" + childids(i + 1) + "[style=invisible]"
+              val res = binfo.map(b => {
+                val info = b._2
+                val id = rblock2level(b._1).treeid
+                if (id == 4)
+                  println(info.childnodes.size)
+                val childstr = info.childnodes.map(n => {
+                  val isroot = info.roots.contains(n.irdef)
+                  emitPlainNode2(ir.id2tp(n.irdef), "cm", id, isroot)
+                }).toVector
+
+                val childids = info.childnodes.zipWithIndex.map(n => {
+                  val (node, index) = n
+                  val tp = ir.id2tp(node.irdef)
+                  "cm" + tp.sym.id + id
+                }).toVector
+                val edges = for (i <- 0 until childids.size - 1) yield {
+                  if (i == 5) "" else childids(i) + "->" + childids(i + 1) + "[style=invisible]"
+                }
+
+                /*val fill = for (i <- 0 until 10-childstr.size) yield  "node"+i+"a"+id+ "\n " + " [style=invisible]"
+              val fill2 = for (i <- 0 until 10-childstr.size-1) yield  "node"+i+"a"+id+ "-> node"+(i+1)+"a"+id*/
+                //.mkString("\n")
+                val full = childstr.mkString("\n") + "\n" + edges.mkString("\n") //+ fill.mkString("\n") + fill2.mkString("\n")
+                val str: String = "subgraph cluster_" + id + "{\n label = \"Levelid " + id + "\";\n" + full + "\n}"
+                str
+              })
+              res.toVector.mkString("\n")
+            } else {
+              val b = binfo.filter(b => rblock2level(b._1).treeid == 0).head
+
+                val info = b._2
+                val id = rblock2level(b._1).treeid
+                if (id == 4)
+                  println(info.childnodes.size)
+                val childstr = info.childnodes.map(n => {
+                  val isroot = info.roots.contains(n.irdef)
+                  emitPlainNode2(ir.id2tp(n.irdef), "cm",id, false)
+                }).toVector
+                val connections = info.childnodes.map(n => {
+                  n.successors.filter(p => info.children.contains(p)).map(s => "cm" + n.irdef + id + " -> " + "cm" + s + id ).mkString("\n")
+                }).toVector
+                childstr.mkString("\n") + "\n" + connections.mkString("\n") + "\ncm80 -> cm240\n"
             }
 
-            /*val fill = for (i <- 0 until 10-childstr.size) yield  "node"+i+"a"+id+ "\n " + " [style=invisible]"
-            val fill2 = for (i <- 0 until 10-childstr.size-1) yield  "node"+i+"a"+id+ "-> node"+(i+1)+"a"+id*/
-            //.mkString("\n")
-            val full = childstr.mkString("\n") + "\n" + edges.mkString("\n") //+ fill.mkString("\n") + fill2.mkString("\n")
-            val str: String = "subgraph cluster_" + id + "{\n label = \"Levelid " + id + "\";\n" + full + "\n}"
-            str
-          })
-          res.toVector.mkString("\n")
 
 
-        }
-
-        def emitNodeString(tp: ir.TP[_]): String = {
-          val nodestring: String = tp.rhs match {
-            case ir.ConstDef(x) => x.toString
-            case ir.ExternalLambda(f, x, y, hot, args, returns) => "EntryF"
-            case ir.InternalLambda(f, x, y, hot, a, r) => "InternalF"
-            case ir.RangeMap(s, e, b) => "Range"
-            case ir.myIfThenElse(c, t, e, b) => "IF"
-            case ir.ExpensiveF(x, y) => "ExpensiveF"
-            case ir.IntPlus(x, y) => "+"
-            case ir.IntTimes(x, y) => "*"
-            case ir.IntDivide(x, y) => " / "
-            case ir.OrderingLTEQ(x, y) => "<="
-            case ir.ArgDef(id) => "Function Argument" + id
-            case ir.IntMod(x, y) => "%"
-            case ir.ReturnArg(x, y, pos, tuple, last) => "ReturnTuple"
-            case _ => tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()
           }
-          nodestring
-        }
 
-        def emitActive(prefix: String): String = {
-          val active = if (successor == -1)
-            ("\n\"" + "root" + "\" -> \"" + prefix + n + "\" [color=yellow]\n")
-          else
-            ("\n\"" + prefix + successor + "\" -> \"" + prefix + n + "\" [color=yellow]\n")
-          active
-        }
+          def emitNodeString(tp: ir.TP[_]): String = {
+            val nodestring: String = tp.rhs match {
+              case ir.ConstDef(x) => x.toString
+              case ir.ExternalLambda(f, x, y, hot, args, returns) => "EntryF"
+              case ir.InternalLambda(f, x, y, hot, a, r) => "InternalF"
+              case ir.RangeMap(s, e, b) => "Range"
+              case ir.myIfThenElse(c, t, e, b) => "IF"
+              case ir.ExpensiveF(x, y) => "ExpensiveF"
+              case ir.IntPlus(x, y) => "+"
+              case ir.IntTimes(x, y) => "*"
+              case ir.IntDivide(x, y) => " / "
+              case ir.OrderingLTEQ(x, y) => "<="
+              case ir.ArgDef(id) => "Function Argument" + id
+              case ir.IntMod(x, y) => "%"
+              case ir.ReturnArg(x, y, pos, tuple, last) => "ReturnTuple"
+              case _ => tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()
+            }
+            nodestring
+          }
+
+          def emitActive(prefix: String): String = {
+            val active = if (successor == -1)
+              ("\n\"" + "root" + "\" -> \"" + prefix + n + "\" [color=yellow]\n")
+            else
+              ("\n\"" + prefix + successor + "\" -> \"" + prefix + n + "\" [color=yellow]\n")
+            active
+          }
 
 
-        {
-          //DCE
-          val nodes = ir.id2tp.map(ele => emitPlainNode(ele._2, "dce"))
-          val active = emitActive("dce")
-          val code = "digraph G {\n graph [bgcolor=\"#434343\"]\nnode [color=white]\nedge [color=white]\n;\n" + nodes.mkString("\n") + active + "\n}"
-          val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DCE" + graphnr + ".dot"))
-          stream.println(code)
-          stream.flush()
-          stream.close()
-        }
-        {
-          //Full CM
-          val nodes = ir.id2tp.map(ele => emitPlainNode(ele._2, "dce")).mkString("\n")
-          val active = emitActive("dce")
-          val node = emitCMNode()
-          val code = "digraph G {\n graph [bgcolor=\"#434343\"]\nnode [color=white, bgcolor=black]\nedge [color=white]\n;\n" + nodes + node + active + "\n}"
-          val stream = new java.io.PrintWriter(new java.io.FileOutputStream("CM" + graphnr + ".dot"))
-          stream.println(code)
-          stream.flush()
-          stream.close()
-          graphnr = graphnr + 1
-        }
+          {
+            //DCE
+            val nodes = ir.id2tp.map(ele => emitPlainNode(ele._2, "dce"))
+            val active = emitActive("dce")
+            val code = "digraph G {\n graph [bgcolor=\"#434343\"]\nnode [color=white]\nedge [color=white]\n;\n" + nodes.mkString("\n") + active + "\n}"
+            val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DCE" + graphnr + ".dot"))
+            stream.println(code)
+            stream.flush()
+            stream.close()
+          }
+          {
+            //Full CM
+            val nodes = ir.id2tp.map(ele => emitPlainNode(ele._2, "dce")).mkString("\n")
+            val active = emitActive("dce")
+            val node = emitCMNode(1)
+            val code = "digraph G {\n graph [bgcolor=\"#434343\"]\nnode [color=white, bgcolor=black]\nedge [color=white]\n;\n" + nodes + node + active + "\n}"
+            val stream = new java.io.PrintWriter(new java.io.FileOutputStream("CM" + graphnr + ".dot"))
+            stream.println(code)
+            stream.flush()
+            stream.close()
+            graphnr = graphnr + 1
+          }
 
+          {
+            //only level 0
+            val node = emitCMNode(2)
+            val code = "digraph G {\n graph [bgcolor=\"#434343\"]\nnode [color=white, bgcolor=black]\nedge [color=white]\n;\n" + node + "\n}"
+            val stream = new java.io.PrintWriter(new java.io.FileOutputStream("Choice.dot"))
+            stream.println(code)
+            stream.flush()
+            stream.close()
+          }
+
+
+        }
       }
     }
 
-
+    if (CodeMotion.plot) bla(fpmark)
 
     val (fpmarkcontain, rtparent, rtlevel, rbtwlevel) = if (fpmark.contains(n)) {
       //we hit that node already
@@ -506,7 +542,7 @@ trait CodeMotion {
     }       */
 
 
-    def backtrackit(cbacktrack: Set[(Int,Int)], cmark: Map[Int, Set[Int]]): Map[Int, Set[Int]] ={
+    def backtrackit(cbacktrack: Set[(Int, Int)], cmark: Map[Int, Set[Int]]): Map[Int, Set[Int]] = {
       @tailrec
       def traverse(nexts: Set[Int], done: Set[Int], mmark: Map[Int, Set[Int]], level: Int): Map[Int, Set[Int]] = {
         if (nexts.isEmpty)
@@ -514,31 +550,34 @@ trait CodeMotion {
         else {
           val n = nexts.head
           if (done.contains(n))
-            traverse(nexts.tail, done + n, mmark,level)
+            traverse(nexts.tail, done + n, mmark, level)
           else {
             val nodelevels = mmark(n)
             val nodelevel = nodelevels.filter(p => curr_level.allparents.contains(p))
             assert(nodelevel.size == 1, "we have it in more then one parent - should never happen")
             val nlevel = nodelevel.head
             if (nlevel > level) //its already at a lower level
-              traverse(nexts.tail, done + n, mmark,level)
+              traverse(nexts.tail, done + n, mmark, level)
             else {
               val nmark = mmark + (n -> (nodelevels - nlevel + level)) //update the level
               val suc = curr_scope(n).successors
-              traverse(nexts.tail ++ suc, done + n, nmark,level)
+              if (CodeMotion.plot) bla(nmark)
+              traverse(nexts.tail ++ suc, done + n, nmark, level)
             }
           }
         }
       }
 
-      val sort = cbacktrack.toVector.sortWith{ (a,b) => a._2 > b._2}
-      val t = sort.foldLeft(cmark){
-        (acc,ele) => {
-          val (id,level) = ele
+      val sort = cbacktrack.toVector.sortWith { (a, b) => a._2 > b._2 }
+      val t = sort.foldLeft(cmark) {
+        (acc, ele) => {
+          val (id, level) = ele
           val node = curr_scope(id)
-          traverse(node.successors, Set.empty,acc,level)
+          markit = id
+          traverse(node.successors, Set.empty, acc, level)
         }
       }
+      markit = -1
       t
     }
 
@@ -554,7 +593,7 @@ trait CodeMotion {
           // this node might have predecessors - but they are already done - and was the last predec. of its sucessor
           val nnext = nexts.dropRight(1)
           if (nnext.isEmpty) {
-            val nroots = backtrack.foldLeft(roots) { (acc,ele) => {
+            val nroots = backtrack.foldLeft(roots) { (acc, ele) => {
               val (id, level) = ele
               if (acc.contains(id)) {
                 val sofar = acc(id)
@@ -562,10 +601,11 @@ trait CodeMotion {
               }
               else
                 acc + (id -> Set(level))
-            }}
+            }
+            }
             if (nblocks_next.isEmpty) {
               //we are also done with all subgraphs - therefore we are done
-              RetTmp(backtrackit(backtrack,fpmark), curr_scope, rlevel2block, rblock2level, nroots, alllevels)
+              RetTmp(backtrackit(backtrack, fpmark), curr_scope, rlevel2block, rblock2level, nroots, alllevels)
             }
             else {
               //we recurse into a sub block
@@ -573,7 +613,7 @@ trait CodeMotion {
               val ids: Set[Int] = block.res.map(t => t.id).toSet
               val rnexts = Vector((-1, ids))
               val ntlevel = rlastcold(block)
-              visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack,fpmark), nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
+              visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack, fpmark), nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
             }
           }
           else {
@@ -592,7 +632,7 @@ trait CodeMotion {
             val nodewehitlevels = plevels.filter(p => curr_level.allparents.contains(p) || curr_level.treeid == p)
             assert(nodewehitlevels.size == 1, "how can we have more then one matching node between our targetlevel and our current level?")
             val nlevel = nodewehitlevels.head
-            val en: (Int,Int) = (n,nlevel)
+            val en: (Int, Int) = (n, nlevel)
             val rbacktrack = backtrack + en
             rbacktrack
           } else backtrack
@@ -609,7 +649,7 @@ trait CodeMotion {
             // this node might have predecessors - but they are already done - and was the last predec. of its sucessor
             val nnext = nexts.dropRight(1)
             if (nnext.isEmpty) {
-              val xroots = nbacktrack.foldLeft(nroots) { (acc,ele) => {
+              val xroots = nbacktrack.foldLeft(nroots) { (acc, ele) => {
                 val (id, level) = ele
                 if (acc.contains(id)) {
                   val sofar = acc(id)
@@ -617,10 +657,11 @@ trait CodeMotion {
                 }
                 else
                   acc + (id -> Set(level))
-              }}
+              }
+              }
               if (nblocks_next.isEmpty) {
                 //we are also done with all subgraphs - therefore we are done
-                RetTmp(backtrackit(nbacktrack,fpmark), curr_scope, rlevel2block, rblock2level, xroots, alllevels)
+                RetTmp(backtrackit(nbacktrack, fpmark), curr_scope, rlevel2block, rblock2level, xroots, alllevels)
               }
               else {
                 //we recurse into a sub block
@@ -628,7 +669,7 @@ trait CodeMotion {
                 val ids: Set[Int] = block.res.map(t => t.id).toSet
                 val rnexts = Vector((-1, ids))
                 val ntlevel = rlastcold(block)
-                visit_nested3(ntlevel, rblock2level(block), block, -1, block.res.head.id, rnexts, backtrackit(nbacktrack,fpmark), xroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
+                visit_nested3(ntlevel, rblock2level(block), block, -1, block.res.head.id, rnexts, backtrackit(nbacktrack, fpmark), xroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
               }
             }
             else {
@@ -664,7 +705,7 @@ trait CodeMotion {
           // this node has no predecessors - and was the last predec. of its sucessor (therefore a root)
           val nnext = nexts.dropRight(1)
           if (nnext.isEmpty) {
-            val xroots = backtrack.foldLeft(nroots) { (acc,ele) => {
+            val xroots = backtrack.foldLeft(nroots) { (acc, ele) => {
               val (id, level) = ele
               if (acc.contains(id)) {
                 val sofar = acc(id)
@@ -672,10 +713,11 @@ trait CodeMotion {
               }
               else
                 acc + (id -> Set(level))
-            }}
+            }
+            }
             if (nblocks_next.isEmpty) {
               //we are also done with all subgraphs - therefore we are done
-              RetTmp(backtrackit(backtrack,nfpmark), curr_scope, rlevel2block, rblock2level, xroots, alllevels)
+              RetTmp(backtrackit(backtrack, nfpmark), curr_scope, rlevel2block, rblock2level, xroots, alllevels)
             }
             else {
               //we recurse into a sub block
@@ -683,7 +725,7 @@ trait CodeMotion {
               val ids: Set[Int] = block.res.map(t => t.id).toSet
               val rnexts = Vector((-1, ids))
               val ntlevel = rlastcold(block)
-              visit_nested3(ntlevel, rblock2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack,nfpmark), xroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
+              visit_nested3(ntlevel, rblock2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack, nfpmark), xroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
             }
           }
           else {
@@ -745,9 +787,6 @@ trait CodeMotion {
     val binfo = r.pmark.foldLeft(empty) {
       (oacc, ele) => {
         val nodeid = ele._1
-        if (nodeid == 2) {
-          println("bla")
-        }
         val treeids = ele._2
         treeids.foldLeft(oacc) {
           (acc, treeid) => {
@@ -772,16 +811,15 @@ trait CodeMotion {
         }
       }
     }
-
-
-    val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DCE1000.bat"))
-    for (i <- 1000 until graphnr) {
-      stream.println("\"C:\\Program Files (x86)\\Graphviz 2.38\\bin\\dot.exe\" -Tpng DCE" + i + ".dot -o DCE" + i + ".png")
-      stream.println("\"C:\\Program Files (x86)\\Graphviz 2.38\\bin\\dot.exe\" -Tpng CM" + i + ".dot -o CM" + i + ".png")
+    if (CodeMotion.plot) {
+      val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DCE1000.bat"))
+      for (i <- 1000 until graphnr) {
+        stream.println("\"C:\\Program Files (x86)\\Graphviz 2.38\\bin\\dot.exe\" -Tpng DCE" + i + ".dot -o DCE" + i + ".png")
+        stream.println("\"C:\\Program Files (x86)\\Graphviz 2.38\\bin\\dot.exe\" -Tpng CM" + i + ".dot -o CM" + i + ".png")
+      }
+      stream.flush()
+      stream.close()
     }
-    stream.flush()
-    stream.close()
-
 
     /*val binfo = r.pmark.foldLeft(Map.empty[Block, BlockInfo3]) {
       (acc, ele) => {

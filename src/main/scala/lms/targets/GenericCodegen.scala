@@ -4,7 +4,7 @@ package targets
 import internal._
 import scala.reflect._
 
-trait GenericCodegen extends Emit[String]{
+trait GenericCodegen extends Emit[Vector[String]]{
   self =>
   val IR: BaseExp with FunctionsExp
   import IR._
@@ -12,13 +12,13 @@ trait GenericCodegen extends Emit[String]{
   def emitDataStructures(): String = {""}
 
 
-  override def emitc(start: String,
+  override def emitc(start: Vector[String],
                      it: Iterator[self.IR.TP[_]],
-                     block_callback: (self.IR.Block,String) => String ): String = {
+                     block_callback: (self.IR.Block,Vector[String]) => Vector[String] ): Vector[String] = {
     it.foldLeft(start){
       (acc,ele) => {
-        val t: String = emitNode(ele,acc,block_callback)
-        acc + t
+        val t: Vector[String] = emitNode(ele,acc,block_callback)
+        acc ++ t
       }
     }
   }
