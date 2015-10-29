@@ -1,25 +1,26 @@
 package scala.lms
 package internal
 
+import java.io.PrintWriter
 
 
+trait Emit[C] {
+  self =>
+  val IR: BaseExp with FunctionsExp
 
-trait Emit[C]{
- self =>
- val IR: BaseExp with FunctionsExp
 
-
- type specCM = CodeMotion {
+  type specCM = CodeMotion {
     val reifiedIR: ReificationPure {
       val IR: self.IR.type
     }}
 
-  type specEsc = ExposeScheduleChoice{ val cminfo: specCM }
+  type specEsc = ExposeScheduleChoice {val cminfo: specCM}
 
 
 
 
- def emitNode(tp: self.IR.TP[_], acc: C,
+
+  def emitNode(tp: self.IR.TP[_], acc: C,
               block_callback: (self.IR.Block,C) => C): C = {
   val ret: C = tp match{
    case _ => {
@@ -39,6 +40,8 @@ trait Emit[C]{
       }
     }
   }
+
+
 
 
   def emit[A,R]( start: C, f: Function1[A,R])(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]):
@@ -74,6 +77,10 @@ trait Emit[C]{
     println("finished iterating")
     (acc,exposedScheduleChoice)
   }
+
+
+
+
 
 }
 

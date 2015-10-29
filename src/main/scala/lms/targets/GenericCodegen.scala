@@ -1,6 +1,8 @@
 package scala.lms
 package targets
 
+import java.io.PrintWriter
+
 import internal._
 import scala.reflect._
 
@@ -22,6 +24,49 @@ trait GenericCodegen extends Emit[Vector[String]]{
       }
     }
   }
+
+  def emitStream(stream: PrintWriter, acc: Vector[String], it: Iterator[self.IR.TP[_]], block_callback: (self.IR.Block, Vector[String]) => Vector[String]): Unit = {
+    acc.map(stream.print(_))
+    it.map(ele => stream.print(emitNode(ele,acc,block_callback)))
+  }
+
+
+
+  def emit[A,R]( stream: PrintWriter, start: Vector[String], f: Function1[A,R])(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]):
+  (Vector[String], specEsc)
+  = {
+    val schedule = new Schedule {
+      override val IR: self.IR.type = self.IR
+    }
+    emit(schedule,start,f)(args,returns)
+  }
+
+  def emit[A,R]( stream: PrintWriter, schedule: Schedule{ val IR: self.IR.type},
+                 start: Vector[String],
+                 f: Function1[A,R])
+               (implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]): (Vector[String],specEsc)  = {
+    val reify = new ReifyPure {
+      override val IR: self.IR.type = self.IR
+    }
+    println("starting reify")
+    val reification = reify.reifyProgram(f)(args, returns)
+    println("starting codemotion")
+    val cm: specCM = CodeMotion(reification)
+    println("starting schedule")
+    val exposedScheduleChoice: specEsc = ExposeScheduleChoice(cm)
+    println("starting getting Iterator")
+    val iteratable = schedule.getSchedulewithIterator(exposedScheduleChoice)
+    def blockcallback (block: self.IR.Block, bstart: Vector[String]): Vector[String] = {
+      val bit = iteratable.iterator(block)
+      emitStream(stream,bstart,bit,blockcallback)
+      Vector.empty
+    }
+    println("starting iterating")
+    val acc = emitc(start,iteratable.iterator,blockcallback)
+    println("finished iterating")
+    (acc,exposedScheduleChoice)
+  }
+
 
   //
   def getBlockResults[A](s: Block): Vector[Exp[_]] = s.res

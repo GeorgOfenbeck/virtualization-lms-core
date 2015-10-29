@@ -15,15 +15,15 @@ trait ScalaCodegen extends GenericCodegen with Config {
   var className: String = ""
 
 
+
+
+
   def emitSource[A,R](
                       f: Function1[A,R],
                       className: String,
                       out: PrintWriter)(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]) = {
     self.className = className //RF!
-    /*if (emitString.IR == null)
-      assert(false, "wtf?")*/
-    val (source, esc) = self.emit(Vector.empty,f)(args, returns)
-    source.map(e => out.print(e))
+    val (source, esc) = self.emit(out,Vector.empty,f)(args, returns)
     out.flush()
     esc
   }
@@ -175,9 +175,11 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
   }
 
 
+
+
   override def emitNode(tp: self.IR.TP[_], acc: Vector[String],
                block_callback: (self.IR.Block,Vector[String]) => Vector[String]): Vector[String] = tp.rhs match {
-    case IR.ExternalLambda(f,x,y,hot,args,returns) => Vector({
+    case IR.ExternalLambda(f,x,y,hot,args,returns) => {
       val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
@@ -208,8 +210,8 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
             //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
             "\ndef apply( helper: ("+ argtuple +")): ("+returntuple+") = {\n" + helper + "\n"
 
-
-        val res = stringheader + block_callback(y,Vector.empty) +
+        val t1 = block_callback(y,Vector(stringheader))
+        val res =  t1 :+
           "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}" +
           "}" +
@@ -219,17 +221,17 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         res
       }
       else {
-          "val " + quote(tp) + ": " +
+           val t1 = "val " + quote(tp) + ": " +
           "("+ argtuple +") => (" + returntuple + ") = " +
-           "(helper: ("+ argtuple+")) =>{\n" + helper + "\n" +
-          block_callback(y,Vector.empty) +
-            "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
+           "(helper: ("+ argtuple+")) =>{\n" + helper + "\n"
+          val t2: Vector[String] = block_callback(y,Vector(t1))
+          val t3 =   "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}\n"
-
+        Vector(t1) ++ t2 :+ t3
         //emitValDef(tp,string)
         //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
       }
-    })
+    }
     case IR.InternalApply(f,arg) => Vector( {
       //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
       emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
