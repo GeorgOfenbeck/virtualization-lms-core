@@ -1,18 +1,18 @@
 package scala.lms.internal
-
-
 import org.scala_lang.virtualized.SourceContext
 
 trait Effects extends Functions with Blocks with Logging {
-
  // TODO: transform over Summary currently lives in common/Base.scala. move it here?
  // --- context
 
  type State = Vector[Exp[_]] // TODO: maybe use TP instead to save lookup
+/*
+
 
  var context: State = _
+*/
 
- var conditionalScope = false // used to construct Control nodes
+ //var conditionalScope = false // used to construct Control nodes
 
  // --- class defs
 
@@ -60,7 +60,7 @@ trait Effects extends Functions with Blocks with Logging {
 
 
 
- def infix_orElse(u: Summary, v: Summary) = new Summary(
+ def infix_orElse(u: Summary, v: Summary): Summary = new Summary(
   u.maySimple || v.maySimple, u.mstSimple && v.mstSimple,
   u.mayGlobal || v.mayGlobal, u.mstGlobal && v.mstGlobal,
   false, //u.resAlloc && v.resAlloc, <--- if/then/else will not be mutable!
@@ -69,7 +69,7 @@ trait Effects extends Functions with Blocks with Logging {
   (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite intersect v.mstWrite)
  )
 
- def infix_andAlso(u: Summary, v: Summary) = new Summary(
+ def infix_andAlso(u: Summary, v: Summary): Summary = new Summary(
   u.maySimple || v.maySimple, u.mstSimple || v.mstSimple,
   u.mayGlobal || v.mayGlobal, u.mstGlobal || v.mstGlobal,
   u.resAlloc || v.resAlloc,
@@ -78,7 +78,7 @@ trait Effects extends Functions with Blocks with Logging {
   (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite ++ v.mstWrite).distinct
  )
 
- def infix_andThen(u: Summary, v: Summary) = new Summary(
+ def infix_andThen(u: Summary, v: Summary): Summary = new Summary(
   u.maySimple || v.maySimple, u.mstSimple || v.mstSimple,
   u.mayGlobal || v.mayGlobal, u.mstGlobal || v.mstGlobal,
   v.resAlloc,
@@ -87,9 +87,9 @@ trait Effects extends Functions with Blocks with Logging {
   (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite ++ v.mstWrite).distinct
  )
 
- def infix_star(u: Summary) = Pure() orElse u // any number of repetitions, including 0
+ def infix_star(u: Summary): Summary = Pure() orElse u // any number of repetitions, including 0
 
- def infix_withoutControl(u: Summary) = new Summary(
+ def infix_withoutControl(u: Summary): Summary = new Summary(
   u.maySimple, u.mstSimple,
   u.mayGlobal, u.mstGlobal,
   u.resAlloc,
@@ -98,17 +98,13 @@ trait Effects extends Functions with Blocks with Logging {
   u.mayWrite, u.mstWrite
  )
 
- def summarizeEffects(e: Block) = e.res match {
-  //case Block(Vector(Def(Reify(_,u,_)))) => u
+ def summarizeEffects(e: Block): Summary = e.res match {
   case Vector(Def(Reify(_,u,_))) => u //RF: correct me after the block change
   case _ => Pure()
  }
 
-
-
  // --- reflect helpers
-
- def controlDep(x: Exp[Any]) = x match {
+ def controlDep(x: Exp[_]): Boolean = x match {
   case Def(Reflect(y,u,es)) if u == Control() => true
   case _ => false
  }
@@ -118,7 +114,7 @@ trait Effects extends Functions with Blocks with Logging {
   import scala.collection.mutable
   // es.filterNot(controlDep).flatMap(syms)
   val out = new mutable.ListBuffer[R]
-  var it = es.iterator
+  val it = es.iterator
   while (it.hasNext) {
    val e = it.next()
    if (!controlDep(e)) out ++= ss(e)
@@ -128,7 +124,6 @@ trait Effects extends Functions with Blocks with Logging {
 
  override def syms(e: Any): Vector[Exp[_]] = e match {
   case s: Summary => Vector.empty // don't count effect summaries as dependencies!
-
   // enable DCE of reflect nodes if they are only control dependencies
   case Reflect(x,u,es) if addControlDeps => syms(x) ++ nonControlSyms(es, syms)
   case Reify(x,u,es) if addControlDeps => syms(x) ++ nonControlSyms(es, syms)
@@ -142,7 +137,6 @@ trait Effects extends Functions with Blocks with Logging {
 
  override def symsFreq(e: Any): Vector[(Exp[_], Double)] = e match {
   case s: Summary => Vector.empty // don't count effect summaries as dependencies!
-
   // enable DCE of reflect nodes if they are only control dependencies
   case Reflect(x,u,es) if addControlDeps => symsFreq(x) ++ nonControlSyms(es, symsFreq)
   case Reify(x,u,es) if addControlDeps => symsFreq(x) ++ nonControlSyms(es, symsFreq)
@@ -150,7 +144,7 @@ trait Effects extends Functions with Blocks with Logging {
  }
 
  override def effectSyms(x: Any): Vector[Exp[_]] = x match {
-  case Def(Reify(y, u, es)) => es.asInstanceOf[Vector[Exp[_]]]
+  case Def(Reify(y, u, es)) => es
   case _ => super.effectSyms(x)
  }
 
@@ -366,13 +360,13 @@ trait Effects extends Functions with Blocks with Logging {
     // specifically, if we return the reified version of a mutable bound var, we get a Reflect(Reify(..)) error, e.g. mutable Sum
     // printlog("ignoring read of Reify(): " + d)
     super.toAtom(d)
-   case _ if conditionalScope && addControlDeps => reflectEffect(d, Control())
+   //case _ if conditionalScope && addControlDeps => reflectEffect(d, Control()) //GO: RF!
    case _ => reflectEffect(d, Pure())
   }
   // reflectEffect(d, Pure())
  }
 
- def reflectMirrored[A:Manifest](zd: Reflect[A])(implicit pos: SourceContext): Exp[A] = {
+ def reflectMirrored[A:Manifest](zd: Reflect[A])(implicit pos: SourceContext): Exp[A] = ??? /*{
   checkContext()
   // warn if type is Any. TODO: make optional, sometimes Exp[Any] is fine
   if (manifest[A] == manifest[Any]) printlog("warning: possible missing mtype call - reflectMirrored with Def of type Any: " + zd)
@@ -380,9 +374,9 @@ trait Effects extends Functions with Blocks with Logging {
    //case z::_ => z.asInstanceOf[Exp[A]]  -- unsafe: we don't have a tight context, so we might pick one from a flattened subcontext
    case _ => createReflectDefinition(fresh[A].withPos(Vector(pos)), zd)
   }
- }
+ }*/
 
- def checkIllegalSharing(z: Exp[Any], mutableAliases: Vector[Exp[_]]) {
+ def checkIllegalSharing(z: Exp[_], mutableAliases: Vector[Exp[_]]) {
   if (mutableAliases.nonEmpty) {
    val zd = z match { case Def(zd) => zd }
    printerr("error: illegal sharing of mutable objects " + mutableAliases.mkString(", "))
@@ -407,15 +401,14 @@ trait Effects extends Functions with Blocks with Logging {
   s
  }
 
- def reflectMutable[A:Manifest](d: Def[A])(implicit pos: SourceContext): Exp[A] = {
+ def reflectMutable[A:Manifest](d: Def[A])(implicit pos: SourceContext): Exp[A] = ??? /*{
   val z = reflectEffect(d, Alloc())
-
   val mutableAliases = mutableTransitiveAliases(d)
   checkIllegalSharing(z, mutableAliases)
   z
- }
+ }*/
 
- def reflectWrite[A:Manifest](write0: Exp[Any]*)(d: Def[A])(implicit pos: SourceContext): Exp[A] = {
+ def reflectWrite[A:Manifest](write0: Exp[Any]*)(d: Def[A])(implicit pos: SourceContext): Exp[A] = ???/*{
   val write = write0.toVector.asInstanceOf[Vector[Exp[_]]] // should check...
 
   val z = reflectEffect(d, Write(write))
@@ -423,17 +416,17 @@ trait Effects extends Functions with Blocks with Logging {
   val mutableAliases = mutableTransitiveAliases(d) filterNot (write contains _)
   checkIllegalSharing(z, mutableAliases)
   z
- }
+ }*/
 
- def reflectEffect[A:TypeRep](x: Def[A])(implicit pos: SourceContext): Exp[A] = reflectEffect(x, Simple()) // simple effect (serialized with respect to other simples)
+ def reflectEffect[A:TypeRep](x: Def[A])(implicit pos: SourceContext): Exp[A] = ??? // reflectEffect(x, Simple()) // simple effect (serialized with respect to other simples)
 
- def reflectEffect[A:TypeRep](d: Def[A], u: Summary)(implicit pos: SourceContext): Exp[A] = {
+ def reflectEffect[A:TypeRep](d: Def[A], u: Summary)(implicit pos: SourceContext): Exp[A] = ??? /*{
   // are we depending on a variable? then we need to be serialized -> effect
   val mutableInputs = readMutableData(d)
   reflectEffectInternal(d, u andAlso Read(mutableInputs)) // will call super.toAtom if mutableInput.isEmpty
- }
+ }*/
 
- def reflectEffectInternal[A:TypeRep](x: Def[A], u: Summary)(implicit pos: SourceContext): Exp[A] = {
+ /*def reflectEffectInternal[A:TypeRep](x: Def[A], u: Summary)(implicit pos: SourceContext): Exp[A] = {
   if (mustPure(u)) super.toAtom(x) else {
    checkContext()
    // NOTE: reflecting mutable stuff *during mirroring* doesn't work right now.
@@ -486,12 +479,15 @@ trait Effects extends Functions with Blocks with Logging {
     createReflectDefinition(z, zd)
    }
   }
- }
+ }*/
 
  def calculateDependencies(u: Summary): State = {
-  checkContext();
-  calculateDependencies(context, u, true)
+/*  checkContext();
+  calculateDependencies(context, u, true)*/
+  ???
  }
+
+
  def calculateDependencies(scope: State, u: Summary, mayPrune: Boolean): State = {
   if (u.mayGlobal) scope else {
    val read = u.mayRead
@@ -523,7 +519,7 @@ trait Effects extends Functions with Blocks with Logging {
  }
 
  def createReflectDefinition[A](s: Exp[A], x: Reflect[A])(implicit tag: TypeRep[A]): Exp[A] = {
-  x match {
+  /*x match {
    case Reflect(Reify(_,_,_),_,_) =>
     printerr("error: reflecting a reify node.")
     printerr("at " + s + "=" + x)
@@ -532,12 +528,14 @@ trait Effects extends Functions with Blocks with Logging {
   }
   createDefinition(s, x)(tag)
   context :+= s
-  s
+  s*/
+  ???
  }
 
  def checkContext() {
-  if (context == null)
-   sys.error("uninitialized effect context: effectful statements may only be used within a reifyEffects { .. } block")
+  ???
+  /*if (context == null)
+   sys.error("uninitialized effect context: effectful statements may only be used within a reifyEffects { .. } block")*/
  }
 
 
@@ -560,34 +558,23 @@ trait Effects extends Functions with Blocks with Logging {
   u
  }
 
- def pruneContext(ctx: Vector[Exp[_]]): Vector[Exp[_]] = ctx // TODO this doesn't work yet (because of loops!): filterNot { case Def(Reflect(_,u,_)) => mustOnlyRead(u) }
+ def pruneContext(ctx: Vector[Exp[_]]): Vector[Exp[_]] = ??? // ctx // TODO this doesn't work yet (because of loops!): filterNot { case Def(Reflect(_,u,_)) => mustOnlyRead(u) }
 
  // reify the effects of an isolated block.
  // no assumptions about the current context remain valid.
  def reifyEffects[A:Manifest](block: => Exp[A], controlScope: Boolean = false): Block = {
-  val save = context
-  context = Vector.empty
-
-  // only add control dependencies scopes where controlScope is explicitly true (i.e., the first-level of an IfThenElse)
-  val saveControl = conditionalScope
-  conditionalScope = controlScope
-
   val (result, defs) = reifySubGraph(block)
   reflectSubGraph(defs)
-
-  conditionalScope = saveControl
-
-  val deps = context
+  val deps: Vector[Exp[_]] = ???  //this should be all expressions that got created during reify and reflect
   val summary = summarizeAll(deps)
-  context = save
-
   if (deps.isEmpty && mustPure(summary)) Block(Vector(result)) else Block(Vector(Reify(result, summary, pruneContext(deps)))) // calls toAtom...
  }
 
  // reify the effects of a block that is executed 'here' (if it is executed at all).
  // all assumptions about the current context carry over unchanged.
  def reifyEffectsHere[A:TypeRep](block: => Exp[A], controlScope: Boolean = false): Block = {
-  val save = context
+  ???
+  /*val save = context
   if (save eq null)
    context = Vector.empty
 
@@ -607,7 +594,7 @@ trait Effects extends Functions with Blocks with Logging {
   val summary = summarizeAll(deps)
   context = save
 
-  if (deps.isEmpty && mustPure(summary)) Block(Vector(result)) else Block(Vector(Reify(result, summary, pruneContext(deps)))) // calls toAtom...
+  if (deps.isEmpty && mustPure(summary)) Block(Vector(result)) else Block(Vector(Reify(result, summary, pruneContext(deps)))) // calls toAtom...*/
  }
 
  // --- bookkeping
@@ -617,7 +604,6 @@ trait Effects extends Functions with Blocks with Logging {
   deepAliasCache.clear()
   allAliasCache.clear()
   globalMutableSyms = Vector.empty
-  context = null
   super.reset
  }
 

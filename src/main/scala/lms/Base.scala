@@ -74,5 +74,35 @@ trait BaseExp extends Base with Functions with Blocks { //with Effects{
   val vec2t: Vector[Exp[_]] => Exp[T] = (v: Vector[Exp[_]]) => v.head.asInstanceOf[Exp[T]] //TODO: Horrible cast - get rid of it
   val t2vec: Exp[T] => Vector[Exp[T]] = (x: Rep[T]) => Vector(x)
  }
-
 }
+
+
+
+trait EffectExp extends BaseExp with Effects {
+  /*def mapOver(t: Transformer, u: Summary) = { // TODO: move to effects class?
+  u.copy(mayRead = t.onlySyms(u.mayRead), mstRead = t.onlySyms(u.mstRead),
+   mayWrite = t.onlySyms(u.mayWrite), mstWrite = t.onlySyms(u.mstWrite))
+ }
+
+ override def mirrorDef[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Def[A] = e match {
+  case Reflect(x, u, es) => Reflect(mirrorDef(x,f), mapOver(f,u), f(es))
+  case Reify(x, u, es) => Reify(f(x), mapOver(f,u), f(es))
+  case _ => super.mirrorDef(e,f)
+ }
+
+ override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = e match {
+  /*
+      case Reflect(x, u, es) =>
+        reifyEffects {
+          context = f(es)
+          mirror(x)
+        }
+
+  */
+  //    case Reflect(Print(x), u, es) => Reflect(Print(f(x)), es map (e => f(e)))
+  case Reflect(x, u, es) => reflectMirrored(mirrorDef(e,f).asInstanceOf[Reflect[A]])
+  case Reify(x, u, es) => Reify(f(x), mapOver(f,u), f(es)) //TODO: u
+  case _ => super.mirror(e,f)
+ }*/
+}
+
