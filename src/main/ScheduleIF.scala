@@ -94,6 +94,12 @@ object ScheduleIF extends App {
   while (time < 60)
 
   Timings.map(t => println(t._1 + "  " + t._2))
+
+  val t = Vector(1,2,3)
+  val t1 = Vector(3,4,5)
+
+  val t2 = t ++ t1
+
 }
 
 

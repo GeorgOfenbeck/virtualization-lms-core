@@ -77,21 +77,23 @@ trait ArrayOpsExp extends ArrayOps with EffectExp {
   def array_obj_new[T:Manifest](n: Exp[Int]) = reflectMutable(ArrayNew(n))
   def array_obj_fromseq[T:Manifest](xs: Seq[Exp[T]]) = /*reflectMutable(*/ ArrayFromSeq(xs) /*)*/
   def array_apply[T:Manifest](x: Exp[Array[T]], n: Exp[Int])(implicit pos: SourceContext): Exp[T] = ArrayApply(x, n)
-  def array_update[T:Manifest](x: Exp[Array[T]], n: Exp[Int], y: Exp[T])(implicit pos: SourceContext) = reflectWrite(x)(ArrayUpdate(x,n,y))
+  def array_update[T:Manifest](x: Exp[Array[T]], n: Exp[Int], y: Exp[T])(implicit pos: SourceContext) =  ??? //reflectWrite(x)(ArrayUpdate(x,n,y))
   def array_unsafe_update[T:Manifest](x: Rep[Array[T]], n: Rep[Int], y: Rep[T])(implicit pos: SourceContext) = ArrayUpdate(x,n,y)
   def array_length[T:Manifest](a: Exp[Array[T]])(implicit pos: SourceContext) : Rep[Int] = ArrayLength(a)
   def array_foreach[T:Manifest](a: Exp[Array[T]], block: Exp[T] => Exp[Unit])(implicit pos: SourceContext): Exp[Unit] = {
-    val x = fresh[T]
+    ???
+   /* val x = fresh[T]
     val b = reifyEffects(block(x))
-    reflectEffect(ArrayForeach(a, x, b), summarizeEffects(b).star)
+    reflectEffect(ArrayForeach(a, x, b), summarizeEffects(b).star)*/
   }
-  def array_copy[T:Manifest](src: Exp[Array[T]], srcPos: Exp[Int], dest: Exp[Array[T]], destPos: Exp[Int], len: Exp[Int])(implicit pos: SourceContext) = reflectWrite(dest)(ArrayCopy(src,srcPos,dest,destPos,len))
+  def array_copy[T:Manifest](src: Exp[Array[T]], srcPos: Exp[Int], dest: Exp[Array[T]], destPos: Exp[Int], len: Exp[Int])(implicit pos: SourceContext) = ??? //reflectWrite(dest)(ArrayCopy(src,srcPos,dest,destPos,len))
   def array_unsafe_copy[T:Manifest](src: Exp[Array[T]], srcPos: Exp[Int], dest: Exp[Array[T]], destPos: Exp[Int], len: Exp[Int])(implicit pos: SourceContext) = ArrayCopy(src,srcPos,dest,destPos,len)
   def array_sort[T:Manifest](x: Exp[Array[T]])(implicit pos: SourceContext) = ArraySort(x)
   def array_map[A:Manifest,B:Manifest](a: Exp[Array[A]], f: Exp[A] => Exp[B]) = {
-    val x = fresh[A]
+    ???
+/*    val x = fresh[A]
     val b = reifyEffects(f(x))
-    reflectEffect(ArrayMap(a, x, b), summarizeEffects(b))
+    reflectEffect(ArrayMap(a, x, b), summarizeEffects(b))*/
   }
   def array_toseq[A:Manifest](a: Exp[Array[A]]) = ArrayToSeq(a)
   def array_slice[A:Manifest](a: Rep[Array[A]], start:Rep[Int], end:Rep[Int]) = ArraySlice(a,start,end)

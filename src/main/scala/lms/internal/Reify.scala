@@ -79,3 +79,70 @@ trait ReifyPure{
   immutable_out
  }
 }
+
+
+
+trait Reification extends ReificationPure{
+ val IR: BaseExp with FunctionsExp
+ val sym2tp: Map[IR.Exp[_], IR.TP[_]]
+ val def2tp: Map[IR.Def[_], IR.TP[_]]
+ val id2tp: Map[Int, IR.TP[_]]
+ val rootlambda: IR.AbstractLambda[_,_]
+ val block2tps: Map[IR.Block, Vector[IR.TP[_]]]
+
+ object Const {
+  def unapply[T](e: IR.Exp[T]): Option[IR.ConstDef[T]] = {
+   val tp = sym2tp(e)
+   tp.rhs match {
+    case d@IR.ConstDef(x) => Some(d.asInstanceOf[IR.ConstDef[T]]) //TODO - get rid of type cast
+    case _ => None
+   }
+  }
+ }
+
+ object Arg {
+  def unapply[T](e: IR.Exp[T]): Option[IR.ArgDef[T]] = {
+   val tp = sym2tp(e)
+   tp.rhs match {
+    case d@IR.ArgDef(id) => Some(d.asInstanceOf[IR.ArgDef[T]]) //TODO - get rid of type cast
+    case _ => None
+   }
+  }
+ }
+}
+
+
+trait Reify extends ReifyPure{
+ self =>
+ val IR: BaseExp with FunctionsExp
+ import IR._
+
+ def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): Reification{ val IR: self.IR.type} = {
+  IR.reset()
+  val lambda = IR.fun(f, false)
+  val lambdatp: IR.TP[_] = IR.exp2tp(lambda.exp)
+  reifyProgramfromLambda(lambdatp)
+ }
+
+ def reifyProgramfromLambda(lambdatp: TP[_]): Reification{ val IR: self.IR.type} = {
+  //val tp = exp2tp(lambda)
+  val lam: AbstractLambda[_,_] = lambdatp.rhs match{
+   case x@InternalLambda(_,_,block,_,_,_) => x
+   case x@ExternalLambda(_,_,block,_,_,_) => x
+   case _ => {
+    assert(false, "This should not be possible")
+    ???
+   }
+  }
+
+  val immutable_out = new Reification {
+   val IR: self.IR.type = self.IR
+   val sym2tp: Map[IR.Exp[_], IR.TP[_]] = self.IR.exp2tp
+   val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
+   val id2tp: Map[Int,IR.TP[_]] = self.IR.id2tp
+   val block2tps: Map[Block,Vector[IR.TP[_]]] = self.IR.block2tps
+   val rootlambda = lam
+  }
+  immutable_out
+ }
+}

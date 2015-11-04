@@ -5,7 +5,6 @@
  * Time: 10:16 
  */
 object Srsly extends App{
-
  val iter = 10000
 
  {

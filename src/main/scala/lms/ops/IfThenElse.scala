@@ -91,14 +91,15 @@ trait IfThenElseExp extends IfThenElse with BaseExp with Effects {
 
   override def __ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])
                                       (implicit pos: SourceContext) = {
-    val a = reifyEffectsHere(thenp)
+    /*val a = reifyEffectsHere(thenp)
     val b = reifyEffectsHere(elsep)
-    ifThenElse(cond,a,b)
+    ifThenElse(cond,a,b)*/
+    ???
   }
 
   def ifThenElse[T:TypeRep](cond: Rep[Boolean], thenp: Block, elsep: Block)(implicit pos: SourceContext) = {
-    val ae = summarizeEffects(thenp)
-    val be = summarizeEffects(elsep)
+    /*val ae = summarizeEffects(thenp)
+    val be = summarizeEffects(elsep)*/
     
     // TODO: make a decision whether we should call reflect or reflectInternal.
     // the former will look for any read mutable effects in addition to the passed
