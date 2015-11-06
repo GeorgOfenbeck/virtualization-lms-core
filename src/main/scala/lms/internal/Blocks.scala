@@ -2,9 +2,9 @@ package scala.lms
 package internal
 
 
-trait Blocks extends Expressions {
+trait Blocks extends Expressions with EffectSummary{
 
-  class Block(val res: Vector[Exp[_]])
+  class Block(val res: Vector[Exp[_]], summary: Option[Summary], effects: Vector[Exp[_]])
 
   var block2tps: Map[Block, Vector[TP[_]]] = Map.empty
   private var blocktpbuffer: Vector[Vector[TP[_]]] = Vector.empty
@@ -12,7 +12,13 @@ trait Blocks extends Expressions {
   object Block {
     def apply(dres: => Vector[Exp[_]]): Block = {
       addBlockTPBuffer()
-      val block = new Block(dres)
+      val block = new Block(dres, None, Vector.empty)
+      block2tps = block2tps + (block -> getBlockTPBuffer())
+      block
+    }
+    def apply(dres: => Vector[Exp[_]],summary: Summary, effects: Vector[Exp[_]] ): Block = {
+      addBlockTPBuffer()
+      val block = new Block(dres, Some(summary), effects)
       block2tps = block2tps + (block -> getBlockTPBuffer())
       block
     }

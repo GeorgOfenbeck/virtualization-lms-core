@@ -32,7 +32,7 @@ trait IfThenElsePureExp extends IfThenElse with BaseExp with FunctionsExp{
     val elselambda = doInternalLambda(elsef, false)
 
     val newsyms = branch.freshExps()
-    val block = new Block(newsyms)
+    val block = Block(newsyms)
     val ifthenelsenode = myIfThenElse(cond, thenlambda.exp, elselambda.exp,branch)
     val ifthenelseexp = toAtom(ifthenelsenode)
 

@@ -89,9 +89,7 @@ trait Expressions extends TypeRepBase with Logging{
       e.pos.reverse.map(c => all(c).reverse.map(c => c.fileName.split("/").last + ":" + c.line).mkString("//")).mkString(";")
     }
   }
-
-
-  var exp2tp: Map[Exp[_], TP[_]] = Map.empty
+ var exp2tp: Map[Exp[_], TP[_]] = Map.empty
  var def2tp: Map[Def[_], TP[_]] = Map.empty
  var id2tp: Map[Int, TP[_]] = Map.empty
 

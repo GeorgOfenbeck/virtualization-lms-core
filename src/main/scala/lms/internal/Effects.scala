@@ -2,94 +2,103 @@ package scala.lms.internal
 import org.scala_lang.virtualized.SourceContext
 import scala.collection.mutable
 
+trait EffectSummary extends Expressions{
+
+  case class Summary(
+                      val maySimple: Boolean,
+                      val mstSimple: Boolean,
+                      val mayGlobal: Boolean,
+                      val mstGlobal: Boolean,
+                      val resAlloc: Boolean,
+                      val control: Boolean,
+                      val mayRead: Vector[Exp[_]],
+                      val mstRead: Vector[Exp[_]],
+                      val mayWrite: Vector[Exp[_]],
+                      val mstWrite: Vector[Exp[_]]) {
+
+    def orElse(v: Summary) = infix_orElse(this, v)
+    def andAlso(v: Summary) = infix_andAlso(this, v)
+    def andThen(v: Summary) = infix_andThen(this, v)
+    def star = infix_star(this)
+    def withoutControl = infix_withoutControl(this)
+  }
+
+
+  def infix_orElse(u: Summary, v: Summary): Summary = new Summary(
+    u.maySimple || v.maySimple, u.mstSimple && v.mstSimple,
+    u.mayGlobal || v.mayGlobal, u.mstGlobal && v.mstGlobal,
+    false, //u.resAlloc && v.resAlloc, <--- if/then/else will not be mutable!
+    u.control || v.control,
+    (u.mayRead ++ v.mayRead).distinct, (u.mstRead intersect v.mstRead),
+    (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite intersect v.mstWrite)
+  )
+
+  def infix_andAlso(u: Summary, v: Summary): Summary = new Summary(
+    u.maySimple || v.maySimple, u.mstSimple || v.mstSimple,
+    u.mayGlobal || v.mayGlobal, u.mstGlobal || v.mstGlobal,
+    u.resAlloc || v.resAlloc,
+    u.control || v.control,
+    (u.mayRead ++ v.mayRead).distinct, (u.mstRead ++ v.mstRead).distinct,
+    (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite ++ v.mstWrite).distinct
+  )
+
+  def infix_andThen(u: Summary, v: Summary): Summary = new Summary(
+    u.maySimple || v.maySimple, u.mstSimple || v.mstSimple,
+    u.mayGlobal || v.mayGlobal, u.mstGlobal || v.mstGlobal,
+    v.resAlloc,
+    u.control || v.control,
+    (u.mayRead ++ v.mayRead).distinct, (u.mstRead ++ v.mstRead).distinct,
+    (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite ++ v.mstWrite).distinct
+  )
+
+  def infix_star(u: Summary): Summary = Pure() orElse u // any number of repetitions, including 0
+
+  def infix_withoutControl(u: Summary): Summary = new Summary(
+    u.maySimple, u.mstSimple,
+    u.mayGlobal, u.mstGlobal,
+    u.resAlloc,
+    false,
+    u.mayRead, u.mstRead,
+    u.mayWrite, u.mstWrite
+  )
+
+  def Pure() = new Summary(false,false,false,false,false,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
+  def Simple() = new Summary(true,true,false,false,false,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
+  def Global() = new Summary(false,false,true,true,false,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
+  def Alloc() = new Summary(false,false,false,false,true,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
+  def Control() = new Summary(false,false,false,false,false,true,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
+
+  def Read(v: Vector[Exp[_]]) = new Summary(false,false,false,false,false,false,v.distinct,v.distinct,Vector.empty,Vector.empty)
+  def Write(v: Vector[Exp[_]]) = new Summary(false,false,false,false,false,false,Vector.empty,Vector.empty,v.distinct,v.distinct)
+
+  def mayRead(u: Summary, a: Vector[Exp[_]]): Boolean = u.mayGlobal || a.exists(u.mayRead contains _)
+  def mayWrite(u: Summary, a: Vector[Exp[_]]): Boolean = u.mayGlobal || a.exists(u.mayWrite contains _)
+  def maySimple(u: Summary): Boolean = u.mayGlobal || u.maySimple
+
+  def mustMutable(u: Summary): Boolean = u.resAlloc
+  def mustPure(u: Summary): Boolean = u == Pure()
+  def mustOnlyRead(u: Summary): Boolean = u == Pure().copy(mayRead=u.mayRead, mstRead=u.mstRead) // only reads allowed
+  def mustIdempotent(u: Summary): Boolean = mustOnlyRead(u) // currently only reads are treated as idempotent
+}
+
+
 trait Effects extends Functions with Blocks with Logging {
 
 
- var context: State = _
- type State = Vector[Exp[_]] // TODO: maybe use TP instead to save lookup
+
+
+ type State = Vector[(Exp[_],Reflect[_])] // TODO: maybe use TP instead to save lookup
+ var context: State = Vector.empty
+
 
  // --- class defs
 
  case class Reflect[+A](x:Def[A], summary: Summary, deps: Vector[Exp[_]]) extends Def[A]
- case class Reify[A](x: Exp[A], summary: Summary, effects: Vector[Exp[_]]) extends Def[A]
+
+ //case class Reify(x: Vector[Exp[_]], summary: Summary, effects: Vector[Exp[_]]) extends Def[Any]
 
  // --- summary
 
- case class Summary(
-                     val maySimple: Boolean,
-                     val mstSimple: Boolean,
-                     val mayGlobal: Boolean,
-                     val mstGlobal: Boolean,
-                     val resAlloc: Boolean,
-                     val control: Boolean,
-                     val mayRead: Vector[Exp[_]],
-                     val mstRead: Vector[Exp[_]],
-                     val mayWrite: Vector[Exp[_]],
-                     val mstWrite: Vector[Exp[_]]) {
-
-  def orElse(v: Summary) = infix_orElse(this, v)
-  def andAlso(v: Summary) = infix_andAlso(this, v)
-  def andThen(v: Summary) = infix_andThen(this, v)
-  def star = infix_star(this)
-  def withoutControl = infix_withoutControl(this)
- }
-
-
- def infix_orElse(u: Summary, v: Summary): Summary = new Summary(
-  u.maySimple || v.maySimple, u.mstSimple && v.mstSimple,
-  u.mayGlobal || v.mayGlobal, u.mstGlobal && v.mstGlobal,
-  false, //u.resAlloc && v.resAlloc, <--- if/then/else will not be mutable!
-  u.control || v.control,
-  (u.mayRead ++ v.mayRead).distinct, (u.mstRead intersect v.mstRead),
-  (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite intersect v.mstWrite)
- )
-
- def infix_andAlso(u: Summary, v: Summary): Summary = new Summary(
-  u.maySimple || v.maySimple, u.mstSimple || v.mstSimple,
-  u.mayGlobal || v.mayGlobal, u.mstGlobal || v.mstGlobal,
-  u.resAlloc || v.resAlloc,
-  u.control || v.control,
-  (u.mayRead ++ v.mayRead).distinct, (u.mstRead ++ v.mstRead).distinct,
-  (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite ++ v.mstWrite).distinct
- )
-
- def infix_andThen(u: Summary, v: Summary): Summary = new Summary(
-  u.maySimple || v.maySimple, u.mstSimple || v.mstSimple,
-  u.mayGlobal || v.mayGlobal, u.mstGlobal || v.mstGlobal,
-  v.resAlloc,
-  u.control || v.control,
-  (u.mayRead ++ v.mayRead).distinct, (u.mstRead ++ v.mstRead).distinct,
-  (u.mayWrite ++ v.mayWrite).distinct, (u.mstWrite ++ v.mstWrite).distinct
- )
-
- def infix_star(u: Summary): Summary = Pure() orElse u // any number of repetitions, including 0
-
- def infix_withoutControl(u: Summary): Summary = new Summary(
-  u.maySimple, u.mstSimple,
-  u.mayGlobal, u.mstGlobal,
-  u.resAlloc,
-  false,
-  u.mayRead, u.mstRead,
-  u.mayWrite, u.mstWrite
- )
-
- def Pure() = new Summary(false,false,false,false,false,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
- def Simple() = new Summary(true,true,false,false,false,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
- def Global() = new Summary(false,false,true,true,false,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
- def Alloc() = new Summary(false,false,false,false,true,false,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
- def Control() = new Summary(false,false,false,false,false,true,Vector.empty,Vector.empty,Vector.empty,Vector.empty)
-
- def Read(v: Vector[Exp[_]]) = new Summary(false,false,false,false,false,false,v.distinct,v.distinct,Vector.empty,Vector.empty)
- def Write(v: Vector[Exp[_]]) = new Summary(false,false,false,false,false,false,Vector.empty,Vector.empty,v.distinct,v.distinct)
-
- def mayRead(u: Summary, a: Vector[Exp[_]]): Boolean = u.mayGlobal || a.exists(u.mayRead contains _)
- def mayWrite(u: Summary, a: Vector[Exp[_]]): Boolean = u.mayGlobal || a.exists(u.mayWrite contains _)
- def maySimple(u: Summary): Boolean = u.mayGlobal || u.maySimple
-
- def mustMutable(u: Summary): Boolean = u.resAlloc
- def mustPure(u: Summary): Boolean = u == Pure()
- def mustOnlyRead(u: Summary): Boolean = u == Pure().copy(mayRead=u.mayRead, mstRead=u.mstRead) // only reads allowed
- def mustIdempotent(u: Summary): Boolean = mustOnlyRead(u) // currently only reads are treated as idempotent
 
 
  def reflectMutable[A:Manifest](d: Def[A])(implicit pos: SourceContext): Exp[A] = {
@@ -141,6 +150,8 @@ trait Effects extends Functions with Blocks with Logging {
   (alias ++ copy ++ contain).distinct
  }
 
+  def pruneContext(ctx: Vector[Exp[_]]) = ctx // TODO this doesn't work yet (because of loops!): filterNot { case Def(Reflect(_,u,_)) => mustOnlyRead(u) }
+
 
  def calculateDependencies(u: Summary): State = calculateDependencies(context, u, true)
 
@@ -154,18 +165,28 @@ trait Effects extends Functions with Blocks with Logging {
    // For simple effects, take the last one (implemented).
    // For mutations, take the last write to a particular mutable sym (TODO).
 
-   def canonic(xs: Vector[Exp[_]]) = xs // TODO
-   def canonicLinear(xs: Vector[Exp[_]]) = if (mayPrune) xs.takeRight(1) else xs
+   def canonic(xs: State) = xs // TODO
+   def canonicLinear(xs: State) = if (mayPrune) xs.takeRight(1) else xs
 
    // the mayPrune flag is for test8-speculative4: with pruning on, the 'previous iteration'
    // dummy is moved out of the loop. this is not per se a problem -- need to look some more into it.
 
-   val readDeps = if (read.isEmpty) Vector.empty else scope filter { case e@Def(Reflect(_, u, _)) => mayWrite(u, read) || read.contains(e) }
+   /*val readDeps = if (read.isEmpty) Vector.empty else scope filter { case e@Def(Reflect(_, u, _)) => mayWrite(u, read) || read.contains(e) }
    val softWriteDeps = if (write.isEmpty) Vector.empty else scope filter { case e@Def(Reflect(_, u, _)) => mayRead(u, write) }
    val writeDeps = if (write.isEmpty) Vector.empty else scope filter { case e@Def(Reflect(_, u, _)) => mayWrite(u, write) || write.contains(e) }
    val simpleDeps = if (!u.maySimple) Vector.empty else scope filter { case e@Def(Reflect(_, u, _)) => u.maySimple }
    val controlDeps = if (!u.control) Vector.empty else scope filter { case e@Def(Reflect(_, u, _)) => u.control }
-   val globalDeps = scope filter { case e@Def(Reflect(_, u, _)) => u.mayGlobal }
+   val globalDeps = scope filter { case e@Def(Reflect(_, u, _)) => u.mayGlobal }*/
+
+
+   val readDeps = if (read.isEmpty) Vector.empty else scope.filter(p => mayWrite(p._2.summary, read) || read.contains(p._2) )
+   val softWriteDeps = if (write.isEmpty) Vector.empty else scope.filter(p => mayRead(p._2.summary, write) )
+   val writeDeps = if (write.isEmpty) Vector.empty else scope.filter(p => mayWrite(p._2.summary, write) || write.contains(p._2))
+   val simpleDeps = if (!u.maySimple) Vector.empty else scope.filter(p => p._2.summary.maySimple)
+   val controlDeps = if (!u.control) Vector.empty else scope.filter(p => p._2.summary.control)
+   val globalDeps = scope.filter(p => p._2.summary.mayGlobal)
+
+
 
    // TODO: write-on-read deps should be weak
    // TODO: optimize!!
@@ -194,8 +215,10 @@ trait Effects extends Functions with Blocks with Logging {
    // FIXME: Reflect(Reflect(ObjectUnsafeImmutable(..))) on delite
    assert(!x.isInstanceOf[Reflect[_]], x)
    val deps = calculateDependencies(u)
-   val zd = Reflect(x,u,deps)
+   val depexps = deps.map( e => e._1)
+   val zd = Reflect(x,u,depexps)
    if (mustIdempotent(u)) {
+    ??? //Check this!
     context find { case Def(d) => d == zd } map { _.asInstanceOf[Exp[A]] } getOrElse {
      //        findDefinition(zd) map (_.sym) filter (context contains _) getOrElse { // local cse TODO: turn around and look at context first??
      val z = fresh[A](Vector(pos))
@@ -241,18 +264,31 @@ trait Effects extends Functions with Blocks with Logging {
  }
 
  def createReflectDefinition[A](s: Exp[A], x: Reflect[A])(implicit tag: TypeRep[A]): Exp[A] = {
-  x match {
-   case Reflect(Reify(_,_,_),_,_) =>
-    printerr("error: reflecting a reify node.")
-    printerr("at " + s + "=" + x)
-    printsrc("in " + quotePos(s))
-   case _ => //ok
-  }
   createDefinition(s, x)(tag)
-  context :+= s
+  context :+ (s.id,x)
   s
  }
 
+
+
+ def summarizeContext(): Summary = {
+  // compute an *external* summary for a seq of nodes
+  // don't report any reads/writes on data allocated within the block
+  var u = Pure()
+  var ux = u
+  var allocs: Vector[Exp[_]] = Vector.empty
+  def clean(xs: Vector[Exp[_]]) = xs.filterNot(allocs contains _)
+  for ( (s,ref) <- context) {
+   val u2 = ref.summary
+   if (mustMutable(u2)) allocs :+= s
+   u = u andThen (u2.copy(mayRead = clean(u2.mayRead), mstRead = clean(u2.mstRead),
+    mayWrite = clean(u2.mayWrite), mstWrite = clean(u2.mstWrite)))
+   ux = ux andThen u2
+  }
+  //if (ux != u) printdbg("** effect summary reduced from "+ux+" to" + u)
+  u
+
+ }
 
  def reflectEffect[A:TypeRep](x: Def[A])(implicit pos: SourceContext): Exp[A] = reflectEffect(x, Simple()) // simple effect (serialized with respect to other simples)
 
@@ -269,7 +305,7 @@ trait Effects extends Functions with Blocks with Logging {
 
  def aliasSyms(e: Any): Vector[Exp[_]] = e match {
   case Reflect(x, u, es) => aliasSyms(x)
-  case Reify(x, u, es) => syms(x)
+  //case Reify(x, u, es) => syms(x)
   case s: Exp[_] => Vector(s)
   case p: Product => p.productIterator.toVector.flatMap(aliasSyms(_))
   case _ => Vector.empty
@@ -278,7 +314,7 @@ trait Effects extends Functions with Blocks with Logging {
 
  def extractSyms(e: Any): Vector[Exp[_]] = e match {
   case Reflect(x, u, es) => extractSyms(x)
-  case Reify(x, u, es) => Vector.empty
+  //case Reify(x, u, es) => Vector.empty
   case s: Exp[_] => Vector.empty
   case p: Product => p.productIterator.toVector.flatMap(extractSyms(_))
   case _ => Vector.empty
@@ -286,7 +322,7 @@ trait Effects extends Functions with Blocks with Logging {
 
  def copySyms(e: Any): Vector[Exp[_]] = e match {
   case Reflect(x, u, es) => copySyms(x)
-  case Reify(x, u, es) => Vector.empty
+  //case Reify(x, u, es) => Vector.empty
   case s: Exp[_] => Vector.empty
   case p: Product => p.productIterator.toVector.flatMap(copySyms(_))
   case _ => Vector.empty
@@ -295,14 +331,14 @@ trait Effects extends Functions with Blocks with Logging {
 
  def readSyms(e: Any): Vector[Exp[_]] = e match {
   case Reflect(x, u, es) => readSyms(x) // ignore effect deps (they are not read!)
-  case Reify(x, u, es) =>
+  /*case Reify(x, u, es) =>
    // in general: the result of a block is not read but passed through.
    // FIXME this piece of logic is not clear. is it a special case for unit??
    // it looks like this was introduced to prevent the Reify to be reflected
    // if x is a mutable object defined within the block.
    // TODO the globalMutableSyms part was added later (June 2012) -- make sure it does the right thing
    if ((es contains x) || (globalMutableSyms contains x)) Vector.empty
-   else readSyms(x)
+   else readSyms(x)*/
   case s: Exp[_] => Vector(s)
   case p: Product => p.productIterator.toVector.flatMap(readSyms(_))
   case _ => Vector.empty
@@ -335,7 +371,7 @@ trait Effects extends Functions with Blocks with Logging {
 
  def containSyms(e: Any): Vector[Exp[_]] = e match {
   case Reflect(x, u, es) => containSyms(x)
-  case Reify(x, u, es) => Vector.empty
+  //case Reify(x, u, es) => Vector.empty
   case s: Exp[_] => Vector.empty
   case p: Product => p.productIterator.toVector.flatMap(containSyms(_))
   case _ => Vector.empty
@@ -373,13 +409,16 @@ trait Effects extends Functions with Blocks with Logging {
 
  def getActuallyReadSyms[A](d: Def[A]) = {
   val bound = boundSyms(d)
-  val r = readSyms(d).map{case Def(Reify(x,_,_)) => x case x => x} filterNot (bound contains _) //before RF
+  //val r = readSyms(d).map{case Def(Reify(x,_,_)) => x case x => x} filterNot (bound contains _) //before RF
+   val r = readSyms(d) //RF!!!
+
   //if (d.isInstanceOf[Reify[Any]] && r.nonEmpty) {
   //  println("** actually read: "+readSyms(d)+"\\"+bound+"="+r)
   //  println("** transitive shallow: " + shallowAliases(r))
   //  println("** transitive deep: " + deepAliases(r))
   //}
-  r
+  //r
+   Vector.empty
  }
 
 }
@@ -590,22 +629,6 @@ trait Effects extends Functions with Blocks with Logging {
 
  // --- reify
 
- def summarizeAll(es: Vector[Exp[_]]): Summary = {
-  // compute an *external* summary for a seq of nodes
-  // don't report any reads/writes on data allocated within the block
-  var u = Pure()
-  var ux = u
-  var allocs: Vector[Exp[_]] = Vector.empty
-  def clean(xs: Vector[Exp[_]]) = xs.filterNot(allocs contains _)
-  for (s@Def(Reflect(_, u2, _)) <- es) {
-   if (mustMutable(u2)) allocs :+= s
-   u = u andThen (u2.copy(mayRead = clean(u2.mayRead), mstRead = clean(u2.mstRead),
-    mayWrite = clean(u2.mayWrite), mstWrite = clean(u2.mstWrite)))
-   ux = ux andThen u2
-  }
-  //if (ux != u) printdbg("** effect summary reduced from "+ux+" to" + u)
-  u
- }
 
  def pruneContext(ctx: Vector[Exp[_]]): Vector[Exp[_]] = ??? // ctx // TODO this doesn't work yet (because of loops!): filterNot { case Def(Reflect(_,u,_)) => mustOnlyRead(u) }
 

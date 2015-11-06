@@ -5,13 +5,11 @@ import scala.virtualization.lms.util.ClosureCompare
 
 
 trait ExposeRepBase extends Expressions {
-
   trait ExposeRep[T] {
     val freshExps: Unit => Vector[Exp[_]]
     val vec2t: Vector[Exp[_]] => T
     val t2vec: T => Vector[Exp[_]]
   }
-
 }
 
 trait Functions extends Base with ExposeRepBase {
@@ -34,7 +32,7 @@ trait Functions extends Base with ExposeRepBase {
 }
 
 
-trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
+trait FunctionsExp extends Functions with BaseExp with ClosureCompare with EffectExp {
   implicit def liftFunction2[T, R](implicit t: TypeRep[T], r: TypeRep[R]): TypeRep[T => R] = typeRep[T => R]
   implicit def exposeFunction[A, R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[StagedFunction[A, R]] =
     new ExposeRep[StagedFunction[A, R]]() {
@@ -107,7 +105,10 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
       hres
     }
     val explist = vecf(freshexps)
-    val block = new Block(explist)
+    val summary = summarizeContext()
+    val t = context
+    val block = if (context.isEmpty && mustPure(summary)) Block(explist) else Block(explist, summary, pruneContext(explist)) // calls toAtom...
+
     block2tps = block2tps + (block -> getBlockTPBuffer())
     if (internal)
       InternalLambda(vecf, tps, block, hot, args, returns)
@@ -127,10 +128,6 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare {
         val tag: TypeRep[Any] = otp.tag.asInstanceOf[TypeRep[Any]]
         val cc: Def[Any] = ReturnArg(applynodeexp, fsym._1, fsym._2, true, newsyms.size == fsym._2 + 1)
         val newx = toAtom(cc)(tag, null)
-        /*if (tag.mf.toString().contains("Function")) {
-          val newtp = exp2tp(newx)
-          println(newtp)
-        }*/
         newx
       })
     } else {

@@ -10,7 +10,7 @@ trait GraphVizExport {
  val IR: BaseExp with FunctionsExp
 
  type specCM = CodeMotion {
-  val reifiedIR: ReificationPure {
+  val reifiedIR: Reification {
    val IR: self.IR.type
   }}
 
@@ -19,7 +19,7 @@ trait GraphVizExport {
  def quote(x: Any) = "\""+x+"\""
 
  def emitDepGraphf[A,R]( f: Function1[A,R])(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]): (String,specCM) = {
-  val reify = new ReifyPure {
+  val reify = new Reify {
    override val IR: self.IR.type = self.IR
   }
   val reification = reify.reifyProgram(f)(args, returns)
