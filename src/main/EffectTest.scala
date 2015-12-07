@@ -14,15 +14,15 @@ import scala.lms.targets.graphviz.GraphVizExport
 
 
 object EffectTest extends App {
-
-
   class DSL(psize: Int) extends BooleanOpsExp with PurePrimitiveOpsExp with FunctionsExp with IfThenElsePureExp with ScalaCompile with ImplicitOpsExp with ArrayOpsExp {
     self =>
     override val codegen = new ScalaCodegen
       with EmitHeadInternalFunctionAsClass
       with ScalaGenBooleanOps
       with ScalaGenPrimitivOps
-      with ScalaGenIfThenElse {
+      with ScalaGenIfThenElse
+      with ScalaGenArrayOps
+    {
       val IR: self.type = self
     }
     val emitGraph = new GraphVizExport {
@@ -47,6 +47,13 @@ object EffectTest extends App {
       stream.flush()
       stream.close()
     }
+    def code() = {
+      val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\EffectTest.scala"))
+      val esc = dsl.codegen.emitSource(dsl.testeff, "testClass", stream2)(dsl.iarg, dsl.iret)
+      stream2.flush()
+      stream2.close()
+    }
+
 
   }
 
@@ -59,6 +66,7 @@ object EffectTest extends App {
   val dsl = new DSL(size)
 
   dsl.graph()
+  dsl.code()
 
 
   val stop = System.nanoTime()

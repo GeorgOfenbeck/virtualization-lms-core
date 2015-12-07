@@ -4,7 +4,7 @@ package internal
 
 trait Blocks extends Expressions with EffectSummary{
 
-  class Block(val res: Vector[Exp[_]], summary: Option[Summary], effects: Vector[Exp[_]])
+  class Block(val res: Vector[Exp[_]], val summary: Option[Summary], val effects: Vector[Exp[_]])
 
   var block2tps: Map[Block, Vector[TP[_]]] = Map.empty
   private var blocktpbuffer: Vector[Vector[TP[_]]] = Vector.empty

@@ -257,7 +257,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     case IR.ArgDef(id) => Vector.empty //args are handled in the according lambda
     case IR.ConstDef(x) => Vector.empty //are handeled through remaps
     case IR.InternalLambda(f,x,y,hot,a,r) => Vector.empty //are inlined by the symbol containing them
-
+    case IR.Reflect(x,summary,deps) => Vector.empty
     case _ => super.emitNode(tp,acc,block_callback)
   }
 

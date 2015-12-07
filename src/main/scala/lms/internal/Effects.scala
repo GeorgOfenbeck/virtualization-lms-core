@@ -265,7 +265,8 @@ trait Effects extends Functions with Blocks with Logging {
 
  def createReflectDefinition[A](s: Exp[A], x: Reflect[A])(implicit tag: TypeRep[A]): Exp[A] = {
   createDefinition(s, x)(tag)
-  context :+ (s.id,x)
+   val t: (Exp[_],Reflect[_]) = (s,x)
+  context = context :+ t
   s
  }
 

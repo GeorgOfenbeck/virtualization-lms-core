@@ -107,7 +107,13 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
     val explist = vecf(freshexps)
     val summary = summarizeContext()
     val t = context
-    val block = if (context.isEmpty && mustPure(summary)) Block(explist) else Block(explist, summary, pruneContext(explist)) // calls toAtom...
+    val block = if (context.isEmpty && mustPure(summary))
+      Block(explist)
+    else {
+      //RF! pruneContext ? (check what this is supposed to do)
+      val deps = context.map(e => e._1)
+      Block(explist, summary, pruneContext(deps)) // calls toAtom...
+    }
 
     block2tps = block2tps + (block -> getBlockTPBuffer())
     if (internal)

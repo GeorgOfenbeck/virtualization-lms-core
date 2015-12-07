@@ -611,7 +611,9 @@ trait CodeMotion {
             else {
               //we recurse into a sub block
               val (id, block) = nblocks_next.head
-              val ids: Set[Int] = block.res.map(t => t.id).toSet
+              val bresids: Set[Int] = block.res.map(t => t.id).toSet
+              val beffids: Set[Int] = block.effects.map(t => t.id).toSet
+              val ids = bresids ++ beffids
               val rnexts = Vector((-1, ids))
               val ntlevel = rlastcold(block)
               visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack, fpmark), nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
@@ -766,7 +768,9 @@ trait CodeMotion {
    */
   protected def getBlockInfo3[A, B](lambda: AbstractLambda[A, B]): (Map[Int, EnrichedGraphNode], Map[Block, BlockInfo3]) = {
     TimeLog.timer("CodeMotion_getBlockInfo3", true)
-    val nexts = Vector((-1, lambda.y.res.map(t => t.id).toSet))
+    val bres: Set[Int] = lambda.y.res.map(t => t.id).toSet
+    val beff: Set[Int] = lambda.y.effects.map(t => t.id).toSet
+    val nexts = Vector((-1, bres ++ beff))
     val n = lambda.y.res.head.id
     val rlinfo = LevelInfo(0, 0, 0, Set.empty, Set.empty)
     val l2b: Map[LevelInfo, Block] = Map(rlinfo -> lambda.y)

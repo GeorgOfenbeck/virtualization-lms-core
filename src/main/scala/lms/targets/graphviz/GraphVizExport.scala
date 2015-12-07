@@ -49,6 +49,12 @@ trait GraphVizExport {
     (acc,ele) => acc + "\n\"" + node.irdef + "\" -> \"" + ele + "\"" + " [label=\"b\"] "
    }
 
+   val blockeffresids: Set[Int] = node.blocks.flatMap(v => v.effects.map(res => res.id))
+   val blockeffdepstring = blockeffresids.foldLeft(""){
+    (acc,ele) => acc + "\n\"" + node.irdef + "\" -> \"" + ele + "\"" + " [label=\"eff\"] "
+   }
+
+
    val blockCMcontained: Set[Vector[Int]] = node.blocks.map(b => IR.block2tps(b).map(tp => tp.sym.id))
 
    val blockCMdepstring: String  = blockCMcontained.map(b => b.foldLeft(""){
@@ -58,7 +64,7 @@ trait GraphVizExport {
 
 
 
-   nodestring + sucessorstring + predecessorstring + blockdepstring + blockCMdepstring
+   nodestring + sucessorstring + predecessorstring + blockdepstring + blockCMdepstring + blockeffdepstring
 
   }
   //we emit the head node and all blocks
