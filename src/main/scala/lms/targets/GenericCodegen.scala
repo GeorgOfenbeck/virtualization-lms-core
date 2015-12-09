@@ -27,27 +27,34 @@ trait GenericCodegen extends Emit[Vector[String]]{
 
   def emitStream(stream: PrintWriter, acc: Vector[String], it: Iterator[self.IR.TP[_]], block_callback: (self.IR.Block, Vector[String]) => Vector[String]): Unit = {
     acc.map(stream.print(_))
-    it.map(ele => stream.print(emitNode(ele,acc,block_callback)))
+    for (ele <- it) {
+      val t: Vector[String] = emitNode(ele,acc,block_callback)
+      t map (ele => stream.print(ele))
+    }
+/*    it.map(ele => {
+      val t = emitNode(ele,acc,block_callback)
+      stream.print(t)
+    })*/
   }
 
 
 
-  def emit[A,R]( stream: PrintWriter, start: Vector[String], f: Function1[A,R])(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]):
-  (Vector[String], specEsc)
+  def emit[A,R]( stream: PrintWriter, start: Vector[String], f: Function1[A,R])(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]): specEsc
   = {
     val schedule = new Schedule {
       override val IR: self.IR.type = self.IR
     }
-    emit(schedule,start,f)(args,returns)
+    emit(stream, schedule,start,f)(args,returns)
   }
 
   def emit[A,R]( stream: PrintWriter, schedule: Schedule{ val IR: self.IR.type},
                  start: Vector[String],
                  f: Function1[A,R])
-               (implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]): (Vector[String],specEsc)  = {
+               (implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]): (specEsc)  = {
     val reify = new ReifyPure {
       override val IR: self.IR.type = self.IR
     }
+    stream.println("//bla!")
     println("starting reify")
     val reification = reify.reifyProgram(f)(args, returns)
     println("starting codemotion")
@@ -62,9 +69,11 @@ trait GenericCodegen extends Emit[Vector[String]]{
       Vector.empty
     }
     println("starting iterating")
-    val acc = emitc(start,iteratable.iterator,blockcallback)
+    //emitStream(start,iteratable.iterator,blockcallback)
+    emitStream(stream,start,iteratable.iterator,blockcallback)
+    stream.println("//bla end!")
     println("finished iterating")
-    (acc,exposedScheduleChoice)
+    exposedScheduleChoice
   }
 
 

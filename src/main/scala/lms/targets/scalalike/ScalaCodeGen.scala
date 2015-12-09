@@ -23,7 +23,7 @@ trait ScalaCodegen extends GenericCodegen with Config {
                       className: String,
                       out: PrintWriter)(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]) = {
     self.className = className //RF!
-    val (source, esc) = self.emit(out,Vector.empty,f)(args, returns)
+    val esc = self.emit(out,Vector.empty,f)(args, returns)
     out.flush()
     esc
   }
@@ -257,7 +257,19 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
     case IR.ArgDef(id) => Vector.empty //args are handled in the according lambda
     case IR.ConstDef(x) => Vector.empty //are handeled through remaps
     case IR.InternalLambda(f,x,y,hot,a,r) => Vector.empty //are inlined by the symbol containing them
-    case IR.Reflect(x,summary,deps) => Vector.empty
+    case IR.Reflect(a,b,c) => {
+      tp match {
+        case tpm@IR.TP(sym,IR.Reflect(x,summary,deps),tag) => {
+          val t = tpm.copy(rhs = x)
+          emitNode(t,acc,block_callback)
+        }
+        case _ => {
+          assert(false, "this should be unreachable")
+          Vector.empty
+        }
+      }
+    }
+
     case _ => super.emitNode(tp,acc,block_callback)
   }
 

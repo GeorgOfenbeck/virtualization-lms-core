@@ -32,7 +32,12 @@ object EffectTest extends App {
 
     def testeff(i: Rep[Int]): Rep[Int] = {
       val a = NewArray[Int](unit(10))
-      i
+      a.update(unit(0),unit(1))
+      a.update(unit(0),unit(2))
+      a.update(unit(0),unit(3))
+      a.update(unit(0),unit(4))
+      a.update(unit(0),unit(5))
+      i + i
     }
 
 
@@ -48,8 +53,8 @@ object EffectTest extends App {
       stream.close()
     }
     def code() = {
-      val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\EffectTest.scala"))
-      val esc = dsl.codegen.emitSource(dsl.testeff, "testClass", stream2)(dsl.iarg, dsl.iret)
+      val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\EffectTest2.scala"))
+      dsl.codegen.emitSource(dsl.testeff, "testClass", stream2)(dsl.iarg, dsl.iret)
       stream2.flush()
       stream2.close()
     }
@@ -65,9 +70,10 @@ object EffectTest extends App {
   val start = System.nanoTime()
   val dsl = new DSL(size)
 
+
+
   dsl.graph()
   dsl.code()
-
 
   val stop = System.nanoTime()
   time = (stop - start) / 1000000000.0;

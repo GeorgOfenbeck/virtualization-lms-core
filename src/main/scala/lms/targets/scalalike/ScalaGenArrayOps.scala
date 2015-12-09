@@ -14,6 +14,7 @@ trait ScalaGenArrayOps extends ScalaCodegen{
                        block_callback: (Block,Vector[String]) => Vector[String]): Vector[String] = {
   val ma = tp.rhs match {
    case a@ArrayNew(n) => Vector(emitValDef(tp, src"new Array[${remap(a.m)}]($n)"))
+   case ArrayUpdate(x,n,y) => Vector(emitValDef(tp, src"$x($n) = $y"))
    case _ => super.emitNode(tp,acc,block_callback)
   }
   ma
