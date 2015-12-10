@@ -1,7 +1,3 @@
-/*
-
-
-
 package test
 
 
@@ -364,4 +360,4 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
 }
 
-*/
+

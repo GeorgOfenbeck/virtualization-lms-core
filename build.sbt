@@ -4,7 +4,7 @@ version := "1.0"
 
 organization := "EPFL"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.12.0-M2"
 
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
@@ -15,10 +15,10 @@ libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _ % 
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _ % "compile")
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.0" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.5-M2" % "test"
 )
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.3" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.5" % "test"
 
 // tests are not thread safe
 parallelExecution in Test := false
@@ -27,23 +27,16 @@ parallelExecution in Test := false
 publishArtifact in (Compile, packageDoc) := false
 
 // continuations
-val contVersion = "1.0.2"
+
 
 autoCompilerPlugins := true
 
-libraryDependencies ++= Seq(
-  "org.scala-lang.plugins" %% "scala-continuations-library" % contVersion % "compile"
-)
-
-libraryDependencies <<= (scalaVersion, libraryDependencies) { (ver, deps) =>
-     deps :+ compilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin" % contVersion cross CrossVersion.full)
-}
 
 testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "3")
 
 //testOptions in Test += Tests.Argument("-F")
 
-scalacOptions += "-P:continuations:enable"
+//scalacOptions += "-P:continuations:enable"
 
 val paradiseVersion = "2.0.1"
 
@@ -58,4 +51,4 @@ addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVe
 
 // code coverage
 
-scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageHighlighting := false
+//scoverage.ScoverageSbtPlugin.ScoverageKeys.coverageHighlighting := false
