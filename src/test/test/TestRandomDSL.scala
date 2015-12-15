@@ -233,11 +233,11 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
   /*def genDSLCode(dsl: MRandomClass, desc: CodeDescriptor): Gen[Vector[dsl.FNest]] = {
    for {code <- dsl.genCode(desc)} yield code
   }*/
-  /*
+
    implicit def getdslshrink(dsl: MRandomClass): Shrink[Vector[dsl.FNest]] = {
     println("trigger implicit")
-    dsl.ShrinkMe.shrinkCode
-   }*/
+    dsl.shrinkCodeX
+   }
   var cnt = 0
   property("my prop test ") =
     Prop.forAll(genDSLwCode(desc)) {
@@ -314,6 +314,8 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
                 })
                 if (!dropit.isEmpty)
                   println("dropit: " + dropit)
+                else
+                  println("staged and unstaged identical")
                 worked = dropit.isEmpty
               }
               val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test" + cnt + ".scala")
