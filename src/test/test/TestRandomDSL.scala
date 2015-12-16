@@ -300,7 +300,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
 
               //println(asvec)
               //println("-----")
-            println("got the result")
+              println("got the result")
               val castit = asvec.asInstanceOf[Vector[Any]]
 
               val widx = castit.zipWithIndex
@@ -325,9 +325,7 @@ object TestRandomDSL extends org.scalacheck.Properties("MySpec") {
               stream2.close()
               file.flush()
               file.close()
-
               cnt = cnt + 1
-
               worked
 
           }

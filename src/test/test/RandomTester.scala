@@ -138,44 +138,20 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   lazy val desc: CodeDescriptor = CodeDescriptor(100, 2, 20, 5, 20, 20 , 1)
 
 
-
-  implicit def getdslwshrink(dsl: DSLwCode): Shrink[DSLwCode] = {
-    println("trigger implicit dslw")
-    ???
-  }
-
-  implicit def getdslwshrink1(dsl: DSLwCode): Shrink[Vector[dsl.dsl.FNest]] = {
-    println("trigger implicit dslw")
-    ???
-  }
-
-  implicit def getdslwshrink2(dsl: DSLwCode): Shrink[RandomClass] = {
-    println("trigger implicit dslw")
-    ???
-  }
-
-
-   implicit def getdslshrink(dsl: RandomClass): Shrink[Vector[dsl.FNest]] = {
-    println("trigger implicit")
-     dsl.shrinkCodeX
-   }
-
-  implicit def shrinkIt(dsl: RandomClass): Shrink[RandomClass] = {
-    println("trigger implicit with Shrink empty")
-    ???
-  }
-
-  implicit def shrinkIt2(dsl: RandomClass): Shrink[DSLwCode] = {
-    println("trigger implicit with Shrink empty dslwcode")
-    ???
-  }
-
   implicit val shrinkStuff: Shrink[DSLwCode] = Shrink(
     {
-      case dslw: DSLwCode => {
-        println("shrinking")
-        ???
+      case dslr: DSLwCode => {
+        if (dslr.code.isEmpty) Stream.empty else {
+          val t =
+          new DSLwCode {
+            override val dsl: dslr.dsl.type = dslr.dsl
+            val code = dslr.code.take(dslr.code.size/2)
+          }
+          Stream.concat(
+            ???
+          )
 
+        }
       }
     })
 
