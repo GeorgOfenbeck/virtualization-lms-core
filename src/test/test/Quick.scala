@@ -31,8 +31,19 @@ object Quick extends org.scalacheck.Properties("Random Testing"){
 
  def genMyStuff(): Gen[MyStuff] = {
   for {
-   i <- Gen.containerOf[Vector,Int](Gen.choose(900,2000))
+   i <- Gen.containerOfN[Vector,Int](14,Gen.choose(900,2000))
   } yield MyStuff(i)
+ }
+
+ def fstream(curr: Int, ini: MyStuff): Stream[MyStuff] = {
+  val s = ini.x.size
+  val rest = s - curr
+  val halfrest = rest / 2
+  val newpos = curr + halfrest
+  if (halfrest > 0)
+   Stream.cons(MyStuff(ini.x.take(newpos)),fstream(newpos, ini ))
+  else
+   Stream.empty
  }
 
  implicit val shrinkStuff: Shrink[MyStuff] = Shrink(
@@ -40,11 +51,9 @@ object Quick extends org.scalacheck.Properties("Random Testing"){
    case s: MyStuff => {
     println("shrinking" + s.x)
     if (!s.x.isEmpty) {
-     import Shrink._
-     //val t = shrink(MyStuff(secondhalf)) map (t => if (t.x.isEmpty) MyStuff(Vector.empty) else MyStuff(firsthalf ++ t.x))
      Stream.concat(
       Stream(MyStuff(s.x.splitAt(s.x.size / 2)._1)),
-      shrink(MyStuff(s.x.splitAt(s.x.size / 2)._1))
+      fstream(s.x.size/2,s) //Stream of size 3/4, 7/8 etc.
      )
     }
     else

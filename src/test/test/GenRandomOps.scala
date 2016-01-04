@@ -23,7 +23,6 @@ case class CodeDescriptor(
 
 trait GenRandomOps extends ExposeRepBase with FunctionsExp{
 
-
   case class cTP(sym: Any, tag: GenTypes)
   var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
   var dynOpNrTimesUsed: Map[Op,Int] = Map.empty

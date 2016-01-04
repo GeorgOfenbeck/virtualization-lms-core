@@ -1,3 +1,4 @@
+/*
 package test
 
 
@@ -40,3 +41,4 @@ object TestPureStraightlineCode1  extends RandomTester{
 
 
 }
+*/

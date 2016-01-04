@@ -1,4 +1,5 @@
-package test
+/*
+package RandomTesting
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -16,8 +17,7 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
   var tuplercount: Int = 0
   var detuplercount: Int = 0
 
-
-  def tupler(x: Vector[cTP]) = {
+  /*def tupler(x: Vector[cTP]) = {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
     val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"), "")
     if (this.compiler eq null)
@@ -63,7 +63,6 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
   }
-
   def detupler(y: Vector[cTP]) = {
     val rettuple = codegen.tupledeclarehelper(y.map(a => codegen.remap(a.tag.mf)), "")
     val withindex = y.zipWithIndex
@@ -114,15 +113,7 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     val cons = cls.getConstructor(staticData.map(_._1.tp.erasure): _*)
     val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
-  }
-
-
-
-
-
-
-
-
+  }*/
 }
 
 
@@ -130,13 +121,11 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
 
 
 abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
-
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
   //the actual test object has to define what Random Class is returned
   def iniRandomC(): RandomClass
   lazy val desc: CodeDescriptor = CodeDescriptor(100, 2, 20, 5, 20, 20 , 1)
-
 
   implicit val shrinkStuff: Shrink[DSLwCode] = Shrink(
     {
@@ -265,4 +254,4 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         worked
       }
   }
-}
+}*/
