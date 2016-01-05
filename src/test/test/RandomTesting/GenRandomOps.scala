@@ -8,18 +8,6 @@ import org.scalacheck._
 import scala.lms.internal._
 
 
-case class CodeDescriptor(
-                           max_nodes_per_block: Int,
-                           max_toplevel_args: Int,
-                           max_args: Int,
-                           max_nest_depth: Int,
-                           max_functions: Int,
-                           max_returns: Int,
-                           max_calls: Int,
-                           cur_nodes_per_block: Int = 0,
-                           cur_nest_depth: Int = 0
-                         )
-
 /*
 
  trait TypedValueorSymbol[T] {
@@ -156,6 +144,38 @@ case class CodeDescriptor(
 
 trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
+
+  case class CodeDescriptor(
+                             max_nodes_per_block: Int,
+                             max_toplevel_args: Int,
+                             max_args: Int,
+                             max_nest_depth: Int,
+                             max_functions: Int,
+                             max_returns: Int,
+                             max_calls: Int,
+                             //cur_nodes_per_block: Int = 0,
+                             //cur_nest_depth: Int = 0
+                             max_dynamic_calls: Int,
+                             max_opset_calls: Map[Set[Op], Int]
+                           ) {
+
+    val op_sets: Map[Op, Set[Set[Op]]] = max_opset_calls.foldLeft(Map.empty[Op, Set[Set[Op]]])((acc, ele) => {
+      val currset = ele._1
+      currset.foldLeft(acc)((acc2, op) => {
+        if (acc2.contains(op)) acc2 + (op -> (acc2(op) + currset))
+        else acc2 + (op -> Set(currset))
+      })
+    })
+  }
+
+
+  case class CCStatus(
+                       curr_nodes_in_block: Int,
+                       curr_nest_depth: Int,
+                       curr_nr_functions: Int,
+                       avail_ops: Map[Set[GenTypes[_]], Set[Op]]
+                     )
+
   /** *
     * @param mf used all over the place to check if a symbol/value is a suitable input to an op
     * @param dynTags this is used in the case of a dynamic function where the mf would only yield Function[Any,Any] and we would
@@ -186,6 +206,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     */
   type NoRep[T] = T
 
+
   /**
     * SoV - Symbol or Value is used to abstract over either a value (e.g. Int value) or a symbolic value such as Rep[Int]
     * it additionally holds the type of the Symbol explicitly in the field 'tag'
@@ -213,17 +234,19 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                 localfidx: Option[Int]
                )
 
+
+
   lazy val allops = ops(Map.empty)
 
   /**
     * This is used to store a current set of input symbol/values and its extending function
-    * @param syms all currently available symbols
+    * @param types all currently available symbol types
     * @param evaluation given the current symbols executes the function and returns an extended set of symbols
     * @param dynamically_defined_functions during the evaluation steps of previous iterations functions might have been created
     *                                      which should also be exposed as available ops - those functions are store in this field
     * @tparam S this decideds if the iterations describe a straightforward evaluation or its symbolic counterpart
     */
-  case class EvalGenIterStep[S[_]](syms: Vector[SoV[S, _]],
+  case class EvalGenIterStep[S[_]](types: Vector[GenTypes[_]],
                                    evaluation: Vector[SoV[S, _]] => Vector[SoV[S, _]],
                                    dynamically_defined_functions: AvailOps)
 
@@ -267,11 +290,12 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   /**
     * Takes the list of all available ops and filters out those that can be called with the current set of graph nodes
+    * @param cCStatus status variables for the code construction - used here are the remaining available ops
     * @param availTypes the types of the currently existing variables
     * @param seval current iteration step of the random symbol creation
     * @return returns a Map of all Ops that could be called
     */
-  def filterOps(availTypes: AvailUniqueTypes, seval: EvalGenIterStep[Rep]): AvailOps = {
+  def filterOps( cCStatus: CCStatus, availTypes: AvailUniqueTypes, seval: EvalGenIterStep[Rep]): AvailOps = {
     //all ops that are statically known
     val fixedops = allops.filter(x => x._1.subsetOf(availTypes))
 
@@ -328,7 +352,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   }
 
   def genAssignment(seval: EvalGenIterStep[Rep], targetType: GenTypes[_]): Gen[Int] = {
-    val possible_targets = seval.syms.map(e => e.tag).zipWithIndex.filter(e => checkTypeCompatibility(e._1, targetType))
+    val possible_targets = seval.types.zipWithIndex.filter(e => checkTypeCompatibility(e._1, targetType))
     for {choice <- Gen.oneOf(possible_targets)} yield choice._2
   }
 
@@ -347,7 +371,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         }
         else {
           //not so nice to sample here....
-          val assignedwildcard: GenTypes[_] = genAssignment(seval, ele).map(symnr => seval.syms(symnr).tag).sample.get
+          val assignedwildcard: GenTypes[_] = genAssignment(seval, ele).map(symnr => seval.types(symnr)).sample.get
           (wcards + (ele -> assignedwildcard), assigns :+ assignedwildcard) //use the assigned type
         }
       }
@@ -374,34 +398,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     op.copy(args = newargs, returns = rassigns)
   }
 
-  /**
-    * Will create a random generator that produces an Op under the constraints of the types existing so far and the code describtor
-    * @param desc
-    * @param seval
-    * @return
-    */
-  def genOp(desc: CodeDescriptor, seval: EvalGenIterStep[Rep]): Gen[Op] = {
-    val availTypes: AvailUniqueTypes = seval.syms.map(e => e.tag).toSet
-    val availOps = filterOps(availTypes, seval)
-    val flattened = availOps.flatMap(opset => opset._2)
-    val nestcheck = flattened.filter(p => {
-      filterNestDepth(desc, seval, p) &&
-        (dynOpNrTimesUsed.get(p).isEmpty || dynOpNrTimesUsed.get(p).get < desc.max_calls) //checking that a dynamic function is only called max_calls times
-    })
-    for {
-      randomop <- Gen.oneOf(nestcheck.toSeq)
-    } yield {
-      val t = randomop
-      if (t.desc.localfidx.isDefined) //if we selected a dynamic function - increase the call counter
-        dynOpNrTimesUsed = {
-          if (dynOpNrTimesUsed.get(t).isDefined)
-            dynOpNrTimesUsed + (t -> (dynOpNrTimesUsed(t) + 1))
-          else
-            dynOpNrTimesUsed + (t -> 1)
-        }
-      t
-    }
-  }
 
   //override in traits that would nest to check if its a valid op in the context
   def filterNestDepth(desc: CodeDescriptor, seval: EvalGenIterStep[Rep], op: Op): Boolean = {
@@ -409,113 +405,73 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   }
 
 
+  /**
+    * Will create a random generator that produces an Op under the constraints of the types existing so far and the code describtor
+    * @param desc
+    * @param seval
+    * @return
+    */
+
+  def genOp(desc: CodeDescriptor, cCStatus: CCStatus, seval: EvalGenIterStep[Rep]): Gen[Op] = {
+    val availTypes: AvailUniqueTypes = seval.types.toSet //all types we currently see in the code
+    val availOps = filterOps(cCStatus,availTypes, seval) //filter which ops can operate on those types
+    val flattened = availOps.flatMap(opset => opset._2)
+    for { randomop <- Gen.oneOf(flattened.toSeq) } yield randomop
+  }
+
+
+  def createf[S[_]](assign: Vector[Int], op: Op, eval: Vector[SoV[S, _]] => Vector[SoV[S, _]])
+  : (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = {
+    val f: (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = (in: Vector[SoV[S, _]]) => {
+      //take the assigned symbols / values from the vector of existing values / symbols and put them in a dedicated vector
+      val argsyms: Vector[SoV[S, _]] = assign.foldLeft(Vector.empty[SoV[S, _]]) {
+        (acc, ele) => acc :+ in(ele)
+      }
+      //then use this vector with the execution (symbolic or actual) get the result
+      val ret: Vector[SoV[S, _]] =
+        if (op.localfidx.isDefined) {
+          val localf: SoV[S, _] = in(op.localfidx.get)
+          val fplusargsyms = localf +: argsyms
+          eval(fplusargsyms)
+        }
+        else eval(argsyms)
+      in ++ ret //concatenate symbol/values so far with the new results
+    }
+    f
+  }
+
+
   /** *
     * Produces one iteration step of a function which will generate a random piece of code / symbolic execution
     * @param desc codestyle we want to achive (limits on the random code generation)
+    * @param cCStatus status variables for the code construction (all state ideally is carried here)
     * @param veval the value based execution of the code so far
     * @param seval the symbolic execution of the code (staged) so far
     * @return a random Generator that increases veval/seval by one iteration step (could be multiple ops in e.g. the case of functions)
     */
-  def genEvalGenIterStep(desc: CodeDescriptor, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
-  : Gen[(EvalGenIterStep[NoRep], EvalGenIterStep[Rep])] = {
-    for {
-      wop <- genOp(desc, seval)
-      (fop, nf) <- createFunction(desc, wop, seval)
-      op <- removeWildCards(fop, seval)
-      assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(seval, arg)))
-    } yield {
-      val f: (Vector[cTP] => Vector[cTP]) = (in: Vector[cTP]) => {
-        val argsyms: Vector[Any] = assign.foldLeft(Vector.empty[Any]) {
-          (acc, ele) => {
-            acc :+ in(ele).sym
-          }
+
+    def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
+    : Gen[(EvalGenIterStep[NoRep], EvalGenIterStep[Rep])] = {
+      for {
+        wop <- genOp(desc, cCStatus, seval)
+        (fop, nf) <- createFunction(desc, wop, seval)
+        op <- removeWildCards(fop, seval)
+        assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(seval, arg)))
+      } yield {
+        val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf(assign,op,op.evaluation)
+        val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf(assign,op, op.symbolic_evaluation)
+
+        if (nf.isDefined) { //the op is defining a new local function
+          ???
         }
-        val ret: Vector[Any] =
-          if (op.desc.localfidx.isDefined) {
-            val fplusargsyms = in(op.desc.localfidx.get).sym +: argsyms
-            //op.desc.sf(fplusargsyms)
-            op.desc.rf(fplusargsyms)
-          }
-          else op.desc.rf(argsyms)
-        //val ret: Vector[Any] = op.desc.rf(argsyms)
-        val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
-        in ++ retctp
-      }
-      val stagedf: (Vector[cTP] => Vector[cTP]) = (in: Vector[cTP]) => {
-        val argsyms: Vector[Any] = assign.foldLeft(Vector.empty[Any]) {
-          (acc, ele) => {
-            acc :+ in(ele).sym
-          }
+        else {
+          val newtypes = seval.types ++ op.returns
+          val valuebased = EvalGenIterStep(newtypes,evaluation,veval.dynamically_defined_functions)
+          val symbolbased = EvalGenIterStep(newtypes,symbolic_evaluation,seval.dynamically_defined_functions)
+          (valuebased,symbolbased)
         }
-
-        val ret: Vector[Any] =
-          if (op.desc.localfidx.isDefined) {
-            val fplusargsyms = in(op.desc.localfidx.get).sym +: argsyms
-            op.desc.sf(fplusargsyms)
-          }
-          else op.desc.sf(argsyms)
-        val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
-
-        in ++ retctp
       }
-      if (nf.isDefined) {
-        val localf = op.desc.returns.map(e => cTP(null, e)).head
-        //we know here that the returned symbol is a local function
-        val (args, returns) = nf.get
-
-
-        val functionvaridx = fnest.syms.size //== index of the function
-
-        //val functiontp = x(functionvaridx)
-        //val functionuntyped = fun2tp.find(p => p._2 == functiontp).get._1
-
-
-        val applyop: Op = {
-          val f: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => {
-            val functionsym = x.head
-            val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1, args(ele._2).tag))
-            val lamops = functionsym.asInstanceOf[Vector[cTP] => Vector[cTP]]
-            val res = lamops(inasctp)
-            val withouttag: Vector[Any] = res.map(ele => ele.sym)
-            withouttag
-          }
-          val sf: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => {
-            val functionexp = x.head //we construct function applys such that the function is always the first arg
-            val functiontp: TP[_] = if (!functionexp.isInstanceOf[Exp[_]]) {
-                println("TIETLJKAJEDGKJ")
-                ???
-              }
-              else
-                exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
-            val stagedFunction = funexp2StagedFunction(functiontp.sym)
-            val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1, args(ele._2).tag))
-            val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[cTP], Vector[cTP]]]
-            //val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
-            //val res: Vector[cTP] = ??? //functiontyped(inasctp)
-            val res: Vector[cTP] = lamops(inasctp) //functiontyped(inasctp)
-            val withouttag: Vector[Any] = res.map(ele => ele.sym)
-            withouttag
-          }
-          val returntypes = returns.map(e => e.tag)
-          /*println ("returns .... ->")
-          println(returntypes)
-          println("-----------------")*/
-          val op = OpDescription(args.map(e => e.tag), returntypes, f, sf, Some(functionvaridx))
-          Op("apply" + functionvaridx, op)
-        }
-        FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f, stagedf, registerOp(applyop, fnest.localfs))
-      }
-      else {
-        /*println("------------------")
-        println(op)
-        println(op.desc.returns)
-        println("------------------")*/
-        FNest(fnest.syms ++ op.desc.returns.map(e => cTP(null, e)), f, stagedf, fnest.localfs)
-      }
-
     }
-  }
-
 
 
 
