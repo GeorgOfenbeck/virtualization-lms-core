@@ -1,4 +1,4 @@
-/*
+
 package RandomTesting
 
 import java.io.{PrintWriter, StringWriter}
@@ -17,7 +17,9 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
   var tuplercount: Int = 0
   var detuplercount: Int = 0
 
-  /*def tupler(x: Vector[cTP]) = {
+
+
+  def tupler(x: Vector[SoV[Rep, _]]) = {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
     val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"), "")
     if (this.compiler eq null)
@@ -63,7 +65,7 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
   }
-  def detupler(y: Vector[cTP]) = {
+  def detupler(y: Vector[SoV[Rep, _]]) = {
     val rettuple = codegen.tupledeclarehelper(y.map(a => codegen.remap(a.tag.mf)), "")
     val withindex = y.zipWithIndex
     val withvalues = withindex.map(ele => {
@@ -113,7 +115,7 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     val cons = cls.getConstructor(staticData.map(_._1.tp.erasure): _*)
     val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
-  }*/
+  }
 }
 
 
@@ -125,7 +127,16 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
 
   //the actual test object has to define what Random Class is returned
   def iniRandomC(): RandomClass
-  lazy val desc: CodeDescriptor = CodeDescriptor(100, 2, 20, 5, 20, 20 , 1)
+
+  def getCodeDescription(randomClass: RandomClass): randomClass.CodeDescriptor = {
+    ???
+  }
+
+  def iniCCStatus(randomClass: RandomClass): randomClass.CCStatus = {
+    randomClass.CCStatus(0,0,0,Map.empty)
+  }
+/*
+
 
   implicit val shrinkStuff: Shrink[DSLwCode] = Shrink(
     {
@@ -143,11 +154,13 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         }
       }
     })
+*/
 
 
   abstract class DSLwCode {
     val dsl: RandomClass
-    val code: Vector[dsl.FNest]
+    val code: Vector[dsl.EvalGenIterStep[dsl.NoRep]]
+    val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]]
   }
 
   //had to introduce this indirection cause otherwise ScalaCheck will assume the class constant
@@ -159,29 +172,29 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   }
 
 
-  def genDSLwCode(desc: CodeDescriptor): Gen[DSLwCode] = //org.scalacheck.Gen.lzy {
+  def genDSLwCode(): Gen[DSLwCode] = //org.scalacheck.Gen.lzy {
   {
     println("here")
     for {
       dslr <- genDSL()
-      coder <- {
-        dslr.genCode(desc)
-      }
+      (codev, codes) <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
     } yield new DSLwCode {
       override val dsl: dslr.type = dslr
-      override val code: Vector[dslr.FNest] = coder
+      //override val code: Vector[dslr.FNest] = coder
+      override val code: Vector[dsl.EvalGenIterStep[dsl.NoRep]] = codev
+      override val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]] = codes
     }
   }
 
   property("my prop test" ) =
-    Prop.forAll(genDSLwCode(desc)) {
+    Prop.forAll(genDSLwCode()) {
       dslwcode => {
         import dslwcode._
         import scala.lms.util._
-        val inisyms = dslwcode.code.head.syms
-        val resultsyms = dslwcode.code.last.syms
+        val inisyms = dslwcode.code.head.types
+        val resultsyms = dslwcode.code.last.types
         val callstack = dsl.chainHeadf(dslwcode.code)
-        val callstack_staged = dsl.chainHeadsf(dslwcode.code)
+        val callstack_staged = dsl.chainHeadf(dslwcode.symbolic_code)
         val exposeargs = dsl.genExposeRep(inisyms)
         val exposeres = dsl.genExposeRep(resultsyms)
         var worked = true
@@ -254,4 +267,4 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         worked
       }
   }
-}*/
+}

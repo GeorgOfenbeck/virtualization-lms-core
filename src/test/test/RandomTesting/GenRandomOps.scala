@@ -183,7 +183,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @tparam T The type we try to describe
     */
   case class Tag[T](mf: Manifest[T],
-                    dynTags: Option[Unit => (Vector[GenTypes[_]], Vector[GenTypes[_]])] = None)
+                    dynTags: Option[ Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]])] = None)
 
   /** *
     * alias used to make swapping out of the type representation easier
@@ -194,6 +194,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * shortcut type since the unique set of types is used a lot in the code
     */
   type AvailUniqueTypes = Set[GenTypes[_]]
+
+
+  type AvailTypeTuples = Set[AvailUniqueTypes]
 
   /**
     * a map collecting all operations possible given a set of input types
@@ -235,7 +238,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                )
 
 
-
   lazy val allops = ops(Map.empty)
 
   /**
@@ -253,6 +255,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   def ops(availOps: AvailOps): AvailOps = availOps
 
+  def supported_types(availTypes: AvailTypeTuples): AvailTypeTuples = availTypes
 
   /**
     * Using the Wildcards to encode for generic types - for sure this can be done more elegant - but good enough for now
@@ -295,7 +298,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @param seval current iteration step of the random symbol creation
     * @return returns a Map of all Ops that could be called
     */
-  def filterOps( cCStatus: CCStatus, availTypes: AvailUniqueTypes, seval: EvalGenIterStep[Rep]): AvailOps = {
+  def filterOps(cCStatus: CCStatus, availTypes: AvailUniqueTypes, seval: EvalGenIterStep[Rep]): AvailOps = {
     //all ops that are statically known
     val fixedops = allops.filter(x => x._1.subsetOf(availTypes))
 
@@ -414,9 +417,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   def genOp(desc: CodeDescriptor, cCStatus: CCStatus, seval: EvalGenIterStep[Rep]): Gen[Op] = {
     val availTypes: AvailUniqueTypes = seval.types.toSet //all types we currently see in the code
-    val availOps = filterOps(cCStatus,availTypes, seval) //filter which ops can operate on those types
+    val availOps = filterOps(cCStatus, availTypes, seval) //filter which ops can operate on those types
     val flattened = availOps.flatMap(opset => opset._2)
-    for { randomop <- Gen.oneOf(flattened.toSeq) } yield randomop
+    for {randomop <- Gen.oneOf(flattened.toSeq)} yield randomop
   }
 
 
@@ -450,29 +453,165 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @return a random Generator that increases veval/seval by one iteration step (could be multiple ops in e.g. the case of functions)
     */
 
-    def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
-    : Gen[(EvalGenIterStep[NoRep], EvalGenIterStep[Rep])] = {
-      for {
-        wop <- genOp(desc, cCStatus, seval)
-        (fop, nf) <- createFunction(desc, wop, seval)
-        op <- removeWildCards(fop, seval)
-        assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(seval, arg)))
-      } yield {
-        val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf(assign,op,op.evaluation)
-        val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf(assign,op, op.symbolic_evaluation)
+  def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
+  : Gen[(EvalGenIterStep[NoRep], EvalGenIterStep[Rep])] = {
+    for {
+      wop <- genOp(desc, cCStatus, seval)
+      (fop, nf) <- createFunction(desc, wop, seval)
+      op <- removeWildCards(fop, seval)
+      assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(seval, arg)))
+    } yield {
+      val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf(assign, op, op.evaluation)
+      val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf(assign, op, op.symbolic_evaluation)
 
-        if (nf.isDefined) { //the op is defining a new local function
-          ???
-        }
-        else {
-          val newtypes = seval.types ++ op.returns
-          val valuebased = EvalGenIterStep(newtypes,evaluation,veval.dynamically_defined_functions)
-          val symbolbased = EvalGenIterStep(newtypes,symbolic_evaluation,seval.dynamically_defined_functions)
-          (valuebased,symbolbased)
+      if (nf.isDefined) {
+        //the op is defining a new local function
+        ???
+      }
+      else {
+        val newtypes = seval.types ++ op.returns
+        val valuebased = EvalGenIterStep(newtypes, evaluation, veval.dynamically_defined_functions)
+        val symbolbased = EvalGenIterStep(newtypes, symbolic_evaluation, seval.dynamically_defined_functions)
+        (valuebased, symbolbased)
+      }
+    }
+  }
+
+
+  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, iniv: Vector[EvalGenIterStep[NoRep]], inis: Vector[EvalGenIterStep[Rep]]):
+  Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
+    if (cCStatus.curr_nodes_in_block < desc.max_nodes_per_block) {
+      for {
+        (nextv, nexts) <- genEvalGenIterStep(desc, cCStatus, iniv.last, inis.last)
+        tail <- genNodes(desc, cCStatus.copy(curr_nodes_in_block = cCStatus.curr_nodes_in_block + 1), iniv :+ nextv, inis :+ nexts)
+      } yield tail
+    } else (iniv, inis)
+  }
+
+  /**
+    * create a Vector of random cTPs
+    * its a vector cause we might require a certain type combination so that our ops work
+    * e.g. if we only have the plus(l: T, r: Q) operation we require that we have a T and a Q in the args
+    * @return
+    */
+  def genArg(): Gen[Vector[GenTypes[_]]] = for {
+    typechoice <- Gen.oneOf(supported_types(Set.empty).toSeq)
+  } yield typechoice.toVector
+
+
+  //creates n Args - since a single "arg" might be a tuple of args we simple sample n tuples and then only consider the first
+  //m args such that the total size is smaller then n
+  def genArgs(size: Int): Gen[Vector[GenTypes[_]]] =
+    for {
+      args <- Gen.containerOfN[Vector, Vector[GenTypes[_]]](size, genArg)
+    } yield {
+      args.foldLeft(Vector.empty[GenTypes[_]]) {
+        (acc, ele) => {
+          val p1 = acc ++ ele
+          if (p1.size > size)
+            acc
+          else
+            p1
         }
       }
     }
 
+  def getfinalIterStep[S[_]](indicies: Vector[Int], itersteps: Vector[EvalGenIterStep[S]]): Vector[EvalGenIterStep[S]] = {
+
+    val f: (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = (in: Vector[SoV[S, _]]) => {
+      indicies.foldLeft(Vector.empty[SoV[S, _]]) { (acc, ele) => acc :+ in(ele) }
+    }
+    val types = indicies.foldLeft(Vector.empty[GenTypes[_]]) {
+      (acc, ele) => acc :+ itersteps.last.types(ele)
+    }
+    itersteps :+ EvalGenIterStep(types, f, itersteps.last.dynamically_defined_functions)
+  }
+
+  //used to limit the number of returns
+  def genReturns(desc: CodeDescriptor, vecv: Vector[EvalGenIterStep[NoRep]], vecs: Vector[EvalGenIterStep[Rep]])
+  : Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
+    for {
+      nrrets <- Gen.chooseNum(1, desc.max_returns)
+      indicies <- Gen.pick(nrrets, vecs.last.types.zipWithIndex.map(e => e._2))
+    } yield {
+      val finalv = getfinalIterStep(indicies.toVector, vecv)
+      val finals = getfinalIterStep(indicies.toVector, vecs)
+      (finalv,finals)
+    }
+  }
+
+  def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
+    for {
+      ini <- genArgs(desc.max_toplevel_args)
+      (vecv, vecs) <- genNodes(desc, cCStatus, Vector(EvalGenIterStep[NoRep](ini, null, Map.empty)), Vector(EvalGenIterStep[Rep](ini, null, Map.empty)))
+      tail <- genReturns(desc, vecv,vecs)
+    } yield tail
+  }
+
+  @tailrec
+  private def chainf[S[_]](v: Vector[EvalGenIterStep[S]], res: Vector[SoV[S, _]]): Vector[SoV[S, _]] =
+    if (v.isEmpty) res else chainf(v.tail, v.head.evaluation(res))
+
+
+  def chainHeadf[S[_]](v: Vector[EvalGenIterStep[S]]): (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = {
+    if (v.tail.isEmpty)
+      assert(false, "seems there are no instructions")
+    val f: (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = (in: Vector[SoV[S, _]]) => {
+      chainf(v.tail, in)
+    }
+    f
+  }
+
+
+  def genExposeRep(v: Vector[SoV[Rep, _]]): ExposeRep[Vector[SoV[Rep, _]]] = {
+    //val tags = v.map(e => e.tag)
+    new ExposeRep[Vector[SoV[Rep, _]]]{
+      val freshExps = (u: Unit) => {
+        def helpert[T](args: Vector[TypeRep[_]], returns: Vector[TypeRep[_]])(implicit tag: TypeRep[T]): TypeRep[T] = {
+          tag match {
+            case x@TypeExp(mf,dynTags) => {
+              val f: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+                //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
+                (args,returns)
+              }
+              x.copy(dynTags = Some(f))
+            }
+            case _ => {
+              assert(false, "this should never match")
+              tag
+            }
+          }
+        }
+        v.foldLeft(Vector.empty[Exp[_]])((acc,ele) => {
+          ele.tag.dynTags match {
+            case Some(ftags) => {
+              val (args,rets) = ftags()
+              val tagnew: TypeRep[_=>_] = helpert(args,rets)
+              val exp = Arg[_=>_](tagnew)
+              acc :+ exp
+            }
+            case None => acc :+ Arg(ele.tag.mf)
+          }
+        })
+      }
+      val vec2t: Vector[Exp[_]] => Vector[SoV[Rep, _]] =
+      //(v: Vector[Exp[_]]) => Vector.empty
+        (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[SoV[Rep, _]])( (acc,ele) => {
+          val mf: Manifest[_] = exp2tp(ele).tag.mf
+          val tag: Tag[_] = Tag(mf)
+          //val sov: SoV[Rep,_] = SoV(ele, tag)
+          val sov: SoV[Rep,_] = SoV[Rep,_](ele, tag)
+          acc :+ sov
+        })
+      val t2vec: Vector[SoV[Rep, _]] => Vector[Exp[_]] =
+      //(x: Vector[cTP]) => Vector.empty
+        (x: Vector[SoV[Rep, _]]) => x.foldLeft(Vector.empty[Exp[_]])( (acc,ele) => {
+          if (!ele.sym.isInstanceOf[Exp[_]])
+            assert(false, "cast error")
+          acc :+ ele.sym.asInstanceOf[Exp[_]]
+        })
+    }
+  }
 
 
 
