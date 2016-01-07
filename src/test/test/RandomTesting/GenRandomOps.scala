@@ -563,7 +563,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   }
 
 
-  def genExposeRep(v: Vector[SoV[Rep, _]]): ExposeRep[Vector[SoV[Rep, _]]] = {
+  def genExposeRep(v: Vector[GenTypes[_]]): ExposeRep[Vector[SoV[Rep, _]]] = {
     //val tags = v.map(e => e.tag)
     new ExposeRep[Vector[SoV[Rep, _]]]{
       val freshExps = (u: Unit) => {
@@ -583,24 +583,23 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
           }
         }
         v.foldLeft(Vector.empty[Exp[_]])((acc,ele) => {
-          ele.tag.dynTags match {
+          ele.dynTags match {
             case Some(ftags) => {
               val (args,rets) = ftags()
               val tagnew: TypeRep[_=>_] = helpert(args,rets)
               val exp = Arg[_=>_](tagnew)
               acc :+ exp
             }
-            case None => acc :+ Arg(ele.tag.mf)
+            case None => acc :+ Arg(ele.mf)
           }
         })
       }
       val vec2t: Vector[Exp[_]] => Vector[SoV[Rep, _]] =
       //(v: Vector[Exp[_]]) => Vector.empty
         (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[SoV[Rep, _]])( (acc,ele) => {
-          val mf: Manifest[_] = exp2tp(ele).tag.mf
-          val tag: Tag[_] = Tag(mf)
-          //val sov: SoV[Rep,_] = SoV(ele, tag)
-          val sov: SoV[Rep,_] = SoV[Rep,_](ele, tag)
+          val mf: Manifest[Any] = exp2tp(ele).tag.mf.asInstanceOf[Manifest[Any]]
+          val tag: Tag[Any] = Tag(mf)           //the cast above is nasty - but since we don't use the type
+          val sov: SoV[Rep,Any] = SoV(ele, tag) //and discard it it wont matter in the end
           acc :+ sov
         })
       val t2vec: Vector[SoV[Rep, _]] => Vector[Exp[_]] =
@@ -610,6 +609,48 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
             assert(false, "cast error")
           acc :+ ele.sym.asInstanceOf[Exp[_]]
         })
+    }
+  }
+
+  //Introduced this just to avoid that scalacheck shrinks that vector (which doesnt make sense)
+  case class StealthIt(x: Vector[SoV[NoRep,_]])
+  def hideit(v: Vector[GenTypes[_]]): Gen[StealthIt] = for {
+    x <- genArgInstances(v)
+  } yield {
+    val t = StealthIt(x)
+    t
+  }
+
+  def genArgInstances(v: Vector[GenTypes[_]]): Gen[Vector[SoV[NoRep,_]]] = {
+    val t = v.map(e => {
+      for {
+        instance <- genTypeInstance(e)
+      } yield instance
+    })
+    val t1 = t
+    val r = for {
+      ge <- Gen.sequence[Vector[SoV[NoRep,_]], SoV[NoRep,_]](t1)
+    } yield ge //.zipWithIndex.map(e => cTP(e._1,v(e._2).tag))
+    r
+  }
+
+  def genTypeInstance(targetcTP: GenTypes[_]): Gen[SoV[NoRep,_]] = {
+    val boolm: String = manifest[Boolean].toString()
+    val intm: String = manifest[Int].toString()
+    val target:String = targetcTP.mf.toString()
+    target match {
+      case `boolm` => {
+        for {
+          choice <- Gen.oneOf(true, false)
+        } yield SoV[NoRep,Boolean](choice,Tag(manifest[Boolean]))
+      }
+      case `intm` => for {
+        choice <- Arbitrary.arbitrary[Int]
+      } yield SoV[NoRep,Int](choice,Tag(manifest[Int]))
+      case _ => {
+        assert(false, "seems we are missing a type instance generator for type " + targetcTP.mf)
+        ???
+      }
     }
   }
 

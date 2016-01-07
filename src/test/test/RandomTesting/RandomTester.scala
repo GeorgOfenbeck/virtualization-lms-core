@@ -19,7 +19,7 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
 
 
 
-  def tupler(x: Vector[SoV[Rep, _]]) = {
+  def tupler(x: Vector[SoV[NoRep, _]]) = {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
     val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"), "")
     if (this.compiler eq null)
@@ -65,8 +65,8 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     val obj: Any => Any = cons.newInstance(staticData.map(_._2.asInstanceOf[AnyRef]): _*).asInstanceOf[Any => Any]
     obj
   }
-  def detupler(y: Vector[SoV[Rep, _]]) = {
-    val rettuple = codegen.tupledeclarehelper(y.map(a => codegen.remap(a.tag.mf)), "")
+  def detupler(y: Vector[GenTypes[_]]) = {
+    val rettuple = codegen.tupledeclarehelper(y.map(a => codegen.remap(a.mf)), "")
     val withindex = y.zipWithIndex
     val withvalues = withindex.map(ele => {
       val (e, idx) = ele
