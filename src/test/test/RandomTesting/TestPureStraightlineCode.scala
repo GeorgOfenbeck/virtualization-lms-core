@@ -1,5 +1,5 @@
-/*
-package test
+
+package RandomTesting
 
 
 
@@ -21,7 +21,7 @@ import scala.tools.nsc.interpreter.AbstractFileClassLoader
 import scala.tools.nsc.util
 
 
-object TestPureStraightlineCode1  extends RandomTester{
+object TestPureStraightlineCode  extends RandomTester{
 
  class MRandomClass extends RandomClass
  with BooleanOpsExp
@@ -36,9 +36,14 @@ object TestPureStraightlineCode1  extends RandomTester{
   }
  }
 
-  override lazy val desc: CodeDescriptor = CodeDescriptor(100, 2, 20, 5, 20, 20 , 1)
+  def getCodeDescription(randomClass: RandomClass) = {
+    randomClass.CodeDescriptor(100, 2, 20, 5, 20, 20 ,1 ,1 ,Map.empty)
+  }
+  //override lazy val desc: CodeDescriptor = CodeDescriptor(100, 2, 20, 5, 20, 20 , 1)
+
+
   def iniRandomC(): RandomClass = new MRandomClass()
 
 
 }
-*/
+

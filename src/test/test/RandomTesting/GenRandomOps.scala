@@ -232,10 +232,42 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   case class Op(name: String,
                 args: Vector[GenTypes[_]],
                 returns: Vector[GenTypes[_]],
-                evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]],
-                symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]],
+                evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] ,
+                symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ,
                 localfidx: Option[Int]
                )
+  {
+    /*val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = (x: Vector[SoV[NoRep, _]]) => {
+      val rawarg = x.map(e => e.sym)
+      //add type checks here for args
+      val rawret = f(rawarg)
+      //add type checks here for returns
+      assert(rawret.size == returns.size)
+      val zip = rawret.zip(returns)
+      zip.map( e => {
+        val a: NoRep[_] = e._1
+        val b: Manifest[Any] =
+        SoV[NoRep,_](e._1,e._2)
+      }).toVector
+    }
+    val symbolic_evaluation: (Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ) = (x: Vector[SoV[NoRep, _]]) => {
+      val rawarg = x.map(e => e.sym)
+      //add type checks here for args
+      val rawret = f(rawarg)
+      //add type checks here for returns
+      assert(rawret.size == returns.size)
+      val zip = rawret.zip(returns)
+      zip.map( e => SoV(e._1,e._2)).toVector
+    }*/
+  }
+
+  def registerOp(newop: Op, sofar: AvailOps): AvailOps = {
+    val uniqueArgs = newop.args.toSet
+    val withoutWildcards = uniqueArgs.filter(t => !isWildCard(t))
+    val entrysofar = sofar.get(withoutWildcards)
+    val newentry = if (entrysofar.isDefined) entrysofar.get + newop else Set(newop)
+    sofar + (withoutWildcards -> newentry)
+  }
 
 
   lazy val allops = ops(Map.empty)

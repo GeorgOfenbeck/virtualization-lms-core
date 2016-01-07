@@ -128,9 +128,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   //the actual test object has to define what Random Class is returned
   def iniRandomC(): RandomClass
 
-  def getCodeDescription(randomClass: RandomClass): randomClass.CodeDescriptor = {
-    ???
-  }
+  def getCodeDescription(randomClass: RandomClass): randomClass.CodeDescriptor
 
   def iniCCStatus(randomClass: RandomClass): randomClass.CCStatus = {
     randomClass.CCStatus(0,0,0,Map.empty)
