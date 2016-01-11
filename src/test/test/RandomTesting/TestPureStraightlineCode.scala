@@ -25,10 +25,13 @@ object TestPureStraightlineCode  extends RandomTester{
 
  class MRandomClass extends RandomClass
  with BooleanOpsExp
+ with PurePrimitiveOpsExpOpt
+ with ImplicitOpsExp
  with FunctionsExp
  with GenRandomBooleanOps
+ with GenRandomPrimitiveOps
  { self =>
-  override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps {
+  override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenPrimitivOps{
    val IR: self.type = self
   }
   val emitGraph = new GraphVizExport {

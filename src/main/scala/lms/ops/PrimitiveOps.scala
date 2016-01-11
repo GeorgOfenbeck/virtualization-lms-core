@@ -741,23 +741,23 @@ trait PurePrimitiveOpsExp extends PurePrimitiveOps with BaseExp{
 
 
 }
-/*
 
-trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
+
+trait PurePrimitiveOpsExpOpt extends PurePrimitiveOpsExp with ImplicitOpsExp{
   override def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a+b)
+    case (Const(a: Int),Const(b: Int)) => unit(a+b)
     case (Const(0),b) => b
     case (a,Const(0)) => a
     case _ => super.int_plus(lhs,rhs)
   }
   override def int_minus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a-b)
+    case (Const(a: Int),Const(b: Int)) => unit(a-b)
     case (a,Const(0)) => a
     case (Def(IntPlus(llhs,lrhs)), rhs) if lrhs.equals(rhs) => llhs
     case _ => super.int_minus(lhs,rhs)
   }
   override def int_times(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a*b)
+    case (Const(a: Int),Const(b: Int)) => unit(a*b)
     case (Const(0),b) => Const(0)
     case (Const(1),b) => b
     case (a,Const(0)) => Const(0)
@@ -765,23 +765,23 @@ trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
     case _ => super.int_times(lhs,rhs)
   }
   override def int_to_float(lhs: Rep[Int])(implicit pos: SourceContext): Rep[Float] = lhs match {
-    case Const(x) => Const(x.toFloat)
+    case Const(x: Int) => Const(x.toFloat)
     case _ => super.int_to_float(lhs)
   }
 
   override def int_to_double(lhs: Rep[Int])(implicit pos: SourceContext): Rep[Double] = lhs match {
-    case Const(x) => Const(x.toDouble)
+    case Const(x: Int) => Const(x.toDouble)
     case _ => super.int_to_double(lhs)
   }
 
   override def float_to_double(lhs: Rep[Float])(implicit pos: SourceContext): Rep[Double] = lhs match {
-    case Const(x) => Const(x.toDouble)
+    case Const(x: Int) => Const(x.toDouble)
     case Def(IntToFloat(x)) => int_to_double(x)
     case _ => super.float_to_double(lhs)
   }
 
   override def double_to_int(lhs: Rep[Double])(implicit pos: SourceContext): Rep[Int] = lhs match {
-    case Const(x) => Const(x.toInt)
+    case Const(x: Int) => Const(x.toInt)
     case Def(IntToDouble(x)) => x
     case _ => super.double_to_int(lhs)
   }
@@ -789,13 +789,13 @@ trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
   override def double_plus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext) : Exp[Double] = (lhs, rhs) match {
     case (Const(0.0), r) => r
     case (l, Const(0.0)) => l
-    case (Const(x), Const(y)) => Const(x+y)
+    case (Const(x: Double), Const(y: Double)) => Const(x+y)
     case _ => super.double_plus(lhs,rhs)
   }
 
   override def double_minus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext) : Exp[Double] = (lhs, rhs) match {
     case (l, Const(0l)) => l
-    case (Const(x), Const(y)) => Const(x-y)
+    case (Const(x: Double), Const(y: Double)) => Const(x-y)
     case _ => super.double_minus(lhs,rhs)
   }
 
@@ -804,20 +804,20 @@ trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
     case (l, r@Const(0.0)) => r
     case (Const(1.0), r) => r
     case (l, Const(1.0)) => l
-    case (Const(x), Const(y)) => Const(x*y)
+    case (Const(x: Double), Const(y: Double)) => Const(x*y)
     case _ => super.double_times(lhs,rhs)
   }
 
   override def long_plus(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) : Exp[Long] = (lhs, rhs) match {
     case (Const(0l), r) => r
     case (l, Const(0l)) => l
-    case (Const(x), Const(y)) => Const(x+y)
+    case (Const(x: Long), Const(y: Long)) => Const(x+y)
     case _ => super.long_plus(lhs,rhs)
   }
 
   override def long_minus(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) : Exp[Long] = (lhs, rhs) match {
     case (l, Const(0l)) => l
-    case (Const(x), Const(y)) => Const(x-y)
+    case (Const(x: Long), Const(y: Long)) => Const(x-y)
     case _ => super.long_minus(lhs,rhs)
   }
 
@@ -826,11 +826,11 @@ trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
     case (l, r@Const(0l)) => r
     case (Const(1l), r) => r
     case (l, Const(1l)) => l
-    case (Const(x), Const(y)) => Const(x*y)
+    case (Const(x: Long), Const(y: Long)) => Const(x*y)
     case _ => super.long_times(lhs,rhs)
   }
 }
-*/
+
 
 
 

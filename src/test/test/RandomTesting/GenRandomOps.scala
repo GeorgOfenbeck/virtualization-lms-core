@@ -232,8 +232,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   case class Op(name: String,
                 args: Vector[GenTypes[_]],
                 returns: Vector[GenTypes[_]],
-                evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] ,
-                symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ,
+                evaluation: Vector[NoRep[_]] => Vector[NoRep[_]], //Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] ,
+                symbolic_evaluation: Vector[Rep[_]] => Vector[Rep[_]],//Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ,
                 localfidx: Option[Int]
                )
   {
@@ -455,22 +455,34 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   }
 
 
-  def createf[S[_]](assign: Vector[Int], op: Op, eval: Vector[SoV[S, _]] => Vector[SoV[S, _]])
+  def createf[S[_]](assign: Vector[Int], op: Op, eval: Vector[S[_]] => Vector[S[_]])
   : (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = {
     val f: (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = (in: Vector[SoV[S, _]]) => {
       //take the assigned symbols / values from the vector of existing values / symbols and put them in a dedicated vector
       val argsyms: Vector[SoV[S, _]] = assign.foldLeft(Vector.empty[SoV[S, _]]) {
         (acc, ele) => acc :+ in(ele)
       }
+      // get rid of the tags
+      val symsonly = argsyms.map ( e => e.sym)
+
       //then use this vector with the execution (symbolic or actual) get the result
-      val ret: Vector[SoV[S, _]] =
+      val ret: Vector[S[_]] =
         if (op.localfidx.isDefined) {
-          val localf: SoV[S, _] = in(op.localfidx.get)
+          ???
+          /*val localf: SoV[S, _] = in(op.localfidx.get)
           val fplusargsyms = localf +: argsyms
-          eval(fplusargsyms)
+          eval(fplusargsyms)*/
         }
-        else eval(argsyms)
-      in ++ ret //concatenate symbol/values so far with the new results
+        else eval(symsonly)
+
+      assert(op.returns.size == ret.size) //make sure we got as many symbols back as expected
+      val retwithtags: Vector[SoV[S, _]] = op.returns.zip(ret).map(e => {
+          val (tag,sym) = e //TODO - can typecheck that the expected type and returned type are the same
+          val sym2: S[Any] = sym.asInstanceOf[S[Any]]
+          val tag2: Tag[Any] = tag.asInstanceOf[Tag[Any]]
+          SoV(sym2,tag2)
+        }).toVector
+      in ++ retwithtags //concatenate symbol/values so far with the new results
     }
     f
   }
@@ -493,9 +505,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       op <- removeWildCards(fop, seval)
       assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(seval, arg)))
     } yield {
-      val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf(assign, op, op.evaluation)
-      val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf(assign, op, op.symbolic_evaluation)
-
+      val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf[NoRep](assign, op, op.evaluation)
+      val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf[Rep](assign, op, op.symbolic_evaluation)
       if (nf.isDefined) {
         //the op is defining a new local function
         ???

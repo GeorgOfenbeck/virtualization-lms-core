@@ -218,7 +218,8 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
             val asvec = dtupler(rettuple)
 
             println("got the result")
-            val castit = asvec.asInstanceOf[Vector[Any]]
+            //val castit = asvec.asInstanceOf[Vector[dsl.SoV[dsl.NoRep, _]]]
+            val castit = asvec.asInstanceOf[Vector[dsl.NoRep[_]]]
             val widx = castit.zipWithIndex
 
             if (true) {
@@ -228,8 +229,16 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
                 val (e, idx) = ele
                 e == unstagedresult(idx).sym || unstagedresult(idx).sym.toString().contains("function")
               })
-              if (!dropit.isEmpty)
+              if (!dropit.isEmpty) {
                 println("dropit: " + dropit)
+                val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Fail" + cnt + ".scala")
+                val stream2 = new java.io.PrintWriter(file)
+                val esc = dsl.codegen.emitSource(callstack_staged, "failClass" + cnt, stream2)(exposeargs, exposeres)
+                stream2.flush()
+                stream2.close()
+                file.flush()
+                file.close()
+              }
               worked = dropit.isEmpty
             }
             /*val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test" + cnt + ".scala")

@@ -14,15 +14,15 @@ trait GenRandomBooleanOps extends GenRandomOps{
 
 
   val negate: Op = {
-
-    val f: Function1[Vector[SoV[NoRep,_]],Vector[SoV[NoRep,_]]] = (x: Vector[SoV[NoRep,_]]) => {
+    val f: Function1[Vector[NoRep[_]],Vector[NoRep[_]]] = (x: Vector[NoRep[_]]) => {
       val t = x.head.asInstanceOf[Boolean]
-      Vector(SoV[NoRep,Boolean](!t,Tag(manifest[Boolean])))
+      Vector(!t)
     }
 
-    val sf: Function1[Vector[SoV[Rep,_]],Vector[SoV[Rep,_]]] = (x: Vector[SoV[Rep,_]]) => {
-      val t = x.head.asInstanceOf[Rep[Boolean]]
-      Vector(SoV(boolean_negate(t),Tag(manifest[Boolean])))
+    val sf: Function1[Vector[Rep[_]],Vector[Rep[_]]] = (x: Vector[Rep[_]]) => {
+      //val t = x.head.asInstanceOf[Rep[Boolean]]
+      val t: Rep[Boolean] = x.head.asInstanceOf[Rep[Boolean]]
+      Vector(boolean_negate(t))
     }
 
 
