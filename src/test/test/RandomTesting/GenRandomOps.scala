@@ -8,139 +8,6 @@ import org.scalacheck._
 import scala.lms.internal._
 
 
-/*
-
- trait TypedValueorSymbol[T] {
-   def getManifest(x: T): Manifest[_]
- }
-
- case class TV[T](x: T)(implicit val mf: Manifest[T])
-
-
- implicit object TypedSymbol extends TypedValueorSymbol[TP[_]]{
-  def getManifest(x: TP[_]): Manifest[_] = x.tag.mf
- }
- implicit object TypedValue extends TypedValueorSymbol[TV[_]]{
-  def getManifest(x: TV[_]): Manifest[_] = x.mf
- }
-
-
-
- /**
-   * This takes the list of all available ops and filters out those that can be called with the current set of graph nodes
-   * @param availTypes the types of the currently existing variables
-   * @return returns a Map of all Ops that could be called
-   */
- def filterOps(availTypes: AvailUniqueTypes, graph: IRGraph): AvailOps = {
-
-  //all ops that are statically known
-  val fixedops = allops.filter(x => x._1.subsetOf(availTypes))
-
-  //all ops that come into existence due to dynamic definitions of functions
-  //val dynops = graph.localfs.filter(x => x._1.subsetOf(availTypes))
-  //2DO
-
-  /*val currops = fixedops ++ dynops.map{ case (k,v) => {
-   val other: Set[Op] = fixedops.getOrElse(k,Set.empty[Op])
-   val value: Set[Op] = (v ++ other)
-   k -> value
-  }
-  }
-  currops
-  */
-  fixedops
- }
-
- //override in traits that would nest to check if its a valid op in the context
- def filterNestDepth(desc: CodeDescriptor, graph: IRGraph, op: Op): Boolean = {
-  true
- }
-
- /***
-   *
-   * @param desc Configuration for the random code generation - used in this context is the nest depth
-   * @param graph The current graph which is used to sample types available for ops
-   * @return A random generator for operations given the current graph and available ops
-    */
- def genOp(desc: CodeDescriptor, graph: IRGraph): Gen[Op] = {
-
-  //first get all types that are currently existing in our graph
-  val alltypeReps = graph.graph.id2tp.map(tuple => tuple._2.tag)
-  val availTypes: AvailUniqueTypes =  alltypeReps.map(e => e.mf).map(m => cTPType(m,None)).toSet
-
-  //then filter out those that we actually have ops for
-  val availOps = filterOps(availTypes, graph)
-  val flattened = availOps.flatMap(opset => opset._2)
-
-  val nestcheck = flattened.filter(p => { filterNestDepth(desc,graph,p) })
-  //2DO - DynOp filter
-  for {
-   randomop <- Gen.oneOf(nestcheck.toSeq)
-  } yield randomop
- }
-
- //this checks if the op we randomly selected the creation of a function literal and then replaces the placeholder with an actual symbol
- //we do this cause we want the function to only take parameters that are also currently available to increase the liklyhood of it being used
- //the actual implemention is within the GenRandomFunctions trait
- /*def createFunction(desc: CodeDescriptor, op: Op, graph: IRGraph): Gen[(Op,Option[(Vector[cTP],Vector[cTP])])] = {
-  (op,None)
- }*/
-
- private def checkTypeCompatibility(ctype: GenTypes, targetType: GenTypes): Boolean = {
-  ctype == targetType //|| isWildCard(targetType) //2DO
- }
-
- /**
-   * @param graph The current graph we pick compatible nodes from
-   * @param targetType The type we will use to search for matching nodes within the graph
-   * @return The node id within the graph
-    */
- def genAssignment(graph: IRGraph, targetType: GenTypes): Gen[Int] = {
-  val possible_targets = graph.graph.id2tp.filter(e => {
-   val mf = e._2.tag.mf
-   val gentype = cTPType(mf,None)
-   checkTypeCompatibility(gentype,targetType)
-  }).map(r => r._1).toVector
-  for {
-   choice <- Gen.oneOf(possible_targets)
-  } yield choice
- }
-
-  /***
-    *
-    * @param desc Configuration for the random code generation
-    * @param graph The current graph which is used as a base to choose ops and operands for the next graph
-    * @return A new GraphIR which is increased by one Op (an Op can also be a function which in turn contains multiple Ops)
-    */
-
- def genIRGraphs(desc: CodeDescriptor, graph: IRGraph): Gen[IRGraph] = {
-  for {
-   randomOp <- genOp(desc,graph)
-   assign <- Gen.sequence[Vector[Int], Int](randomOp.desc.args.map(arg => genAssignment(graph, arg)))
-  } yield {
-   val unstagedfunction: ( Reification => Reification) = (in: Reification) => {
-    val argsyms: Vector[Any] = assign.foldLeft(Vector.empty[Any]) { (acc, ele) => acc :+ in.id2tp(ele).sym }
-    //val ret = randomOp.desc.rf(argsyms)
-
-
-    //val retgraph: Reification = ret
-    //val retctp: Vector[cTP] = ret.zipWithIndex.map(e => cTP(e._1, op.desc.returns(e._2)))
-    //in ++ retctp
-
-    //ret
-    ???
-
-
-   }
-
-   assign
-  }
-
-  ???
- }
-
- */
-
 
 trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
@@ -236,30 +103,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                 symbolic_evaluation: Vector[Rep[_]] => Vector[Rep[_]],//Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ,
                 localfidx: Option[Int]
                )
-  {
-    /*val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = (x: Vector[SoV[NoRep, _]]) => {
-      val rawarg = x.map(e => e.sym)
-      //add type checks here for args
-      val rawret = f(rawarg)
-      //add type checks here for returns
-      assert(rawret.size == returns.size)
-      val zip = rawret.zip(returns)
-      zip.map( e => {
-        val a: NoRep[_] = e._1
-        val b: Manifest[Any] =
-        SoV[NoRep,_](e._1,e._2)
-      }).toVector
-    }
-    val symbolic_evaluation: (Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ) = (x: Vector[SoV[NoRep, _]]) => {
-      val rawarg = x.map(e => e.sym)
-      //add type checks here for args
-      val rawret = f(rawarg)
-      //add type checks here for returns
-      assert(rawret.size == returns.size)
-      val zip = rawret.zip(returns)
-      zip.map( e => SoV(e._1,e._2)).toVector
-    }*/
-  }
+
 
   def registerOp(newop: Op, sofar: AvailOps): AvailOps = {
     val uniqueArgs = newop.args.toSet
@@ -272,17 +116,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   lazy val allops = ops(Map.empty)
 
-  /**
-    * This is used to store a current set of input symbol/values and its extending function
-    * @param types all currently available symbol types
-    * @param evaluation given the current symbols executes the function and returns an extended set of symbols
-    * @param dynamically_defined_functions during the evaluation steps of previous iterations functions might have been created
-    *                                      which should also be exposed as available ops - those functions are store in this field
-    * @tparam S this decideds if the iterations describe a straightforward evaluation or its symbolic counterpart
-    */
-  case class EvalGenIterStep[S[_]](types: Vector[GenTypes[_]],
-                                   evaluation: Vector[SoV[S, _]] => Vector[SoV[S, _]],
-                                   dynamically_defined_functions: AvailOps)
 
 
   def ops(availOps: AvailOps): AvailOps = availOps
@@ -321,6 +154,19 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   class WildcardNumeric
 
   class WildcardOrdering
+
+
+  /**
+    * This is used to store a current set of input symbol/values and its extending function
+    * @param types all currently available symbol types
+    * @param evaluation given the current symbols executes the function and returns an extended set of symbols
+    * @param dynamically_defined_functions during the evaluation steps of previous iterations functions might have been created
+    *                                      which should also be exposed as available ops - those functions are store in this field
+    * @tparam S this decideds if the iterations describe a straightforward evaluation or its symbolic counterpart
+    */
+  case class EvalGenIterStep[S[_]](types: Vector[GenTypes[_]],
+                                   evaluation: Vector[SoV[S, _]] => Vector[SoV[S, _]],
+                                   dynamically_defined_functions: AvailOps)
 
 
   /**

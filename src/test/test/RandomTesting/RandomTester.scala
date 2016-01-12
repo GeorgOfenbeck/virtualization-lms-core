@@ -17,8 +17,6 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
   var tuplercount: Int = 0
   var detuplercount: Int = 0
 
-
-
   def tupler(x: Vector[SoV[NoRep, _]]) = {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
     val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"), "")
@@ -118,10 +116,6 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
   }
 }
 
-
-
-
-
 abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
@@ -133,27 +127,6 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   def iniCCStatus(randomClass: RandomClass): randomClass.CCStatus = {
     randomClass.CCStatus(0,0,0,Map.empty)
   }
-/*
-
-
-  implicit val shrinkStuff: Shrink[DSLwCode] = Shrink(
-    {
-      case dslr: DSLwCode => {
-        if (dslr.code.isEmpty) Stream.empty else {
-          val t =
-          new DSLwCode {
-            override val dsl: dslr.dsl.type = dslr.dsl
-            val code = dslr.code.take(dslr.code.size/2)
-          }
-          Stream.concat(
-            ???
-          )
-
-        }
-      }
-    })
-*/
-
 
   abstract class DSLwCode {
     val dsl: RandomClass
@@ -183,6 +156,41 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
       override val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]] = codes
     }
   }
+
+
+  def fstream(curr: Int, ini: DSLwCode): Stream[DSLwCode] = {
+    val s = ini.code.size
+    val rest = s - curr
+    val halfrest = rest / 2
+    val newpos = curr + halfrest
+    if (halfrest > 0) {
+      val x = new DSLwCode {
+        override val dsl: ini.dsl.type = ini.dsl
+        override val symbolic_code: Vector[ini.dsl.EvalGenIterStep[ini.dsl.Exp]] = ini.symbolic_code.take(newpos)
+        override val code: Vector[ini.dsl.EvalGenIterStep[ini.dsl.NoRep]] =  ini.code.take(newpos)
+      }
+      Stream.cons(x, fstream(newpos, ini))
+    }
+    else
+      Stream.empty
+  }
+  
+  implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
+    case s: DSLwCode => {      
+      println("shrinking" + s.code.size)
+      if (!s.code.isEmpty) {
+        val x = new DSLwCode {
+            override val dsl: s.dsl.type = s.dsl
+            //override val symbolic_code: Vector[s.dsl.EvalGenIterStep[s.dsl.Exp]] = s.symbolic_code.splitAt(s.symbolic_code.size / 2)._1
+            override val symbolic_code = s.symbolic_code.splitAt(s.symbolic_code.size / 2)._1
+            override val code =  s.code.splitAt(s.code.size / 2)._1
+          }
+        Stream.concat(Stream(x),fstream(s.code.size/2,s)) //Stream of size 3/4, 7/8 etc.
+        }
+      else Stream.empty                       
+    }
+  })
+
 
   property("my prop test" ) =
     Prop.forAll(genDSLwCode()) {

@@ -22,7 +22,6 @@ import scala.tools.nsc.util
 
 
 object TestPureStraightlineCode  extends RandomTester{
-
  class MRandomClass extends RandomClass
  with BooleanOpsExp
  with PurePrimitiveOpsExpOpt
@@ -30,23 +29,9 @@ object TestPureStraightlineCode  extends RandomTester{
  with FunctionsExp
  with GenRandomBooleanOps
  with GenRandomPrimitiveOps
- { self =>
-  override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenPrimitivOps{
-   val IR: self.type = self
-  }
-  val emitGraph = new GraphVizExport {
-   override val IR: self.type = self
-  }
- }
+ { self => override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenPrimitivOps{ val IR: self.type = self}  }
 
-  def getCodeDescription(randomClass: RandomClass) = {
-    randomClass.CodeDescriptor(100, 2, 20, 5, 20, 20 ,1 ,1 ,Map.empty)
-  }
-  //override lazy val desc: CodeDescriptor = CodeDescriptor(100, 2, 20, 5, 20, 20 , 1)
-
-
+  def getCodeDescription(randomClass: RandomClass) = randomClass.CodeDescriptor(100, 2, 20, 5, 20, 20 ,1 ,1 ,Map.empty)
   def iniRandomC(): RandomClass = new MRandomClass()
-
-
 }
 
