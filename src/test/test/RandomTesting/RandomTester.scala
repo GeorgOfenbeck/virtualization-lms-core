@@ -5,6 +5,7 @@ import java.io.{PrintWriter, StringWriter}
 
 import org.scalacheck.Shrink
 
+import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 import scala.reflect.io.VirtualDirectory
 import scala.tools.nsc.interpreter.AbstractFileClassLoader
@@ -16,6 +17,9 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
   val codegen: EmitHeadInternalFunctionAsClass { val IR: self.type }
   var tuplercount: Int = 0
   var detuplercount: Int = 0
+  val emitGraph = new GraphVizExport {
+    override val IR: self.type = self
+  }
 
   def tupler(x: Vector[SoV[NoRep, _]]) = {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
@@ -130,8 +134,9 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
 
   abstract class DSLwCode {
     val dsl: RandomClass
-    val code: Vector[dsl.EvalGenIterStep[dsl.NoRep]]
-    val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]]
+    //val code: Vector[dsl.EvalGenIterStep[dsl.NoRep]]
+    //val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]]
+    val dag: dsl.Dag
   }
 
   //had to introduce this indirection cause otherwise ScalaCheck will assume the class constant
@@ -148,16 +153,18 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
     println("here")
     for {
       dslr <- genDSL()
-      (codev, codes) <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
+      rdag <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
+      //(codev, codes) <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
     } yield new DSLwCode {
       override val dsl: dslr.type = dslr
+      override val dag: dslr.Dag = rdag
       //override val code: Vector[dslr.FNest] = coder
-      override val code: Vector[dsl.EvalGenIterStep[dsl.NoRep]] = codev
-      override val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]] = codes
+      //override val code: Vector[dsl.EvalGenIterStep[dsl.NoRep]] = codev
+      //override val symbolic_code: Vector[dsl.EvalGenIterStep[dsl.Rep]] = codes
     }
   }
 
-
+/*
   def fstream(curr: Int, ini: DSLwCode): Stream[DSLwCode] = {
     val s = ini.code.size
     val rest = s - curr
@@ -178,10 +185,26 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
     case s: DSLwCode => {      
       println("shrinking" + s.code.size)
+      val inisyms = s.code.head.types
+      val resultsyms = s.code.last.types
+      val callstack = s.dsl.chainHeadf(s.code)
+      val callstack_staged = s.dsl.chainHeadf(s.symbolic_code)
+      val exposeargs = s.dsl.genExposeRep(inisyms)
+      val exposeres = s.dsl.genExposeRep(resultsyms)
+      val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Shrink.graph")
+      val stream2 = new java.io.PrintWriter(file)
+      val (graph, cm) = s.dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs,exposeres)
+      stream2.print(graph)
+      stream2.flush()
+      stream2.close()
+      file.flush()
+      file.close()
+
+
+      assert(false)
       if (!s.code.isEmpty) {
         val x = new DSLwCode {
             override val dsl: s.dsl.type = s.dsl
-            //override val symbolic_code: Vector[s.dsl.EvalGenIterStep[s.dsl.Exp]] = s.symbolic_code.splitAt(s.symbolic_code.size / 2)._1
             override val symbolic_code = s.symbolic_code.splitAt(s.symbolic_code.size / 2)._1
             override val code =  s.code.splitAt(s.code.size / 2)._1
           }
@@ -189,7 +212,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         }
       else Stream.empty                       
     }
-  })
+  })*/
 
 
   property("my prop test" ) =
@@ -197,13 +220,17 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
       dslwcode => {
         import dslwcode._
         import scala.lms.util._
-        val inisyms = dslwcode.code.head.types
+        var worked = true
+        val inisyms = dslwcode.dag.dag(0).toVector.map(e => e.typ)
+        val resultsyms = dslwcode.dag.dag.flatMap(l => l.toVector.map(e => e.typ))
+        val callstack = dsl.chainHeadf(dslwcode.code)
+        /*val inisyms = dslwcode.code.head.types
         val resultsyms = dslwcode.code.last.types
         val callstack = dsl.chainHeadf(dslwcode.code)
-        val callstack_staged = dsl.chainHeadf(dslwcode.symbolic_code)
+        val callstack_staged = dsl.chainHeadf(dslwcode.symbolic_code)*/
         val exposeargs = dsl.genExposeRep(inisyms)
         val exposeres = dsl.genExposeRep(resultsyms)
-        var worked = true
+
         var cnt = 0
         try {
           println("starting compilation")
@@ -278,7 +305,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
             worked = false
           }
         }
-
+*/
         worked
       }
   }

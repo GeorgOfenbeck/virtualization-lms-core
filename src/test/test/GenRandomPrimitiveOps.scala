@@ -35,5 +35,4 @@ trait GenRandomPrimitiveOps extends GenRandomOps{
   super.ops(registerOp(plus,map))
  }
 
-
 }

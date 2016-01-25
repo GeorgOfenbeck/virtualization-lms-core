@@ -156,6 +156,154 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   class WildcardOrdering
 
 
+  case class DagNode(val typ: GenTypes[_], val id: Int)
+  case class OpLookUp(val op2args: Map[Op, Vector[Int]],
+                      val op2rets: Map[Op, Vector[Int]],
+                      val args2ops: Map[Vector[Int], Set[Op]],
+                      val rets2op: Map[Vector[Int], Op],
+                      val ret2rets: Map[Int, Vector[Int]],
+                      val arg2ops: Map[Int, Set[Op]],
+                      val OpswithoutDep: Set[Op]
+                     ){
+    /*def apply(): OpLookUp = OpLookUp(Map.empty,Map.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty)*/
+
+
+    def insertOp(op: Op, argids: Vector[Int], returnids: Vector[Int]) = {
+      val nop2args = op2args + (op -> argids)
+      val nop2rets = op2rets + (op -> returnids)
+      val nargs2op = if (args2ops.contains(argids))
+        args2ops + (argids -> (args2ops(argids) + op)) else args2ops + (argids -> Set(op))
+      val nrets2op = rets2op + (returnids -> op)
+      val nret2rets = returnids.foldLeft(ret2rets){(acc,ele) => acc + (ele -> returnids)}
+
+      //all ops that so far had their returns not being used (relies on building it incrementaly)
+      val opsaffected = argids.map(a => ret2rets(a)).map(s => rets2op(s)).filter(o => OpswithoutDep.contains(o))
+      val nopswithoutDep = (OpswithoutDep -- opsaffected) + op
+
+      val narg2ops = argids.foldLeft(arg2ops){(acc,ele) => {
+        if (acc.contains(ele))
+          acc + (ele -> (acc(ele) + op))
+        else
+          acc + (ele -> Set(op))
+      }}
+
+      OpLookUp(nop2args,nop2rets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+    }
+
+    def delete(op: Op) = {
+      val rets = op2rets(op)
+      val args = op2args(op)
+      val nargs2op = if (args2ops(args).size > 1)
+        args2ops + (args -> (args2ops(args) - op))
+        else
+        args2ops - args
+      val nrets2op = rets2op - rets
+      val nop2args = op2args - op
+      val nop2rets = op2rets - op
+      val nret2rets = rets.foldLeft(ret2rets){(acc,ele) => acc - ele}
+
+      val narg2ops = args.foldLeft(arg2ops){(acc,ele) =>
+        {
+          if (acc(ele).size > 1)
+            acc + (ele -> (acc(ele) - op))
+          else
+            acc - ele
+        }
+      }
+
+      val argids = op2args(op)
+      val retsets = argids.map(r => ret2rets(r))
+      val opsets = retsets.map(s => rets2op(s))
+
+      val opswithoutRetUsed = opsets.filter(o => {
+        val rset = op2rets(o)
+        val using = rets.map(r => narg2ops(r))
+        using.isEmpty
+      })
+
+      val nopswithoutDep = OpswithoutDep ++ opswithoutRetUsed
+
+      OpLookUp(nop2args,nop2rets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+    }
+
+    def deletewRets(rets: Vector[Int]) = delete(rets2op(rets))
+  }
+
+  object Dag{
+    def apply(ininodes: Vector[GenTypes[_]]): Dag = {
+      val z = ininodes.zipWithIndex.map( e => DagNode(e._1,e._2)).toSet
+      val m = z.map(e => e.id).foldLeft(Map.empty[Int,Int]) { (acc,ele) => acc + (ele -> 0) }
+      //Dag(Vector(z),m, z.size,Map.empty, Map.empty, Map.empty)
+      Dag(Vector(z),m,z.size,OpLookUp(Map.empty,Map.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty), Map.empty)
+    }
+  }
+
+  case class Dag(val dag: Vector[Set[DagNode]], index: Map[Int,Int], highestid: Int,
+                 //id2ids: Map[Int,Set[Int]],
+                 opLookUp: OpLookUp,
+                 //ret2op: Map[Set[Int], Op],
+                 //arg2res: Map[Int, Set[Int]]
+                 dynamically_defined_functions: AvailOps
+                ){
+
+    def OpswithoutDep(): Set[Op] = opLookUp.OpswithoutDep
+
+    def removeOp(op: Op): Dag = {
+      val rets = opLookUp.op2rets(op)
+
+      val ndag = rets.foldLeft(dag){ //this can leave levels empty - but we don't care for now
+        (acc,ele) => {
+          val level = index(ele)
+          val oset = dag(level)
+          val rm = oset.filter(p => p.id == ele)
+          val nset = oset -- rm
+          acc.updated(level,nset)
+        }
+      }
+      val nindex = rets.foldLeft(index){ (acc,ele) => acc - ele}
+      val nopLookUp = opLookUp.delete(op)
+      Dag(ndag,nindex,highestid,nopLookUp, dynamically_defined_functions)
+    }
+
+    def availTypes(): AvailUniqueTypes = dag.flatMap(x => x.map(n => n.typ)).toSet
+
+    def addOp(op: Op, assignedids: Vector[Int]): Dag = {
+      val depth = assignedids.map( e => getDeepth(e)).max
+      val t = op.returns.zipWithIndex.map(e => DagNode(e._1,e._2 + highestid + 1))
+      val returnNodes = t.toSet
+      val ids = t.map(e => e.id)
+      val (ndag,pos) = if (depth == dag.size-1 ) {
+        //its the last level of the dag
+        val ndag:Vector[Set[DagNode]] = dag :+ returnNodes
+        (ndag,dag.size)
+      } else {
+        //val returnNodes = op.returns.zipWithIndex.map(e => DagNode(e._1,e._2 + highestid + 1)).toSet
+        val oSet: Set[DagNode] = dag(depth + 1)
+        val nSet = oSet ++ returnNodes
+        val ndag:Vector[Set[DagNode]] = dag.updated(depth+1,nSet)
+        (ndag,depth + 1)
+      }
+      val nmap = ids.foldLeft(index){ (acc,ele) => acc + (ele -> pos) }
+      val retidset = ids
+      val nopLookUp = opLookUp.insertOp(op,assignedids,retidset)
+      Dag(ndag,nmap,ids.max, nopLookUp, dynamically_defined_functions)
+    }
+
+    //returns all possible ID's of assignments
+    def possibleAssigns(targetType: GenTypes[_]): Vector[Int] = {
+      dag.flatMap(s => s.filter(e => checkTypeCompatibility(e.typ, targetType))).map(e => e.id)
+    }
+
+    def getDeepth(id: Int) = index(id)
+
+
+
+
+
+  }
+
+
+
   /**
     * This is used to store a current set of input symbol/values and its extending function
     * @param types all currently available symbol types
@@ -176,12 +324,13 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @param seval current iteration step of the random symbol creation
     * @return returns a Map of all Ops that could be called
     */
-  def filterOps(cCStatus: CCStatus, availTypes: AvailUniqueTypes, seval: EvalGenIterStep[Rep]): AvailOps = {
+  def filterOps(cCStatus: CCStatus, availTypes: AvailUniqueTypes, dag: Dag): AvailOps = {
+  // seval: EvalGenIterStep[Rep]): AvailOps = {
     //all ops that are statically known
     val fixedops = allops.filter(x => x._1.subsetOf(availTypes))
 
     //all ops that come into existence due to dynamic definitions of functions
-    val dynops = seval.dynamically_defined_functions.filter(x => x._1.subsetOf(availTypes))
+    val dynops = dag.dynamically_defined_functions.filter(x => x._1.subsetOf(availTypes))
 
     //this is just a naive way of merging the two hashmaps without loosing entries -> replace me with something more elegant!
     val dynops2 = dynops.map { case (k, v) => {
@@ -202,7 +351,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @param seval
     * @return
     */
-  def createFunction(desc: CodeDescriptor, op: Op, seval: EvalGenIterStep[Rep])
+  def createFunction(desc: CodeDescriptor, op: Op, dag: Dag)
   : Gen[(Op, Option[(Vector[GenTypes[_]], Vector[GenTypes[_]])])] = {
     (op, None)
   }
@@ -237,9 +386,12 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     for {choice <- Gen.oneOf(possible_targets)} yield choice._2
   }
 
+  def genAssignment(dag: Dag, targetType: GenTypes[_]): Gen[Int] =
+    for {choice <- Gen.oneOf(dag.possibleAssigns(targetType))} yield choice
+
   private def checkTypeCompatibility(ctype: GenTypes[_], targetType: GenTypes[_]): Boolean = ctype == targetType || isWildCard(targetType)
 
-  def removeWildCards(op: Op, seval: EvalGenIterStep[Rep]): Op = {
+  def removeWildCards(op: Op, dag: Dag): Op = {
     val (wassign, newargs) = op.args.foldLeft((Map.empty[GenTypes[_], GenTypes[_]], Vector.empty[GenTypes[_]]))((acc, ele) => {
       val (wcards, assigns) = acc
       if (isWildCard(ele)) {
@@ -252,7 +404,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         }
         else {
           //not so nice to sample here....
-          val assignedwildcard: GenTypes[_] = genAssignment(seval, ele).map(symnr => seval.types(symnr)).sample.get
+          val assignedwildcard: GenTypes[_] = ??? //genAssignment(seval, ele).map(symnr => seval.types(symnr)).sample.get
           (wcards + (ele -> assignedwildcard), assigns :+ assignedwildcard) //use the assigned type
         }
       }
@@ -293,9 +445,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @return
     */
 
-  def genOp(desc: CodeDescriptor, cCStatus: CCStatus, seval: EvalGenIterStep[Rep]): Gen[Op] = {
-    val availTypes: AvailUniqueTypes = seval.types.toSet //all types we currently see in the code
-    val availOps = filterOps(cCStatus, availTypes, seval) //filter which ops can operate on those types
+  def genOp(desc: CodeDescriptor, cCStatus: CCStatus, dag: Dag): Gen[Op] = {
+    //val availTypes: AvailUniqueTypes = seval.types.toSet //all types we currently see in the code
+    val availTypes: AvailUniqueTypes = dag.availTypes() //all types we currently see in the code
+    val availOps = filterOps(cCStatus, availTypes, dag) //filter which ops can operate on those types
     val flattened = availOps.flatMap(opset => opset._2)
     for {randomop <- Gen.oneOf(flattened.toSeq)} yield randomop
   }
@@ -343,38 +496,41 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @return a random Generator that increases veval/seval by one iteration step (could be multiple ops in e.g. the case of functions)
     */
 
-  def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
-  : Gen[(EvalGenIterStep[NoRep], EvalGenIterStep[Rep])] = {
+  //def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
+  def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag) : Gen[Dag] = {
     for {
-      wop <- genOp(desc, cCStatus, seval)
-      (fop, nf) <- createFunction(desc, wop, seval)
-      op <- removeWildCards(fop, seval)
-      assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(seval, arg)))
+      wop <- genOp(desc, cCStatus, indag)
+      (fop, nf) <- createFunction(desc, wop, indag)
+      op <- removeWildCards(fop, indag)
+      assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(indag, arg)))
+      //assign <- indag.possibleAssigns()
     } yield {
-      val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf[NoRep](assign, op, op.evaluation)
-      val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf[Rep](assign, op, op.symbolic_evaluation)
+      //val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf[NoRep](assign, op, op.evaluation)
+      //val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf[Rep](assign, op, op.symbolic_evaluation)
       if (nf.isDefined) {
         //the op is defining a new local function
         ???
       }
       else {
-        val newtypes = seval.types ++ op.returns
+
+        /*val newtypes = seval.types ++ op.returns
         val valuebased = EvalGenIterStep(newtypes, evaluation, veval.dynamically_defined_functions)
         val symbolbased = EvalGenIterStep(newtypes, symbolic_evaluation, seval.dynamically_defined_functions)
-        (valuebased, symbolbased)
+        (valuebased, symbolbased)*/
+        indag.addOp(op,assign)
       }
     }
   }
 
 
-  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, iniv: Vector[EvalGenIterStep[NoRep]], inis: Vector[EvalGenIterStep[Rep]]):
-  Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
+  //def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, iniv: Vector[EvalGenIterStep[NoRep]], inis: Vector[EvalGenIterStep[Rep]]):
+  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[Dag] = {
     if (cCStatus.curr_nodes_in_block < desc.max_nodes_per_block) {
       for {
-        (nextv, nexts) <- genEvalGenIterStep(desc, cCStatus, iniv.last, inis.last)
-        tail <- genNodes(desc, cCStatus.copy(curr_nodes_in_block = cCStatus.curr_nodes_in_block + 1), iniv :+ nextv, inis :+ nexts)
+        (nextdag) <- genDagStep(desc, cCStatus, indag)
+        tail <- genNodes(desc, cCStatus.copy(curr_nodes_in_block = cCStatus.curr_nodes_in_block + 1), nextdag)
       } yield tail
-    } else (iniv, inis)
+    } else indag
   }
 
   /**
@@ -390,11 +546,11 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   //creates n Args - since a single "arg" might be a tuple of args we simple sample n tuples and then only consider the first
   //m args such that the total size is smaller then n
-  def genArgs(size: Int): Gen[Vector[GenTypes[_]]] =
+  def genArgs(size: Int): Gen[Dag] =
     for {
       args <- Gen.containerOfN[Vector, Vector[GenTypes[_]]](size, genArg)
     } yield {
-      args.foldLeft(Vector.empty[GenTypes[_]]) {
+      val t = args.foldLeft(Vector.empty[GenTypes[_]]) {
         (acc, ele) => {
           val p1 = acc ++ ele
           if (p1.size > size)
@@ -403,6 +559,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
             p1
         }
       }
+      Dag(t)
     }
 
   def getfinalIterStep[S[_]](indicies: Vector[Int], itersteps: Vector[EvalGenIterStep[S]]): Vector[EvalGenIterStep[S]] = {
@@ -429,11 +586,13 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     }
   }
 
-  def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
+  //def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
+  def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[Dag] = {
     for {
       ini <- genArgs(desc.max_toplevel_args)
-      (vecv, vecs) <- genNodes(desc, cCStatus, Vector(EvalGenIterStep[NoRep](ini, null, Map.empty)), Vector(EvalGenIterStep[Rep](ini, null, Map.empty)))
-      tail <- genReturns(desc, vecv,vecs)
+      //(vecv, vecs) <- genNodes(desc, cCStatus, Vector(EvalGenIterStep[NoRep](ini, null, Map.empty)), Vector(EvalGenIterStep[Rep](ini, null, Map.empty)))
+      ndag <- genNodes(desc, cCStatus, ini)
+      tail <- ndag//genReturns(desc, vecv,vecs)
     } yield tail
   }
 
@@ -450,6 +609,76 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     }
     f
   }
+
+
+  def chainDag(dag: Dag):
+  (
+    (Map[Int,SoV[Rep, _]] => Map[Int,SoV[Rep, _]]),
+      (Map[Int,SoV[NoRep, _]] => Map[Int,SoV[NoRep, _]])
+    /*(Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]]),
+    (Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]])*/
+    )
+  = {
+
+    val lookup = dag.opLookUp
+    val retsets = lookup.rets2op.keySet
+    val sorted = retsets.toVector.sortWith((a,b) => (a.max < b.max))
+    val real = sorted.map(s => {
+      val op = lookup.rets2op(s)
+      createf2[NoRep](lookup,op,op.evaluation)
+    })
+    val symbolic = sorted.map(s => {
+      val op = lookup.rets2op(s)
+      createf2[Rep](lookup,op,op.symbolic_evaluation)
+    })
+
+
+
+    (real,symbolic)
+  }
+
+  def createf2[S[_]](lookup: OpLookUp, op: Op, eval: Vector[S[_]] => Vector[S[_]])
+  : (Map[Int,SoV[S, _]] => Map[Int,SoV[S, _]]) = {
+    val f: (Map[Int,SoV[S, _]] => Map[Int,SoV[S, _]]) = (in: Map[Int,SoV[S, _]]) => {
+      //take the assigned symbols / values from the vector of existing values / symbols and put them in a dedicated vector
+
+      val assign = lookup.op2args(op)
+      val argsyms: Vector[SoV[S, _]] = assign.foldLeft(Vector.empty[SoV[S, _]]) {
+        (acc, ele) => acc :+ in(ele)
+      }
+      // get rid of the tags
+      val symsonly = argsyms.map ( e => e.sym)
+
+      //then use this vector with the execution (symbolic or actual) get the result
+      val ret: Vector[S[_]] =
+        if (op.localfidx.isDefined) {
+          ???
+          /*val localf: SoV[S, _] = in(op.localfidx.get)
+          val fplusargsyms = localf +: argsyms
+          eval(fplusargsyms)*/
+        }
+        else
+          eval(symsonly)
+
+      assert(op.returns.size == ret.size) //make sure we got as many symbols back as expected
+      val retwithtags: Vector[SoV[S, _]] = op.returns.zip(ret).map(e => {
+          val (tag,sym) = e //TODO - can typecheck that the expected type and returned type are the same
+          val sym2: S[Any] = sym.asInstanceOf[S[Any]]
+          val tag2: Tag[Any] = tag.asInstanceOf[Tag[Any]]
+          SoV(sym2,tag2)
+        }).toVector
+      val retids = lookup.op2rets(op)
+      assert(retids.size == retwithtags.size)
+
+      retids.zipWithIndex.foldLeft(in){(acc,ele) => {
+        acc + (ele._1 -> retwithtags(ele._2))
+      }}
+      //in ++ retwithtags //concatenate symbol/values so far with the new results
+    }
+    f
+  }
+
+
 
 
   def genExposeRep(v: Vector[GenTypes[_]]): ExposeRep[Vector[SoV[Rep, _]]] = {
