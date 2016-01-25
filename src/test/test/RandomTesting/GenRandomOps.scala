@@ -157,73 +157,82 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   case class DagNode(val typ: GenTypes[_], val id: Int)
-  case class OpLookUp(val op2args: Map[Op, Vector[Int]],
-                      val op2rets: Map[Op, Vector[Int]],
-                      val args2ops: Map[Vector[Int], Set[Op]],
-                      val rets2op: Map[Vector[Int], Op],
+  case class OpID(val op: Op, args: Vector[Int], returns: Vector[Int])
+  case class OpLookUp(//val op2args: Map[Op, Vector[Int]],
+                      //val op2rets: Map[Op, Vector[Int]],
+                      val opargsrets: Set[OpID],
+                      val args2ops: Map[Vector[Int], Set[OpID]],
+                      val rets2op: Map[Vector[Int], OpID],
                       val ret2rets: Map[Int, Vector[Int]],
-                      val arg2ops: Map[Int, Set[Op]],
-                      val OpswithoutDep: Set[Op]
+                      val arg2ops: Map[Int, Set[OpID]],
+                      val OpswithoutDep: Set[OpID]
                      ){
     /*def apply(): OpLookUp = OpLookUp(Map.empty,Map.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty)*/
 
 
     def insertOp(op: Op, argids: Vector[Int], returnids: Vector[Int]) = {
-      val nop2args = op2args + (op -> argids)
-      val nop2rets = op2rets + (op -> returnids)
+      val opid = OpID(op,argids,returnids)
+      val nopargsrets = opargsrets + opid
+      //val nop2args = op2args + (op -> argids)
+      //val nop2rets = op2rets + (op -> returnids)
       val nargs2op = if (args2ops.contains(argids))
-        args2ops + (argids -> (args2ops(argids) + op)) else args2ops + (argids -> Set(op))
-      val nrets2op = rets2op + (returnids -> op)
+        args2ops + (argids -> (args2ops(argids) + opid)) else args2ops + (argids -> Set(opid))
+      val nrets2op = rets2op + (returnids -> opid)
       val nret2rets = returnids.foldLeft(ret2rets){(acc,ele) => acc + (ele -> returnids)}
 
       //all ops that so far had their returns not being used (relies on building it incrementaly)
-      val opsaffected = argids.map(a => ret2rets(a)).map(s => rets2op(s)).filter(o => OpswithoutDep.contains(o))
-      val nopswithoutDep = (OpswithoutDep -- opsaffected) + op
+      val opsaffected = argids.flatMap(a => ret2rets.get(a)).flatMap(s => rets2op.get(s)).filter(o => OpswithoutDep.contains(o))
+      val nopswithoutDep = (OpswithoutDep -- opsaffected) + opid
 
       val narg2ops = argids.foldLeft(arg2ops){(acc,ele) => {
         if (acc.contains(ele))
-          acc + (ele -> (acc(ele) + op))
+          acc + (ele -> (acc(ele) + opid))
         else
-          acc + (ele -> Set(op))
+          acc + (ele -> Set(opid))
       }}
 
-      OpLookUp(nop2args,nop2rets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+      //OpLookUp(nop2args,nop2rets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+      OpLookUp(nopargsrets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
     }
 
-    def delete(op: Op) = {
-      val rets = op2rets(op)
-      val args = op2args(op)
+    def delete(opid: OpID) = {
+      /*val rets = op2rets(op)
+      val args = op2args(op)*/
+      val rets = opid.args
+      val args = opid.args
+      val op = opid.op
       val nargs2op = if (args2ops(args).size > 1)
-        args2ops + (args -> (args2ops(args) - op))
+        args2ops + (args -> (args2ops(args) - opid))
         else
         args2ops - args
       val nrets2op = rets2op - rets
-      val nop2args = op2args - op
-      val nop2rets = op2rets - op
+      /*val nop2args = op2args - op
+      val nop2rets = op2rets - op*/
+      val nopid = opargsrets - opid
       val nret2rets = rets.foldLeft(ret2rets){(acc,ele) => acc - ele}
 
       val narg2ops = args.foldLeft(arg2ops){(acc,ele) =>
         {
           if (acc(ele).size > 1)
-            acc + (ele -> (acc(ele) - op))
+            acc + (ele -> (acc(ele) - opid))
           else
             acc - ele
         }
       }
 
-      val argids = op2args(op)
-      val retsets = argids.map(r => ret2rets(r))
+
+      val retsets = args.map(r => ret2rets(r))
       val opsets = retsets.map(s => rets2op(s))
 
       val opswithoutRetUsed = opsets.filter(o => {
-        val rset = op2rets(o)
+        val rset = o.returns
         val using = rets.map(r => narg2ops(r))
         using.isEmpty
       })
 
       val nopswithoutDep = OpswithoutDep ++ opswithoutRetUsed
 
-      OpLookUp(nop2args,nop2rets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+      OpLookUp(nopid,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
     }
 
     def deletewRets(rets: Vector[Int]) = delete(rets2op(rets))
@@ -234,7 +243,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val z = ininodes.zipWithIndex.map( e => DagNode(e._1,e._2)).toSet
       val m = z.map(e => e.id).foldLeft(Map.empty[Int,Int]) { (acc,ele) => acc + (ele -> 0) }
       //Dag(Vector(z),m, z.size,Map.empty, Map.empty, Map.empty)
-      Dag(Vector(z),m,z.size,OpLookUp(Map.empty,Map.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty), Map.empty)
+      Dag(Vector(z),m,z.size,OpLookUp(Set.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty), Map.empty)
     }
   }
 
@@ -246,10 +255,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                  dynamically_defined_functions: AvailOps
                 ){
 
-    def OpswithoutDep(): Set[Op] = opLookUp.OpswithoutDep
+    def OpswithoutDep(): Set[OpID] = opLookUp.OpswithoutDep
 
-    def removeOp(op: Op): Dag = {
-      val rets = opLookUp.op2rets(op)
+    def removeOp(opid: OpID): Dag = {
+      val rets = opid.returns
 
       val ndag = rets.foldLeft(dag){ //this can leave levels empty - but we don't care for now
         (acc,ele) => {
@@ -261,7 +270,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         }
       }
       val nindex = rets.foldLeft(index){ (acc,ele) => acc - ele}
-      val nopLookUp = opLookUp.delete(op)
+      val nopLookUp = opLookUp.delete(opid)
       Dag(ndag,nindex,highestid,nopLookUp, dynamically_defined_functions)
     }
 
@@ -612,37 +621,55 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   def chainDag(dag: Dag):
-  (
-    (Map[Int,SoV[Rep, _]] => Map[Int,SoV[Rep, _]]),
-      (Map[Int,SoV[NoRep, _]] => Map[Int,SoV[NoRep, _]])
+    (
+      /*Vector[Map[Int,SoV[NoRep, _]] => Map[Int,SoV[NoRep, _]]],
+      Vector[Map[Int,SoV[Rep, _]] => Map[Int,SoV[Rep, _]]]*/
+      Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]],
+        Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]]
+      )
     /*(Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]]),
     (Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]])*/
-    )
   = {
 
     val lookup = dag.opLookUp
     val retsets = lookup.rets2op.keySet
     val sorted = retsets.toVector.sortWith((a,b) => (a.max < b.max))
+
+
     val real = sorted.map(s => {
       val op = lookup.rets2op(s)
-      createf2[NoRep](lookup,op,op.evaluation)
+      createf2[NoRep](lookup,op,op.op.evaluation)
     })
     val symbolic = sorted.map(s => {
       val op = lookup.rets2op(s)
-      createf2[Rep](lookup,op,op.symbolic_evaluation)
+      createf2[Rep](lookup,op,op.op.symbolic_evaluation)
     })
 
+    val freal: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = (in: Vector[SoV[NoRep, _]]) => {
+      val m = in.zipWithIndex.foldLeft(Map.empty[Int,SoV[NoRep, _]]){  (acc,ele) => acc + (ele._2 -> ele._1) }
+      val mr = real.foldLeft(m){(acc,ele) => ele(acc)}
+      val vr = mr.toVector.sortWith( (a,b) => (a._1 < b._1)).map(e => e._2)
+      vr
+    }
 
+    val fsym: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = (in: Vector[SoV[Rep, _]]) => {
+      val m = in.zipWithIndex.foldLeft(Map.empty[Int,SoV[Rep, _]]){  (acc,ele) => acc + (ele._2 -> ele._1) }
+      val mr = symbolic.foldLeft(m){(acc,ele) => ele(acc)}
+      val vr = mr.toVector.sortWith( (a,b) => (a._1 < b._1)).map(e => e._2)
+      vr
+    }
 
-    (real,symbolic)
+    (freal,fsym)
+    //(real,symbolic)
+
   }
 
-  def createf2[S[_]](lookup: OpLookUp, op: Op, eval: Vector[S[_]] => Vector[S[_]])
+  def createf2[S[_]](lookup: OpLookUp, opid: OpID, eval: Vector[S[_]] => Vector[S[_]])
   : (Map[Int,SoV[S, _]] => Map[Int,SoV[S, _]]) = {
     val f: (Map[Int,SoV[S, _]] => Map[Int,SoV[S, _]]) = (in: Map[Int,SoV[S, _]]) => {
       //take the assigned symbols / values from the vector of existing values / symbols and put them in a dedicated vector
 
-      val assign = lookup.op2args(op)
+      val assign = opid.args
       val argsyms: Vector[SoV[S, _]] = assign.foldLeft(Vector.empty[SoV[S, _]]) {
         (acc, ele) => acc :+ in(ele)
       }
@@ -651,7 +678,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       //then use this vector with the execution (symbolic or actual) get the result
       val ret: Vector[S[_]] =
-        if (op.localfidx.isDefined) {
+        if (opid.op.localfidx.isDefined) {
           ???
           /*val localf: SoV[S, _] = in(op.localfidx.get)
           val fplusargsyms = localf +: argsyms
@@ -660,14 +687,14 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         else
           eval(symsonly)
 
-      assert(op.returns.size == ret.size) //make sure we got as many symbols back as expected
-      val retwithtags: Vector[SoV[S, _]] = op.returns.zip(ret).map(e => {
+      assert(opid.returns.size == ret.size) //make sure we got as many symbols back as expected
+      val retwithtags: Vector[SoV[S, _]] = opid.returns.zip(ret).map(e => {
           val (tag,sym) = e //TODO - can typecheck that the expected type and returned type are the same
           val sym2: S[Any] = sym.asInstanceOf[S[Any]]
           val tag2: Tag[Any] = tag.asInstanceOf[Tag[Any]]
           SoV(sym2,tag2)
         }).toVector
-      val retids = lookup.op2rets(op)
+      val retids = opid.returns
       assert(retids.size == retwithtags.size)
 
       retids.zipWithIndex.foldLeft(in){(acc,ele) => {

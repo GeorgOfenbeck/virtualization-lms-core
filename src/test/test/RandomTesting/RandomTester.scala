@@ -221,15 +221,17 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         import dslwcode._
         import scala.lms.util._
         var worked = true
-        val inisyms = dslwcode.dag.dag(0).toVector.map(e => e.typ)
-        val resultsyms = dslwcode.dag.dag.flatMap(l => l.toVector.map(e => e.typ))
-        val callstack = dsl.chainHeadf(dslwcode.code)
+        val inisyms = dslwcode.dag.dag(0).toVector.sortWith((a,b) => a.id < b.id).map(e => e.typ)
+        val resultsyms = dslwcode.dag.dag.flatMap(l => l.toVector).sortWith((a,b) => a.id < b.id).map(e => e.typ)
+        //val (callstack, callstack_staged) = dsl.chainHeadf(dslwcode.code)
+        val (callstack, callstack_staged) = dsl.chainDag(dslwcode.dag)
         /*val inisyms = dslwcode.code.head.types
         val resultsyms = dslwcode.code.last.types
         val callstack = dsl.chainHeadf(dslwcode.code)
         val callstack_staged = dsl.chainHeadf(dslwcode.symbolic_code)*/
         val exposeargs = dsl.genExposeRep(inisyms)
         val exposeres = dsl.genExposeRep(resultsyms)
+
 
         var cnt = 0
         try {
@@ -305,7 +307,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
             worked = false
           }
         }
-*/
+
         worked
       }
   }
