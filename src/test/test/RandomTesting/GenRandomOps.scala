@@ -688,7 +688,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
           eval(symsonly)
 
       assert(opid.returns.size == ret.size) //make sure we got as many symbols back as expected
-      val retwithtags: Vector[SoV[S, _]] = opid.returns.zip(ret).map(e => {
+      val retwithtags: Vector[SoV[S, _]] = opid.op.returns.zip(ret).map(e => {
           val (tag,sym) = e //TODO - can typecheck that the expected type and returned type are the same
           val sym2: S[Any] = sym.asInstanceOf[S[Any]]
           val tag2: Tag[Any] = tag.asInstanceOf[Tag[Any]]
