@@ -164,8 +164,8 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
     }
   }
 
-/*
-  def fstream(curr: Int, ini: DSLwCode): Stream[DSLwCode] = {
+
+  /*def fstream(curr: Int, ini: DSLwCode): Stream[DSLwCode] = {
     val s = ini.code.size
     val rest = s - curr
     val halfrest = rest / 2
@@ -181,38 +181,42 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
     else
       Stream.empty
   }
-  
+*/
   implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
     case s: DSLwCode => {      
-      println("shrinking" + s.code.size)
-      val inisyms = s.code.head.types
-      val resultsyms = s.code.last.types
-      val callstack = s.dsl.chainHeadf(s.code)
-      val callstack_staged = s.dsl.chainHeadf(s.symbolic_code)
+      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!shrinking" + s.dag.opLookUp.opargsrets.size)
+
+      val inisyms = s.dag.dag(0).toVector.sortWith((a,b) => a.id < b.id).map(e => e.typ)
+      val resultsyms = s.dag.dag.flatMap(l => l.toVector).sortWith((a,b) => a.id < b.id).map(e => e.typ)
+      val (callstack, callstack_staged) = s.dsl.chainDag(s.dag)
       val exposeargs = s.dsl.genExposeRep(inisyms)
       val exposeres = s.dsl.genExposeRep(resultsyms)
-      val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Shrink.graph")
-      val stream2 = new java.io.PrintWriter(file)
-      val (graph, cm) = s.dsl.emitGraph.emitDepGraphf(callstack_staged)(exposeargs,exposeres)
-      stream2.print(graph)
-      stream2.flush()
-      stream2.close()
-      file.flush()
-      file.close()
-
-
-      assert(false)
-      if (!s.code.isEmpty) {
+      /*if (!s.dag.dag.isEmpty) {
         val x = new DSLwCode {
             override val dsl: s.dsl.type = s.dsl
             override val symbolic_code = s.symbolic_code.splitAt(s.symbolic_code.size / 2)._1
             override val code =  s.code.splitAt(s.code.size / 2)._1
           }
         Stream.concat(Stream(x),fstream(s.code.size/2,s)) //Stream of size 3/4, 7/8 etc.
+        }*/
+
+      //else
+      val possible_removes = s.dag.OpswithoutDep()
+
+      if (possible_removes.size < 2) Stream.empty else {
+        val ndag = s.dag.removeOp(possible_removes.head)
+        val x = new DSLwCode {
+          override val dsl: s.dsl.type = s.dsl
+          override val dag =  ndag
         }
-      else Stream.empty                       
+        Stream(x)
+      }
+
+
+
+
     }
-  })*/
+  })
 
 
   property("my prop test" ) =

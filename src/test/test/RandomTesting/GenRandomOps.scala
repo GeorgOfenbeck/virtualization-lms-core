@@ -1,5 +1,7 @@
 package RandomTesting
 
+import org.scalatest.fixture
+
 import scala.annotation.tailrec
 import org.scalacheck.Gen._
 import org.scalacheck.Prop._
@@ -182,7 +184,23 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       //all ops that so far had their returns not being used (relies on building it incrementaly)
       val opsaffected = argids.flatMap(a => ret2rets.get(a)).flatMap(s => rets2op.get(s)).filter(o => OpswithoutDep.contains(o))
-      val nopswithoutDep = (OpswithoutDep -- opsaffected) + opid
+      val nopswithoutDep2 = (OpswithoutDep -- opsaffected) + opid
+
+
+      val allargids = nopargsrets.flatMap(p => p.args.toSet)
+      val nopswithoutDep3 = opargsrets.filter(p => {
+        val rets = p.returns
+        val check = rets.filter(x => !allargids.contains(x))
+        check.isEmpty
+      })
+      val nopswithoutDep =  nopswithoutDep3 + opid
+      val diff = nopswithoutDep2 -- nopswithoutDep
+
+      if (!diff.isEmpty)
+      {
+        //assert(false)
+      }
+
 
       val narg2ops = argids.foldLeft(arg2ops){(acc,ele) => {
         if (acc.contains(ele))
@@ -198,10 +216,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     def delete(opid: OpID) = {
       /*val rets = op2rets(op)
       val args = op2args(op)*/
-      val rets = opid.args
+      val rets = opid.returns
       val args = opid.args
       val op = opid.op
-      val nargs2op = if (args2ops(args).size > 1)
+      val nargs2op = if (args2ops.contains(args) && args2ops(args).size > 1)
         args2ops + (args -> (args2ops(args) - opid))
         else
         args2ops - args
@@ -213,7 +231,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       val narg2ops = args.foldLeft(arg2ops){(acc,ele) =>
         {
-          if (acc(ele).size > 1)
+          if (acc.contains(ele) && acc(ele).size > 1)
             acc + (ele -> (acc(ele) - opid))
           else
             acc - ele
@@ -221,16 +239,34 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       }
 
 
-      val retsets = args.map(r => ret2rets(r))
-      val opsets = retsets.map(s => rets2op(s))
+      val retsets = args.flatMap(r => ret2rets.get(r))
+      val opsets = retsets.flatMap(s => rets2op.get(s))
 
       val opswithoutRetUsed = opsets.filter(o => {
         val rset = o.returns
-        val using = rets.map(r => narg2ops(r))
+        val using = rets.flatMap(r => narg2ops.get(r))
         using.isEmpty
       })
 
-      val nopswithoutDep = OpswithoutDep ++ opswithoutRetUsed
+      val nopswithoutDep2 = OpswithoutDep ++ opswithoutRetUsed - opid
+
+      //sanity checks
+
+      val allargids = nopid.flatMap(p => p.args.toSet)
+      val nopswithoutDep = nopid.filter(p => {
+        val rets = p.returns
+        val check = rets.filter(x => !allargids.contains(x))
+        check.isEmpty
+      })
+
+      val diff = nopswithoutDep2 -- nopswithoutDep
+
+      if (!diff.isEmpty)
+      {
+        //assert(false)
+      }
+
+
 
       OpLookUp(nopid,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
     }
@@ -259,11 +295,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
     def removeOp(opid: OpID): Dag = {
       val rets = opid.returns
-
       val ndag = rets.foldLeft(dag){ //this can leave levels empty - but we don't care for now
         (acc,ele) => {
           val level = index(ele)
-          val oset = dag(level)
+          val oset = dag(level)                                                                              ;
           val rm = oset.filter(p => p.id == ele)
           val nset = oset -- rm
           acc.updated(level,nset)
@@ -271,8 +306,40 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       }
       val nindex = rets.foldLeft(index){ (acc,ele) => acc - ele}
       val nopLookUp = opLookUp.delete(opid)
-      Dag(ndag,nindex,highestid,nopLookUp, dynamically_defined_functions)
+
+      //sanity checks
+
+      val allnodes = ndag.flatten
+      val allnodeids = allnodes.map(t => t.id).toSet
+      val check = nopLookUp.opargsrets.filter(p => {
+         val op = p.op
+         val args = p.args
+         val missing = args.filter(p => !allnodeids.contains(p))
+         !missing.isEmpty
+       }
+      )
+      if (!check.isEmpty) {
+        assert(false)
+      }
+
+      Dag(ndag,index,highestid,nopLookUp, dynamically_defined_functions) //FIX - make it nindex again!
     }
+
+/*    def removeOp(opid: OpID): Dag = {
+      val nlookup = opLookUp.delete(opid)
+      val unused_returns = opid.returns
+      val ndag = unused_returns.foldLeft(dag){
+        (acc,ele) => {
+          val level = index(ele)
+          val olset = acc(level)
+          val dagnode = olset.filter(p => p.id == ele)
+          acc.updated(level,olset -- dagnode)
+        }
+      }
+      val nindex = unused_returns.foldLeft(index){ (acc,ele) => acc - ele }
+      Dag(ndag,nindex,highestid,nlookup,dynamically_defined_functions)
+    }*/
+
 
     def availTypes(): AvailUniqueTypes = dag.flatMap(x => x.map(n => n.typ)).toSet
 
@@ -286,7 +353,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         val ndag:Vector[Set[DagNode]] = dag :+ returnNodes
         (ndag,dag.size)
       } else {
-        //val returnNodes = op.returns.zipWithIndex.map(e => DagNode(e._1,e._2 + highestid + 1)).toSet
         val oSet: Set[DagNode] = dag(depth + 1)
         val nSet = oSet ++ returnNodes
         val ndag:Vector[Set[DagNode]] = dag.updated(depth+1,nSet)
@@ -297,6 +363,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val nopLookUp = opLookUp.insertOp(op,assignedids,retidset)
       Dag(ndag,nmap,ids.max, nopLookUp, dynamically_defined_functions)
     }
+
+
 
     //returns all possible ID's of assignments
     def possibleAssigns(targetType: GenTypes[_]): Vector[Int] = {
