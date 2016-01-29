@@ -187,19 +187,19 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val nopswithoutDep2 = (OpswithoutDep -- opsaffected) + opid
 
 
-      val allargids = nopargsrets.flatMap(p => p.args.toSet)
-      val nopswithoutDep3 = opargsrets.filter(p => {
+
+      val allargids = nopargsrets.flatMap(p => p.args.toSet) //all parameters
+      val nopswithoutDep = nopargsrets.filter(p => {
         val rets = p.returns
-        val check = rets.filter(x => !allargids.contains(x))
+        val check = rets.filter(x => allargids.contains(x))
+        //returns an empty set if non of our returns is used as an arg
+
+        //given the current op - do we have a return that is a parameter for another op
         check.isEmpty
       })
-      val nopswithoutDep =  nopswithoutDep3 + opid
-      val diff = nopswithoutDep2 -- nopswithoutDep
+      //val nopswithoutDep =  nopswithoutDep3 + opid
+      //val diff = nopswithoutDep2 -- nopswithoutDep
 
-      if (!diff.isEmpty)
-      {
-        //assert(false)
-      }
 
 
       val narg2ops = argids.foldLeft(arg2ops){(acc,ele) => {
@@ -231,8 +231,19 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       val narg2ops = args.foldLeft(arg2ops){(acc,ele) =>
         {
-          if (acc.contains(ele) && acc(ele).size > 1)
-            acc + (ele -> (acc(ele) - opid))
+          if (acc.contains(ele)) {
+            val old = acc(ele)
+            if (acc(ele).size > 1) {
+              val mold = old - opid
+              acc + (ele -> mold)
+            }
+            else {
+              if (old.contains(opid))
+                acc - ele
+              else
+                acc //this can happen if we have e.g. twice the same arg and removed ourself already
+            }
+          }
           else
             acc - ele
         }
@@ -255,7 +266,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val allargids = nopid.flatMap(p => p.args.toSet)
       val nopswithoutDep = nopid.filter(p => {
         val rets = p.returns
-        val check = rets.filter(x => !allargids.contains(x))
+        val check = rets.filter(x => allargids.contains(x))
         check.isEmpty
       })
 
@@ -295,7 +306,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
     def removeOp(opid: OpID): Dag = {
       val rets = opid.returns
-      val ndag = rets.foldLeft(dag){ //this can leave levels empty - but we don't care for now
+      val ndag_mayempty = rets.foldLeft(dag){
         (acc,ele) => {
           val level = index(ele)
           val oset = dag(level)                                                                              ;
@@ -304,6 +315,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
           acc.updated(level,nset)
         }
       }
+      val ndag = ndag_mayempty.takeWhile(p => !p.isEmpty)
       val nindex = rets.foldLeft(index){ (acc,ele) => acc - ele}
       val nopLookUp = opLookUp.delete(opid)
 
@@ -322,7 +334,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         assert(false)
       }
 
-      Dag(ndag,index,highestid,nopLookUp, dynamically_defined_functions) //FIX - make it nindex again!
+      Dag(ndag,nindex,highestid,nopLookUp, dynamically_defined_functions) //FIX - make it nindex again!
     }
 
 /*    def removeOp(opid: OpID): Dag = {

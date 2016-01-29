@@ -1,3 +1,4 @@
+/*
 
 package RandomTesting
 
@@ -35,3 +36,4 @@ object TestPureStraightlineCode  extends RandomTester{
   def iniRandomC(): RandomClass = new MRandomClass()
 }
 
+*/
