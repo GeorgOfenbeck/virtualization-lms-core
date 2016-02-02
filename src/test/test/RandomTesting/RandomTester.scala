@@ -182,6 +182,33 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
       Stream.empty
   }
 */
+
+  def fstream(curr: Int, ini: DSLwCode): Stream[DSLwCode] = {
+    val s = ini.dag.opLookUp.opargsrets.size
+    val rest = s - curr
+    val halfrest = rest / 2
+    val newpos = curr + halfrest
+    if (halfrest > 0) {
+      val x = removetill(ini,newpos)
+      Stream.cons(x, fstream(newpos, ini))
+    }
+    else
+      Stream.empty
+  }
+
+  def removetill ( s: DSLwCode, half: Int): DSLwCode = {
+    val possible_removes = s.dag.OpswithoutDep()
+    val ndag = s.dag.removeOp(possible_removes.head)
+    val x = new DSLwCode {
+      override val dsl: s.dsl.type = s.dsl
+      override val dag =  ndag
+    }
+    if (x.dag.opLookUp.opargsrets.size > half)
+      removetill(x,half)
+    else
+      x
+  }
+
   implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
     case s: DSLwCode => {      
       println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!shrinking" + s.dag.opLookUp.opargsrets.size)
@@ -201,20 +228,15 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         }*/
 
       //else
+      //val possible_remove_half = s.dag.OpswithoutDep()
       val possible_removes = s.dag.OpswithoutDep()
-
-      if (possible_removes.size < 2) Stream.empty else {
-        val ndag = s.dag.removeOp(possible_removes.head)
-        val x = new DSLwCode {
-          override val dsl: s.dsl.type = s.dsl
-          override val dag =  ndag
-        }
-        Stream(x)
+      if (possible_removes.isEmpty)
+        Stream.empty
+      else {
+        val half = s.dag.opLookUp.opargsrets.size/2
+        val x = removetill(s,half)
+        Stream.concat(Stream(x),fstream(half,s)) //Stream of size 3/4, 7/8 etc.
       }
-
-
-
-
     }
   })
 
