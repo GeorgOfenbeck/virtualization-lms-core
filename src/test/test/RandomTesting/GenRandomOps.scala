@@ -10,7 +10,6 @@ import org.scalacheck._
 import scala.lms.internal._
 
 
-
 trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
@@ -46,13 +45,14 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                      )
 
   /** *
-    * @param mf used all over the place to check if a symbol/value is a suitable input to an op
+    *
+    * @param mf      used all over the place to check if a symbol/value is a suitable input to an op
     * @param dynTags this is used in the case of a dynamic function where the mf would only yield Function[Any,Any] and we would
     *                like to get more concrete type info (note - this most likley could be solved more elegantly via reflection)
     * @tparam T The type we try to describe
     */
   case class Tag[T](mf: Manifest[T],
-                    dynTags: Option[ Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]])] = None)
+                    dynTags: Option[Unit => (Vector[TypeRep[_]], Vector[TypeRep[_]])] = None)
 
   /** *
     * alias used to make swapping out of the type representation easier
@@ -74,6 +74,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   /**
     * Idendity type used to be able to switch between evaluation and symbolic evaluation (staging) easily
+    *
     * @tparam T
     */
   type NoRep[T] = T
@@ -82,6 +83,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   /**
     * SoV - Symbol or Value is used to abstract over either a value (e.g. Int value) or a symbolic value such as Rep[Int]
     * it additionally holds the type of the Symbol explicitly in the field 'tag'
+    *
     * @param sym symbol or value
     * @param tag type representation
     * @tparam R higher order type that is either Rep or NoRep
@@ -91,18 +93,19 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   /** *
-    * @param name Name used for e.g. debugging
-    * @param args the types taken as arguments by the op
-    * @param returns the types returned by the op
-    * @param evaluation a function evaluating the op
+    *
+    * @param name                Name used for e.g. debugging
+    * @param args                the types taken as arguments by the op
+    * @param returns             the types returned by the op
+    * @param evaluation          a function evaluating the op
     * @param symbolic_evaluation a function symbolically (staging) the op
-    * @param localfidx in case that op is a dynamic created op this stores which symbol nr it is
+    * @param localfidx           in case that op is a dynamic created op this stores which symbol nr it is
     */
   case class Op(name: String,
                 args: Vector[GenTypes[_]],
                 returns: Vector[GenTypes[_]],
                 evaluation: Vector[NoRep[_]] => Vector[NoRep[_]], //Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] ,
-                symbolic_evaluation: Vector[Rep[_]] => Vector[Rep[_]],//Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ,
+                symbolic_evaluation: Vector[Rep[_]] => Vector[Rep[_]], //Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] ,
                 localfidx: Option[Int]
                )
 
@@ -117,7 +120,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   lazy val allops = ops(Map.empty)
-
 
 
   def ops(availOps: AvailOps): AvailOps = availOps
@@ -159,27 +161,30 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   case class DagNode(val typ: GenTypes[_], val id: Int)
+
   case class OpID(val op: Op, args: Vector[Int], returns: Vector[Int])
+
   case class OpLookUp(
-                      val opargsrets: Set[OpID],
-                      val args2ops: Map[Vector[Int], Set[OpID]],
-                      val rets2op: Map[Vector[Int], OpID],
-                      val ret2rets: Map[Int, Vector[Int]],
-                      val arg2ops: Map[Int, Set[OpID]],
-                      val OpswithoutDep: Set[OpID]
-                     ){
+                       val opargsrets: Set[OpID],
+                       val args2ops: Map[Vector[Int], Set[OpID]],
+                       val rets2op: Map[Vector[Int], OpID],
+                       val ret2rets: Map[Int, Vector[Int]],
+                       val arg2ops: Map[Int, Set[OpID]],
+                       val OpswithoutDep: Set[OpID]
+                     ) {
     /*def apply(): OpLookUp = OpLookUp(Map.empty,Map.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty)*/
 
 
     def insertOp(op: Op, argids: Vector[Int], returnids: Vector[Int]) = {
-      val opid = OpID(op,argids,returnids)
+      val opid = OpID(op, argids, returnids)
       val nopargsrets = opargsrets + opid
       //val nop2args = op2args + (op -> argids)
       //val nop2rets = op2rets + (op -> returnids)
       val nargs2op = if (args2ops.contains(argids))
-        args2ops + (argids -> (args2ops(argids) + opid)) else args2ops + (argids -> Set(opid))
+        args2ops + (argids -> (args2ops(argids) + opid))
+      else args2ops + (argids -> Set(opid))
       val nrets2op = rets2op + (returnids -> opid)
-      val nret2rets = returnids.foldLeft(ret2rets){(acc,ele) => acc + (ele -> returnids)}
+      val nret2rets = returnids.foldLeft(ret2rets) { (acc, ele) => acc + (ele -> returnids) }
 
       //all ops that so far had their returns not being used (relies on building it incrementaly)
       val opsaffected = argids.flatMap(a => ret2rets.get(a)).flatMap(s => rets2op.get(s)).filter(o => OpswithoutDep.contains(o))
@@ -189,27 +194,27 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       val allargids = nopargsrets.flatMap(p => p.args.toSet) //all parameters
       val nopswithoutDep = nopargsrets.filter(p => {
-        val rets = p.returns
-        val check = rets.filter(x => allargids.contains(x))
-        //returns an empty set if non of our returns is used as an arg
+          val rets = p.returns
+          val check = rets.filter(x => allargids.contains(x))
+          //returns an empty set if non of our returns is used as an arg
 
-        //given the current op - do we have a return that is a parameter for another op
-        check.isEmpty
-      })
+          //given the current op - do we have a return that is a parameter for another op
+          check.isEmpty
+        })
       //val nopswithoutDep =  nopswithoutDep3 + opid
       //val diff = nopswithoutDep2 -- nopswithoutDep
 
 
-
-      val narg2ops = argids.foldLeft(arg2ops){(acc,ele) => {
+      val narg2ops = argids.foldLeft(arg2ops) { (acc, ele) => {
         if (acc.contains(ele))
           acc + (ele -> (acc(ele) + opid))
         else
           acc + (ele -> Set(opid))
-      }}
+      }
+      }
 
       //OpLookUp(nop2args,nop2rets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
-      OpLookUp(nopargsrets,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+      OpLookUp(nopargsrets, nargs2op, nrets2op, nret2rets, narg2ops, nopswithoutDep)
     }
 
     def delete(opid: OpID) = {
@@ -220,32 +225,31 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val op = opid.op
       val nargs2op = if (args2ops.contains(args) && args2ops(args).size > 1)
         args2ops + (args -> (args2ops(args) - opid))
-        else
+      else
         args2ops - args
       val nrets2op = rets2op - rets
       /*val nop2args = op2args - op
       val nop2rets = op2rets - op*/
       val nopid = opargsrets - opid
-      val nret2rets = rets.foldLeft(ret2rets){(acc,ele) => acc - ele}
+      val nret2rets = rets.foldLeft(ret2rets) { (acc, ele) => acc - ele }
 
-      val narg2ops = args.foldLeft(arg2ops){(acc,ele) =>
-        {
-          if (acc.contains(ele)) {
-            val old = acc(ele)
-            if (acc(ele).size > 1) {
-              val mold = old - opid
-              acc + (ele -> mold)
-            }
-            else {
-              if (old.contains(opid))
-                acc - ele
-              else
-                acc //this can happen if we have e.g. twice the same arg and removed ourself already
-            }
+      val narg2ops = args.foldLeft(arg2ops) { (acc, ele) => {
+        if (acc.contains(ele)) {
+          val old = acc(ele)
+          if (acc(ele).size > 1) {
+            val mold = old - opid
+            acc + (ele -> mold)
           }
-          else
-            acc - ele
+          else {
+            if (old.contains(opid))
+              acc - ele
+            else
+              acc //this can happen if we have e.g. twice the same arg and removed ourself already
+          }
         }
+        else
+          acc - ele
+      }
       }
 
 
@@ -271,35 +275,34 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       val diff = nopswithoutDep2 -- nopswithoutDep
 
-      if (!diff.isEmpty)
-      {
+      if (!diff.isEmpty) {
         //assert(false)
       }
 
 
 
-      OpLookUp(nopid,nargs2op,nrets2op, nret2rets, narg2ops, nopswithoutDep)
+      OpLookUp(nopid, nargs2op, nrets2op, nret2rets, narg2ops, nopswithoutDep)
     }
 
     def deletewRets(rets: Vector[Int]) = delete(rets2op(rets))
   }
 
-  object Dag{
+  object Dag {
     def apply(ininodes: Vector[GenTypes[_]]): Dag = {
-      val z = ininodes.zipWithIndex.map( e => DagNode(e._1,e._2)).toSet
-      val m = z.map(e => e.id).foldLeft(Map.empty[Int,Int]) { (acc,ele) => acc + (ele -> 0) }
+      val z = ininodes.zipWithIndex.map(e => DagNode(e._1, e._2)).toSet
+      val m = z.map(e => e.id).foldLeft(Map.empty[Int, Int]) { (acc, ele) => acc + (ele -> 0) }
       //Dag(Vector(z),m, z.size,Map.empty, Map.empty, Map.empty)
-      Dag(Vector(z),m,z.size,OpLookUp(Set.empty,Map.empty,Map.empty, Map.empty, Map.empty,Set.empty), Map.empty)
+      Dag(Vector(z), m, z.size, OpLookUp(Set.empty, Map.empty, Map.empty, Map.empty, Map.empty, Set.empty), Map.empty)
     }
   }
 
-  case class Dag(val dag: Vector[Set[DagNode]], index: Map[Int,Int], highestid: Int,
+  case class Dag(val dag: Vector[Set[DagNode]], index: Map[Int, Int], highestid: Int,
                  //id2ids: Map[Int,Set[Int]],
                  opLookUp: OpLookUp,
                  //ret2op: Map[Set[Int], Op],
                  //arg2res: Map[Int, Set[Int]]
                  dynamically_defined_functions: AvailOps
-                ){
+                ) {
 
     def OpswithoutDep(): Set[OpID] = opLookUp.OpswithoutDep
 
@@ -309,7 +312,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val withoutop = possibilites.filterNot(p => p == opid)
       if (withoutop.isEmpty)
         this
-      else{
+      else {
         val ndag = removeOp(withoutop.head)
         ndag.removetillOp(opid)
       }
@@ -317,17 +320,17 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
     def removeOp(opid: OpID): Dag = {
       val rets = opid.returns
-      val ndag_mayempty = rets.foldLeft(dag){
-        (acc,ele) => {
+      val ndag_mayempty = rets.foldLeft(dag) {
+        (acc, ele) => {
           val level = index(ele)
-          val oset = dag(level)                                                                              ;
+          val oset = dag(level);
           val rm = oset.filter(p => p.id == ele)
           val nset = oset -- rm
-          acc.updated(level,nset)
+          acc.updated(level, nset)
         }
       }
       val ndag = ndag_mayempty.takeWhile(p => !p.isEmpty)
-      val nindex = rets.foldLeft(index){ (acc,ele) => acc - ele}
+      val nindex = rets.foldLeft(index) { (acc, ele) => acc - ele }
       val nopLookUp = opLookUp.delete(opid)
 
       //sanity checks
@@ -335,59 +338,41 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val allnodes = ndag.flatten
       val allnodeids = allnodes.map(t => t.id).toSet
       val check = nopLookUp.opargsrets.filter(p => {
-         val op = p.op
-         val args = p.args
-         val missing = args.filter(p => !allnodeids.contains(p))
-         !missing.isEmpty
-       }
+        val op = p.op
+        val args = p.args
+        val missing = args.filter(p => !allnodeids.contains(p))
+        !missing.isEmpty
+      }
       )
       if (!check.isEmpty) {
         assert(false)
       }
 
-      Dag(ndag,nindex,highestid,nopLookUp, dynamically_defined_functions) //FIX - make it nindex again!
+      Dag(ndag, nindex, highestid, nopLookUp, dynamically_defined_functions) //FIX - make it nindex again!
     }
-
-/*    def removeOp(opid: OpID): Dag = {
-      val nlookup = opLookUp.delete(opid)
-      val unused_returns = opid.returns
-      val ndag = unused_returns.foldLeft(dag){
-        (acc,ele) => {
-          val level = index(ele)
-          val olset = acc(level)
-          val dagnode = olset.filter(p => p.id == ele)
-          acc.updated(level,olset -- dagnode)
-        }
-      }
-      val nindex = unused_returns.foldLeft(index){ (acc,ele) => acc - ele }
-      Dag(ndag,nindex,highestid,nlookup,dynamically_defined_functions)
-    }*/
-
 
     def availTypes(): AvailUniqueTypes = dag.flatMap(x => x.map(n => n.typ)).toSet
 
     def addOp(op: Op, assignedids: Vector[Int]): Dag = {
-      val depth = assignedids.map( e => getDeepth(e)).max
-      val t = op.returns.zipWithIndex.map(e => DagNode(e._1,e._2 + highestid + 1))
+      val depth = assignedids.map(e => getDeepth(e)).max
+      val t = op.returns.zipWithIndex.map(e => DagNode(e._1, e._2 + highestid + 1))
       val returnNodes = t.toSet
       val ids = t.map(e => e.id)
-      val (ndag,pos) = if (depth == dag.size-1 ) {
+      val (ndag, pos) = if (depth == dag.size - 1) {
         //its the last level of the dag
-        val ndag:Vector[Set[DagNode]] = dag :+ returnNodes
-        (ndag,dag.size)
+        val ndag: Vector[Set[DagNode]] = dag :+ returnNodes
+        (ndag, dag.size)
       } else {
         val oSet: Set[DagNode] = dag(depth + 1)
         val nSet = oSet ++ returnNodes
-        val ndag:Vector[Set[DagNode]] = dag.updated(depth+1,nSet)
-        (ndag,depth + 1)
+        val ndag: Vector[Set[DagNode]] = dag.updated(depth + 1, nSet)
+        (ndag, depth + 1)
       }
-      val nmap = ids.foldLeft(index){ (acc,ele) => acc + (ele -> pos) }
+      val nmap = ids.foldLeft(index) { (acc, ele) => acc + (ele -> pos) }
       val retidset = ids
-      val nopLookUp = opLookUp.insertOp(op,assignedids,retidset)
-      Dag(ndag,nmap,ids.max, nopLookUp, dynamically_defined_functions)
+      val nopLookUp = opLookUp.insertOp(op, assignedids, retidset)
+      Dag(ndag, nmap, ids.max, nopLookUp, dynamically_defined_functions)
     }
-
-
 
     //returns all possible ID's of assignments
     def possibleAssigns(targetType: GenTypes[_]): Vector[Int] = {
@@ -395,19 +380,13 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     }
 
     def getDeepth(id: Int) = index(id)
-
-
-
-
-
   }
-
-
 
   /**
     * This is used to store a current set of input symbol/values and its extending function
-    * @param types all currently available symbol types
-    * @param evaluation given the current symbols executes the function and returns an extended set of symbols
+    *
+    * @param types                         all currently available symbol types
+    * @param evaluation                    given the current symbols executes the function and returns an extended set of symbols
     * @param dynamically_defined_functions during the evaluation steps of previous iterations functions might have been created
     *                                      which should also be exposed as available ops - those functions are store in this field
     * @tparam S this decideds if the iterations describe a straightforward evaluation or its symbolic counterpart
@@ -419,13 +398,14 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   /**
     * Takes the list of all available ops and filters out those that can be called with the current set of graph nodes
-    * @param cCStatus status variables for the code construction - used here are the remaining available ops
+    *
+    * @param cCStatus   status variables for the code construction - used here are the remaining available ops
     * @param availTypes the types of the currently existing variables
-    * @param seval current iteration step of the random symbol creation
+    * @param seval      current iteration step of the random symbol creation
     * @return returns a Map of all Ops that could be called
     */
   def filterOps(cCStatus: CCStatus, availTypes: AvailUniqueTypes, dag: Dag): AvailOps = {
-  // seval: EvalGenIterStep[Rep]): AvailOps = {
+    // seval: EvalGenIterStep[Rep]): AvailOps = {
     //all ops that are statically known
     val fixedops = allops.filter(x => x._1.subsetOf(availTypes))
 
@@ -446,8 +426,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * checks if the op we randomly selected the creation of a function literal and then replaces the placeholder with
     * an actual symbol we do this cause we want the function to only take parameters that are also currently available
     * to increase the liklyhood of it being used  the actual implemention is within the GenRandomFunctions trait
+    *
     * @param desc Limits on the random process (e.g. nesting deep and # of functions in this case)
-    * @param op the op selected (is checked if its a function placeholder)
+    * @param op   the op selected (is checked if its a function placeholder)
     * @param seval
     * @return
     */
@@ -533,13 +514,14 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   //override in traits that would nest to check if its a valid op in the context
-  def filterNestDepth(desc: CodeDescriptor, seval: EvalGenIterStep[Rep], op: Op): Boolean = {
+  def filterNestDepth(desc: CodeDescriptor, seval: EvalGenIterStep[Rep], op: Op, cCStatus: CCStatus): Boolean = {
     true
   }
 
 
   /**
     * Will create a random generator that produces an Op under the constraints of the types existing so far and the code describtor
+    *
     * @param desc
     * @param seval
     * @return
@@ -562,7 +544,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         (acc, ele) => acc :+ in(ele)
       }
       // get rid of the tags
-      val symsonly = argsyms.map ( e => e.sym)
+      val symsonly = argsyms.map(e => e.sym)
 
       //then use this vector with the execution (symbolic or actual) get the result
       val ret: Vector[S[_]] =
@@ -576,10 +558,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       assert(op.returns.size == ret.size) //make sure we got as many symbols back as expected
       val retwithtags: Vector[SoV[S, _]] = op.returns.zip(ret).map(e => {
-          val (tag,sym) = e //TODO - can typecheck that the expected type and returned type are the same
+          val (tag, sym) = e //TODO - can typecheck that the expected type and returned type are the same
           val sym2: S[Any] = sym.asInstanceOf[S[Any]]
           val tag2: Tag[Any] = tag.asInstanceOf[Tag[Any]]
-          SoV(sym2,tag2)
+          SoV(sym2, tag2)
         }).toVector
       in ++ retwithtags //concatenate symbol/values so far with the new results
     }
@@ -589,39 +571,29 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   /** *
     * Produces one iteration step of a function which will generate a random piece of code / symbolic execution
-    * @param desc codestyle we want to achive (limits on the random code generation)
+    *
+    * @param desc     codestyle we want to achive (limits on the random code generation)
     * @param cCStatus status variables for the code construction (all state ideally is carried here)
-    * @param veval the value based execution of the code so far
-    * @param seval the symbolic execution of the code (staged) so far
+    * @param veval    the value based execution of the code so far
+    * @param seval    the symbolic execution of the code (staged) so far
     * @return a random Generator that increases veval/seval by one iteration step (could be multiple ops in e.g. the case of functions)
     */
 
   //def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
-  def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag) : Gen[Dag] = {
+  def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[Dag] = {
     for {
       wop <- genOp(desc, cCStatus, indag)
       (fop, nf, uCStatus) <- createFunction(desc, wop, indag, cCStatus)
       op <- removeWildCards(fop, indag)
       assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(indag, arg)))
-      //assign <- indag.possibleAssigns()
     } yield {
-      //val evaluation: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = createf[NoRep](assign, op, op.evaluation)
-      //val symbolic_evaluation: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = createf[Rep](assign, op, op.symbolic_evaluation)
       if (nf.isDefined) {
         //the op is defining a new local function
         ???
       }
-      else {
-
-        /*val newtypes = seval.types ++ op.returns
-        val valuebased = EvalGenIterStep(newtypes, evaluation, veval.dynamically_defined_functions)
-        val symbolbased = EvalGenIterStep(newtypes, symbolic_evaluation, seval.dynamically_defined_functions)
-        (valuebased, symbolbased)*/
-        indag.addOp(op,assign)
-      }
+      else indag.addOp(op, assign)
     }
   }
-
 
   //def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, iniv: Vector[EvalGenIterStep[NoRep]], inis: Vector[EvalGenIterStep[Rep]]):
   def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[Dag] = {
@@ -637,6 +609,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * create a Vector of random cTPs
     * its a vector cause we might require a certain type combination so that our ops work
     * e.g. if we only have the plus(l: T, r: Q) operation we require that we have a T and a Q in the args
+    *
     * @return
     */
   def genArg(): Gen[Vector[GenTypes[_]]] = for {
@@ -682,7 +655,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     } yield {
       val finalv = getfinalIterStep(indicies.toVector, vecv)
       val finals = getfinalIterStep(indicies.toVector, vecs)
-      (finalv,finals)
+      (finalv, finals)
     }
   }
 
@@ -692,7 +665,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       ini <- genArgs(desc.max_toplevel_args)
       //(vecv, vecs) <- genNodes(desc, cCStatus, Vector(EvalGenIterStep[NoRep](ini, null, Map.empty)), Vector(EvalGenIterStep[Rep](ini, null, Map.empty)))
       ndag <- genNodes(desc, cCStatus, ini)
-      tail <- ndag//genReturns(desc, vecv,vecs)
+      tail <- ndag //genReturns(desc, vecv,vecs)
     } yield tail
   }
 
@@ -712,52 +685,43 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   def chainDag(dag: Dag):
-    (
-      /*Vector[Map[Int,SoV[NoRep, _]] => Map[Int,SoV[NoRep, _]]],
-      Vector[Map[Int,SoV[Rep, _]] => Map[Int,SoV[Rep, _]]]*/
-      Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]],
-        Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]]
-      )
-    /*(Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]]),
-    (Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]])*/
-  = {
-
+  (Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]], Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]]) = {
     val lookup = dag.opLookUp
     val retsets = lookup.rets2op.keySet
-    val sorted = retsets.toVector.sortWith((a,b) => (a.max < b.max))
+    val sorted = retsets.toVector.sortWith((a, b) => (a.max < b.max))
 
 
     val real = sorted.map(s => {
       val op = lookup.rets2op(s)
-      createf2[NoRep](lookup,op,op.op.evaluation)
+      createf2[NoRep](lookup, op, op.op.evaluation)
     })
     val symbolic = sorted.map(s => {
       val op = lookup.rets2op(s)
-      createf2[Rep](lookup,op,op.op.symbolic_evaluation)
+      createf2[Rep](lookup, op, op.op.symbolic_evaluation)
     })
 
     val freal: Vector[SoV[NoRep, _]] => Vector[SoV[NoRep, _]] = (in: Vector[SoV[NoRep, _]]) => {
-      val m = in.zipWithIndex.foldLeft(Map.empty[Int,SoV[NoRep, _]]){  (acc,ele) => acc + (ele._2 -> ele._1) }
-      val mr = real.foldLeft(m){(acc,ele) => ele(acc)}
-      val vr = mr.toVector.sortWith( (a,b) => (a._1 < b._1)).map(e => e._2)
+      val m = in.zipWithIndex.foldLeft(Map.empty[Int, SoV[NoRep, _]]) { (acc, ele) => acc + (ele._2 -> ele._1) }
+      val mr = real.foldLeft(m) { (acc, ele) => ele(acc) }
+      val vr = mr.toVector.sortWith((a, b) => (a._1 < b._1)).map(e => e._2)
       vr
     }
 
     val fsym: Vector[SoV[Rep, _]] => Vector[SoV[Rep, _]] = (in: Vector[SoV[Rep, _]]) => {
-      val m = in.zipWithIndex.foldLeft(Map.empty[Int,SoV[Rep, _]]){  (acc,ele) => acc + (ele._2 -> ele._1) }
-      val mr = symbolic.foldLeft(m){(acc,ele) => ele(acc)}
-      val vr = mr.toVector.sortWith( (a,b) => (a._1 < b._1)).map(e => e._2)
+      val m = in.zipWithIndex.foldLeft(Map.empty[Int, SoV[Rep, _]]) { (acc, ele) => acc + (ele._2 -> ele._1) }
+      val mr = symbolic.foldLeft(m) { (acc, ele) => ele(acc) }
+      val vr = mr.toVector.sortWith((a, b) => (a._1 < b._1)).map(e => e._2)
       vr
     }
 
-    (freal,fsym)
+    (freal, fsym)
     //(real,symbolic)
 
   }
 
   def createf2[S[_]](lookup: OpLookUp, opid: OpID, eval: Vector[S[_]] => Vector[S[_]])
-  : (Map[Int,SoV[S, _]] => Map[Int,SoV[S, _]]) = {
-    val f: (Map[Int,SoV[S, _]] => Map[Int,SoV[S, _]]) = (in: Map[Int,SoV[S, _]]) => {
+  : (Map[Int, SoV[S, _]] => Map[Int, SoV[S, _]]) = {
+    val f: (Map[Int, SoV[S, _]] => Map[Int, SoV[S, _]]) = (in: Map[Int, SoV[S, _]]) => {
       //take the assigned symbols / values from the vector of existing values / symbols and put them in a dedicated vector
 
       val assign = opid.args
@@ -765,7 +729,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
         (acc, ele) => acc :+ in(ele)
       }
       // get rid of the tags
-      val symsonly = argsyms.map ( e => e.sym)
+      val symsonly = argsyms.map(e => e.sym)
 
       //then use this vector with the execution (symbolic or actual) get the result
       val ret: Vector[S[_]] =
@@ -780,35 +744,34 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
       assert(opid.returns.size == ret.size) //make sure we got as many symbols back as expected
       val retwithtags: Vector[SoV[S, _]] = opid.op.returns.zip(ret).map(e => {
-          val (tag,sym) = e //TODO - can typecheck that the expected type and returned type are the same
+          val (tag, sym) = e //TODO - can typecheck that the expected type and returned type are the same
           val sym2: S[Any] = sym.asInstanceOf[S[Any]]
           val tag2: Tag[Any] = tag.asInstanceOf[Tag[Any]]
-          SoV(sym2,tag2)
+          SoV(sym2, tag2)
         }).toVector
       val retids = opid.returns
       assert(retids.size == retwithtags.size)
 
-      retids.zipWithIndex.foldLeft(in){(acc,ele) => {
+      retids.zipWithIndex.foldLeft(in) { (acc, ele) => {
         acc + (ele._1 -> retwithtags(ele._2))
-      }}
+      }
+      }
       //in ++ retwithtags //concatenate symbol/values so far with the new results
     }
     f
   }
 
 
-
-
   def genExposeRep(v: Vector[GenTypes[_]]): ExposeRep[Vector[SoV[Rep, _]]] = {
     //val tags = v.map(e => e.tag)
-    new ExposeRep[Vector[SoV[Rep, _]]]{
+    new ExposeRep[Vector[SoV[Rep, _]]] {
       val freshExps = (u: Unit) => {
         def helpert[T](args: Vector[TypeRep[_]], returns: Vector[TypeRep[_]])(implicit tag: TypeRep[T]): TypeRep[T] = {
           tag match {
-            case x@TypeExp(mf,dynTags) => {
-              val f: Unit => (Vector[TypeRep[_]],Vector[TypeRep[_]]) = (u: Unit) => {
+            case x@TypeExp(mf, dynTags) => {
+              val f: Unit => (Vector[TypeRep[_]], Vector[TypeRep[_]]) = (u: Unit) => {
                 //(Vector.empty[TypeExp[_]],Vector.empty[TypeExp[_]])
-                (args,returns)
+                (args, returns)
               }
               x.copy(dynTags = Some(f))
             }
@@ -818,12 +781,12 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
             }
           }
         }
-        v.foldLeft(Vector.empty[Exp[_]])((acc,ele) => {
+        v.foldLeft(Vector.empty[Exp[_]])((acc, ele) => {
           ele.dynTags match {
             case Some(ftags) => {
-              val (args,rets) = ftags()
-              val tagnew: TypeRep[_=>_] = helpert(args,rets)
-              val exp = Arg[_=>_](tagnew)
+              val (args, rets) = ftags()
+              val tagnew: TypeRep[_ => _] = helpert(args, rets)
+              val exp = Arg[_ => _](tagnew)
               acc :+ exp
             }
             case None => acc :+ Arg(ele.mf)
@@ -832,15 +795,15 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       }
       val vec2t: Vector[Exp[_]] => Vector[SoV[Rep, _]] =
       //(v: Vector[Exp[_]]) => Vector.empty
-        (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[SoV[Rep, _]])( (acc,ele) => {
+        (v: Vector[Exp[_]]) => v.foldLeft(Vector.empty[SoV[Rep, _]])((acc, ele) => {
           val mf: Manifest[Any] = exp2tp(ele).tag.mf.asInstanceOf[Manifest[Any]]
-          val tag: Tag[Any] = Tag(mf)           //the cast above is nasty - but since we don't use the type
-          val sov: SoV[Rep,Any] = SoV(ele, tag) //and discard it it wont matter in the end
+          val tag: Tag[Any] = Tag(mf) //the cast above is nasty - but since we don't use the type
+          val sov: SoV[Rep, Any] = SoV(ele, tag) //and discard it it wont matter in the end
           acc :+ sov
         })
       val t2vec: Vector[SoV[Rep, _]] => Vector[Exp[_]] =
       //(x: Vector[cTP]) => Vector.empty
-        (x: Vector[SoV[Rep, _]]) => x.foldLeft(Vector.empty[Exp[_]])( (acc,ele) => {
+        (x: Vector[SoV[Rep, _]]) => x.foldLeft(Vector.empty[Exp[_]])((acc, ele) => {
           if (!ele.sym.isInstanceOf[Exp[_]])
             assert(false, "cast error")
           acc :+ ele.sym.asInstanceOf[Exp[_]]
@@ -849,7 +812,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   }
 
   //Introduced this just to avoid that scalacheck shrinks that vector (which doesnt make sense)
-  case class StealthIt(x: Vector[SoV[NoRep,_]])
+  case class StealthIt(x: Vector[SoV[NoRep, _]])
+
   def hideit(v: Vector[GenTypes[_]]): Gen[StealthIt] = for {
     x <- genArgInstances(v)
   } yield {
@@ -857,7 +821,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     t
   }
 
-  def genArgInstances(v: Vector[GenTypes[_]]): Gen[Vector[SoV[NoRep,_]]] = {
+  def genArgInstances(v: Vector[GenTypes[_]]): Gen[Vector[SoV[NoRep, _]]] = {
     val t = v.map(e => {
       for {
         instance <- genTypeInstance(e)
@@ -865,39 +829,39 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     })
     val t1 = t
     val r = for {
-      ge <- Gen.sequence[Vector[SoV[NoRep,_]], SoV[NoRep,_]](t1)
+      ge <- Gen.sequence[Vector[SoV[NoRep, _]], SoV[NoRep, _]](t1)
     } yield ge //.zipWithIndex.map(e => cTP(e._1,v(e._2).tag))
     r
   }
 
-  def genTypeInstance(targetcTP: GenTypes[_]): Gen[SoV[NoRep,_]] = {
+  def genTypeInstance(targetcTP: GenTypes[_]): Gen[SoV[NoRep, _]] = {
     val boolm: String = manifest[Boolean].toString()
     val intm: String = manifest[Int].toString()
     val longm: String = manifest[Long].toString()
     val floatm: String = manifest[Float].toString()
     val doublem: String = manifest[Double].toString()
-    val target:String = targetcTP.mf.toString()
+    val target: String = targetcTP.mf.toString()
     target match {
       case `boolm` => {
         for {
           choice <- Gen.oneOf(true, false)
-        } yield SoV[NoRep,Boolean](choice,Tag(manifest[Boolean]))
+        } yield SoV[NoRep, Boolean](choice, Tag(manifest[Boolean]))
       }
       case `intm` => for {
         choice <- Arbitrary.arbitrary[Int]
-      } yield SoV[NoRep,Int](choice,Tag(manifest[Int]))
+      } yield SoV[NoRep, Int](choice, Tag(manifest[Int]))
 
       case `floatm` => for {
         choice <- Arbitrary.arbitrary[Float]
-      } yield SoV[NoRep,Float](choice,Tag(manifest[Float]))
+      } yield SoV[NoRep, Float](choice, Tag(manifest[Float]))
 
       case `longm` => for {
         choice <- Arbitrary.arbitrary[Long]
-      } yield SoV[NoRep,Long](choice,Tag(manifest[Long]))
+      } yield SoV[NoRep, Long](choice, Tag(manifest[Long]))
 
       case `doublem` => for {
         choice <- Arbitrary.arbitrary[Double]
-      } yield SoV[NoRep,Double](choice,Tag(manifest[Double]))
+      } yield SoV[NoRep, Double](choice, Tag(manifest[Double]))
 
       case _ => {
         assert(false, "seems we are missing a type instance generator for type " + targetcTP.mf)
@@ -905,7 +869,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       }
     }
   }
-
 
 
 }
