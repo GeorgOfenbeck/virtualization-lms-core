@@ -160,8 +160,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   case class DagNode(val typ: GenTypes[_], val id: Int)
   case class OpID(val op: Op, args: Vector[Int], returns: Vector[Int])
-  case class OpLookUp(//val op2args: Map[Op, Vector[Int]],
-                      //val op2rets: Map[Op, Vector[Int]],
+  case class OpLookUp(
                       val opargsrets: Set[OpID],
                       val args2ops: Map[Vector[Int], Set[OpID]],
                       val rets2op: Map[Vector[Int], OpID],
@@ -304,6 +303,18 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
     def OpswithoutDep(): Set[OpID] = opLookUp.OpswithoutDep
 
+
+    def removetillOp(opid: OpID): Dag = {
+      val possibilites = OpswithoutDep()
+      val withoutop = possibilites.filterNot(p => p == opid)
+      if (withoutop.isEmpty)
+        this
+      else{
+        val ndag = removeOp(withoutop.head)
+        ndag.removetillOp(opid)
+      }
+    }
+
     def removeOp(opid: OpID): Dag = {
       val rets = opid.returns
       val ndag_mayempty = rets.foldLeft(dag){
@@ -440,9 +451,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @param seval
     * @return
     */
-  def createFunction(desc: CodeDescriptor, op: Op, dag: Dag)
-  : Gen[(Op, Option[(Vector[GenTypes[_]], Vector[GenTypes[_]])])] = {
-    (op, None)
+  def createFunction(desc: CodeDescriptor, op: Op, dag: Dag, cCStatus: CCStatus)
+  : Gen[(Op, Option[(Vector[GenTypes[_]], Vector[GenTypes[_]])], CCStatus)] = {
+    (op, None, cCStatus)
   }
 
 
@@ -589,7 +600,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag) : Gen[Dag] = {
     for {
       wop <- genOp(desc, cCStatus, indag)
-      (fop, nf) <- createFunction(desc, wop, indag)
+      (fop, nf, uCStatus) <- createFunction(desc, wop, indag, cCStatus)
       op <- removeWildCards(fop, indag)
       assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(indag, arg)))
       //assign <- indag.possibleAssigns()
@@ -862,6 +873,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   def genTypeInstance(targetcTP: GenTypes[_]): Gen[SoV[NoRep,_]] = {
     val boolm: String = manifest[Boolean].toString()
     val intm: String = manifest[Int].toString()
+    val longm: String = manifest[Long].toString()
+    val floatm: String = manifest[Float].toString()
+    val doublem: String = manifest[Double].toString()
     val target:String = targetcTP.mf.toString()
     target match {
       case `boolm` => {
@@ -872,6 +886,19 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       case `intm` => for {
         choice <- Arbitrary.arbitrary[Int]
       } yield SoV[NoRep,Int](choice,Tag(manifest[Int]))
+
+      case `floatm` => for {
+        choice <- Arbitrary.arbitrary[Float]
+      } yield SoV[NoRep,Float](choice,Tag(manifest[Float]))
+
+      case `longm` => for {
+        choice <- Arbitrary.arbitrary[Long]
+      } yield SoV[NoRep,Long](choice,Tag(manifest[Long]))
+
+      case `doublem` => for {
+        choice <- Arbitrary.arbitrary[Double]
+      } yield SoV[NoRep,Double](choice,Tag(manifest[Double]))
+
       case _ => {
         assert(false, "seems we are missing a type instance generator for type " + targetcTP.mf)
         ???

@@ -434,6 +434,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp{
   def genTypeInstance(targetcTP: cTP): Gen[cTP] = {
     val boolm: String = manifest[Boolean].toString()
     val intm: String = manifest[Int].toString()
+    val longm: String = manifest[Long].toString()
+    val floatm: String = manifest[Float].toString()
+    val doublem: String = manifest[Double].toString()
     val target:String = targetcTP.tag.mf.toString()
     target match {
       case `boolm` => {
@@ -445,6 +448,20 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp{
       case `intm` => for {
         choice <- Arbitrary.arbitrary[Int]
       } yield targetcTP.copy(sym = choice)
+
+      case `floatm` => for {
+        choice <- Arbitrary.arbitrary[Float]
+      } yield targetcTP.copy(sym = choice)
+
+      case `longm` => for {
+        choice <- Arbitrary.arbitrary[Long]
+      } yield targetcTP.copy(sym = choice)
+
+      case `doublem` => for {
+        choice <- Arbitrary.arbitrary[Double]
+      } yield targetcTP.copy(sym = choice)
+
+
       case _ => {
         assert(false, "seems we are missing a type instance generator for type " + targetcTP.tag)
         ???

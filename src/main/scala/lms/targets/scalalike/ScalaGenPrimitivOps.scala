@@ -35,7 +35,7 @@ trait ScalaGenPrimitivOps extends ScalaCodegen{
    case ObjIntMinValue() => Vector(emitValDef(tp, "scala.Int.MinValue"))
    //case IntPlus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
    case IntPlus(lhs,rhs) => {
-    println("BE AWARE THAT WE ON PURPOSE INTRODUCED A BUG HERE!")
+//    println("BE AWARE THAT WE ON PURPOSE INTRODUCED A BUG HERE!")
     Vector(emitValDef(tp, "if (" + quote(lhs) + "%2 == 0) 7 else " + quote(lhs) + " + " + quote(rhs)))
    }
    case IntMinus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
@@ -61,6 +61,21 @@ trait ScalaGenPrimitivOps extends ScalaCodegen{
    case LongShiftLeft(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " << " + quote(rhs)))
    case LongShiftRightUnsigned(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " >>> " + quote(rhs)))
    case LongToInt(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toInt"))
+   case LongPlus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
+   case LongMinus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
+   case LongTimes(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
+   // case LongDivideFrac(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))
+   case LongDivide(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))
+   case LongMod(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " % " + quote(rhs)))
+   case LongBinaryOr(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " | " + quote(rhs)))
+   case LongBinaryAnd(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " & " + quote(rhs)))
+   case LongBinaryXor(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " ^ " + quote(rhs)))
+   case LongShiftLeft(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " << " + quote(rhs)))
+
+   //case LongDoubleValue(lhs) => Vector(emitValDef(tp, quote(lhs) + ".doubleValue()")
+   //case LongFloatValue(lhs) => Vector(emitValDef(tp, quote(lhs) + ".floatValue()")
+   case LongToFloat(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toFloat"))
+   case LongToDouble(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toDouble"))
    case _ => super.emitNode(tp,acc,block_callback)
   }
   ma

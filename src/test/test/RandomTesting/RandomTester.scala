@@ -21,9 +21,19 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     override val IR: self.type = self
   }
 
+
+
   def tupler(x: Vector[SoV[NoRep, _]]) = {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
-    val withvalues = codegen.tupledeclarehelper(x.map(a => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"), "")
+
+    def workaround(a: SoV[NoRep, _]): String = {
+      if (a.tag.mf.toString() == manifest[Long].toString())
+        "(" + a.sym.toString + "L).asInstanceOf[" + codegen.remap(a.tag.mf) + "]"
+      else
+      "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"
+    }
+
+    val withvalues = codegen.tupledeclarehelper(x.map(a => workaround(a) ), "")
     if (this.compiler eq null)
       setupCompiler()
     val staticData: List[(codegen.IR.Exp[_], Any)] = List()
@@ -123,6 +133,10 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
 abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   import org.scalacheck.{Gen, Prop, Arbitrary}
 
+  var failvec:Option[Vector[Boolean]] = None
+  var shrink = false
+
+
   //the actual test object has to define what Random Class is returned
   def iniRandomC(): RandomClass
 
@@ -209,33 +223,55 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
       x
   }
 
-  implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
-    case s: DSLwCode => {      
+
+
+
+   implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
+    case s: DSLwCode => {
       println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!shrinking" + s.dag.opLookUp.opargsrets.size)
+      shrink = true
+      if (failvec.isDefined) {
+        println("ENTER!")
+        //in this case we actually can speed up the process since we can easily determine the first failing symbol
 
-      val inisyms = s.dag.dag(0).toVector.sortWith((a,b) => a.id < b.id).map(e => e.typ)
-      val resultsyms = s.dag.dag.flatMap(l => l.toVector).sortWith((a,b) => a.id < b.id).map(e => e.typ)
-      val (callstack, callstack_staged) = s.dsl.chainDag(s.dag)
-      val exposeargs = s.dsl.genExposeRep(inisyms)
-      val exposeres = s.dsl.genExposeRep(resultsyms)
-      /*if (!s.dag.dag.isEmpty) {
-        val x = new DSLwCode {
+        val firstresultid = s.dag.opLookUp.ret2rets.keySet.min
+
+        val failvecdefined = failvec.get
+        val t = failvecdefined.takeWhile(p => p)
+        val failid = t.size + firstresultid
+        val firstfail = t :+ failvecdefined(t.size) //this should add the false boolean
+
+        val debug = s.dag.opLookUp.ret2rets
+        val failrets = debug(failid)
+        val failop = s.dag.opLookUp.rets2op(failrets)
+        val ndag = s.dag.removetillOp(failop)
+
+        if (ndag.dag.size == s.dag.dag.size) {
+          println("cannot shrink anymore")
+          Stream.empty
+        }
+        else {
+          val x = new DSLwCode {
             override val dsl: s.dsl.type = s.dsl
-            override val symbolic_code = s.symbolic_code.splitAt(s.symbolic_code.size / 2)._1
-            override val code =  s.code.splitAt(s.code.size / 2)._1
+            override val dag = ndag
           }
-        Stream.concat(Stream(x),fstream(s.code.size/2,s)) //Stream of size 3/4, 7/8 etc.
-        }*/
-
-      //else
-      //val possible_remove_half = s.dag.OpswithoutDep()
-      val possible_removes = s.dag.OpswithoutDep()
-      if (possible_removes.isEmpty)
-        Stream.empty
+          Stream(x)
+        }
+      }
       else {
-        val half = s.dag.opLookUp.opargsrets.size/2
-        val x = removetill(s,half)
-        Stream.concat(Stream(x),fstream(half,s)) //Stream of size 3/4, 7/8 etc.
+        val inisyms = s.dag.dag(0).toVector.sortWith((a, b) => a.id < b.id).map(e => e.typ)
+        val resultsyms = s.dag.dag.flatMap(l => l.toVector).sortWith((a, b) => a.id < b.id).map(e => e.typ)
+        val (callstack, callstack_staged) = s.dsl.chainDag(s.dag)
+        val exposeargs = s.dsl.genExposeRep(inisyms)
+        val exposeres = s.dsl.genExposeRep(resultsyms)
+        val possible_removes = s.dag.OpswithoutDep()
+        if (possible_removes.isEmpty)
+          Stream.empty
+        else {
+          val half = s.dag.opLookUp.opargsrets.size / 2
+          val x = removetill(s, half)
+          Stream.concat(Stream(x), fstream(half, s)) //Stream of size 3/4, 7/8 etc.
+        }
       }
     }
   })
@@ -247,6 +283,9 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         import dslwcode._
         import scala.lms.util._
         var worked = true
+        failvec = None
+
+
         val inisyms = dslwcode.dag.dag(0).toVector.sortWith((a,b) => a.id < b.id).map(e => e.typ)
         val resultsyms = dslwcode.dag.dag.flatMap(l => l.toVector).sortWith((a,b) => a.id < b.id).map(e => e.typ)
         //val (callstack, callstack_staged) = dsl.chainHeadf(dslwcode.code)
@@ -288,11 +327,33 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
             if (true) {
               //should we compare with unstaged?
               val unstagedresult = callstack(rargs)
+              def NanCheck[T](x: T): Boolean = {
+                x match {
+                  case  t: Double => t.isNaN
+                  case  t: Float => t.isNaN
+                  case _ => false
+                }
+              }
               val dropit = widx.dropWhile(ele => {
                 val (e, idx) = ele
-                e == unstagedresult(idx).sym || unstagedresult(idx).sym.toString().contains("function")
+                val t = unstagedresult(idx).sym
+                if (e != unstagedresult(idx).sym)
+                  {
+                    println("Difference")
+                    println(e)
+                    println(t)
+                  }
+
+                e == t || t.toString().contains("function") || (NanCheck(t) && NanCheck(e))
               })
-              if (!dropit.isEmpty) {
+              if (!dropit.isEmpty || shrink) {
+
+                val diff = widx.map(ele => {
+                  val (e, idx) = ele
+                  e == unstagedresult(idx).sym || unstagedresult(idx).sym.toString().contains("function")
+                })
+                failvec = Some(diff)
+
                 println("dropit: " + dropit)
                 val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Fail" + cnt + ".scala")
                 val stream2 = new java.io.PrintWriter(file)
@@ -302,6 +363,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
                 file.flush()
                 file.close()
               }
+              shrink = false
               worked = dropit.isEmpty
             }
             /*val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test" + cnt + ".scala")
@@ -318,6 +380,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
         }
         catch {
           case ex: Throwable => {
+            shrink = true
             println("in the catch!")
             val file = new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Fail" + cnt + ".scala")
             val stream2 = new java.io.PrintWriter(file)
