@@ -26,7 +26,7 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
     randomClass.CodeDescriptor(5, 2, 20, 5, 20, 20 ,1 ,1 ,Map.empty)
 
   def iniCCStatus(randomClass: RandomClass): randomClass.CCStatus = {
-    randomClass.CCStatus(0,0,0,Map.empty)
+    randomClass.CCStatus(0,0,0,Map.empty, Map.empty)
   }
 
   abstract class DSLwCode {
@@ -48,7 +48,7 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
   {
     for {
       dslr <- genDSL()
-      rdag <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
+      (status,rdag) <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
     } yield new DSLwCode {
       override val dsl: dslr.type = dslr
       override val dag: dslr.Dag = rdag
@@ -62,9 +62,11 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
 
   property("DSL Dag Graph Removal 2") =
     Prop.forAll(dsl.genCode(getCodeDescription(dsl),iniCCStatus(dsl))) {
-      dag => {
+      x => {
+        val (status,dag) = x
         Prop.forAll(dsl.genDagStep(getCodeDescription(dsl), iniCCStatus(dsl), dag))  {
-          newdag => {
+          y => {
+            val (nstatus,newdag) = y
             val lookup = dag.opLookUp
             val after_insert = newdag.opLookUp
             val opiddiff = (after_insert.opargsrets -- lookup.opargsrets).head
@@ -89,7 +91,8 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
 
   property("DSL Dag Tests 1") =
     Prop.forAll(dsl.genArgs(5), dsl.genOp(getCodeDescription(dsl),iniCCStatus(dsl),ini)) {
-      (dag,op) => {
+      (dag,x) => {
+        val (op,status) = x
         val lookup = dag.opLookUp
         val args:Vector[Int] = (for (i <- 0 until op.args.length) yield i).toVector
         val returns = (for (i <- 0 until op.returns.length) yield i+999).toVector
@@ -118,9 +121,11 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
 
   property("DSL Dag Tests 2") =
   Prop.forAll(dsl.genCode(getCodeDescription(dsl),iniCCStatus(dsl))) {
-    dag => {
+    x => {
+      val (op,dag) = x
       Prop.forAll(dsl.genDagStep(getCodeDescription(dsl), iniCCStatus(dsl), dag))  {
-        newdag => {
+        y => {
+          val (status,newdag) = y
           val lookup = dag.opLookUp
           val after_insert = newdag.opLookUp
           val opiddiff = (after_insert.opargsrets -- lookup.opargsrets).head
@@ -162,7 +167,8 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
   }
   property("DSL Tag Simple removal") =
     Prop.forAll(dsl.genArgs(5), dsl.genOp(getCodeDescription(dsl),iniCCStatus(dsl),ini)) {
-      (dag,op) => {
+      (dag,y) => {
+        val (op,status) = y
         val lookup = dag.opLookUp
         val args:Vector[Int] = (for (i <- 0 until op.args.length) yield i).toVector
         val returns = (for (i <- 0 until op.returns.length) yield i+999).toVector
@@ -192,9 +198,12 @@ object TestOpDag extends org.scalacheck.Properties("Dag Checking"){
 
   property("DSL Dag Removal 2") =
     Prop.forAll(dsl.genCode(getCodeDescription(dsl),iniCCStatus(dsl))) {
-      dag => {
+
+      x => {
+        val (status, dag) = x
         Prop.forAll(dsl.genDagStep(getCodeDescription(dsl), iniCCStatus(dsl), dag))  {
-          newdag => {
+          y => {
+            val (ustatus,newdag) = y
             val lookup = dag.opLookUp
             val after_insert = newdag.opLookUp
             val opiddiff = (after_insert.opargsrets -- lookup.opargsrets).head

@@ -13,7 +13,6 @@ trait GenRandomFunctions extends GenRandomOps {
 
   var cur_nr_functions = 0
 
-
   //this is just a placeholder which will always be a fitting option during Op selection
   val createinternalfunction_placeholder: Op = {
     val f: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => ???
@@ -29,20 +28,21 @@ trait GenRandomFunctions extends GenRandomOps {
     super.ops(registerOp(createinternalfunction_placeholder, map))
   }
 
-
   override def createFunction(desc: CodeDescriptor, op: Op, dag: Dag, cCStatus: CCStatus)
-  : Gen[(Op, Option[(Vector[GenTypes[_]], Vector[GenTypes[_]])], CCStatus)] = {
+  : Gen[(Op, Option[(Vector[GenTypes[_]], Vector[GenTypes[_]])], CCStatus)] =
+  {
     if (op == createinternalfunction_placeholder) {
       val ncCStatus = cCStatus.copy(
         curr_nr_functions = cCStatus.curr_nr_functions + 1,
         curr_nodes_in_block = 0,
         curr_nest_depth = cCStatus.curr_nest_depth + 1)
-
+      cur_nr_functions = cur_nr_functions + 1
+      if (ncCStatus.curr_nest_depth > 3)
+        println("wtf?")
       for {
         ini <- genExistingArgs(desc, dag, ncCStatus)
-        ndag <- genNodes(desc, ncCStatus, ini) //does not take any outside symbol for now (capture)
+        (uStatus,ndag) <- genNodes(desc, ncCStatus, ini) //does not take any outside symbol for now (capture)
       } yield {
-
         val inisyms = ndag.dag(0).toVector.sortWith((a, b) => a.id < b.id).map(e => e.typ)
         val resultsyms = ndag.dag.flatMap(l => l.toVector).sortWith((a, b) => a.id < b.id).map(e => e.typ)
         val (callstack, callstack_staged) = chainDag(ndag)
@@ -74,14 +74,12 @@ trait GenRandomFunctions extends GenRandomOps {
           declaration
         }
 
-        val afterCStatus = cCStatus.copy(curr_nr_functions = cCStatus.curr_nr_functions + 1)
+        val afterCStatus = uStatus.copy(curr_nr_functions = uStatus.curr_nr_functions + 1)
         (createinternalfunction, Some((inisyms, resultsyms)), afterCStatus)
       }
-
     }
     else super.createFunction(desc, op, dag, cCStatus)
   }
-
 
   //this is a version of GenRandomOps GenArg - the difference is that this one will only consider Symbols that already
   //exist (to increase the liklyhood that the function is actually called)
@@ -89,7 +87,9 @@ trait GenRandomFunctions extends GenRandomOps {
     val alltypes = dag.dag.flatMap(p => p.map(x => x.typ))
     for {
       typechoice <- Gen.oneOf(alltypes.filter(p => !p.mf.toString().contains("Function"))) //don't allow passing functions for now
-    } yield typechoice
+    } yield {
+      typechoice
+    }
   }
 
   //as previous function.....
@@ -97,21 +97,18 @@ trait GenRandomFunctions extends GenRandomOps {
     for {
       nrargs <- Gen.chooseNum(0, desc.max_args)
       args <- Gen.containerOfN[Vector, GenTypes[_]](nrargs, genExistingArg(dag))
-    } yield Dag(args)
-
-
+    } yield {
+      Dag(args)
+    }
 
    //override in traits that would nest to check if its a valid op in the context
-   override def filterNestDepth(desc: CodeDescriptor, seval: EvalGenIterStep[Rep], op: Op, cCStatus: CCStatus): Boolean = {
+   override def filterNestDepth(desc: CodeDescriptor, dag: Dag, op: Op, cCStatus: CCStatus): Boolean = {
      if(op == createinternalfunction_placeholder) {
-       cCStatus.curr_nest_depth < desc.max_nest_depth && cCStatus.curr_nr_functions < desc.max_functions
+       val b = cCStatus.curr_nest_depth < desc.max_nest_depth && cCStatus.curr_nr_functions < desc.max_functions
+       b
      }
-     else super.filterNestDepth(desc, seval, op: Op, cCStatus)
+     else super.filterNestDepth(desc, dag, op, cCStatus)
    }
-
-
-
-
 }
 
 

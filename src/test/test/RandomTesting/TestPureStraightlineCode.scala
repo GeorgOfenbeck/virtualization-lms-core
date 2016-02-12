@@ -30,9 +30,10 @@ object TestPureStraightlineCode  extends RandomTester{
  with FunctionsExp
  with GenRandomBooleanOps
  with GenRandomPrimitiveOps
+ with GenRandomFunctions
  { self => override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenPrimitivOps{ val IR: self.type = self}  }
 
-  def getCodeDescription(randomClass: RandomClass) = randomClass.CodeDescriptor(100, 2, 20, 5, 20, 20 ,1 ,1 ,Map.empty)
+  def getCodeDescription(randomClass: RandomClass) = randomClass.CodeDescriptor(300, 2, 20, 3, 1, 20 ,1 ,1 ,Map.empty)
   def iniRandomC(): RandomClass = new MRandomClass()
 }
 

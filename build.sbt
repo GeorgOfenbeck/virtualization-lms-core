@@ -4,7 +4,7 @@ version := "1.0"
 
 organization := "EPFL"
 
-scalaVersion := "2.12.0-M2"
+scalaVersion := "2.12.0-M3"
 
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
@@ -15,10 +15,10 @@ libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _ % 
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _ % "compile")
 
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.5-M2" % "test"
+  "org.scalatest" %% "scalatest" % "2.2.5-M3" % "test"
 )
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.5" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.0" % "test"
 
 // tests are not thread safe
 parallelExecution in Test := false
@@ -38,7 +38,7 @@ testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "
 
 //scalacOptions += "-P:continuations:enable"
 
-val paradiseVersion = "2.0.1"
+val paradiseVersion = "2.1.0"
 
 libraryDependencies ++= (
   if (scalaVersion.value.startsWith("2.10")) List("org.scalamacros" %% "quasiquotes" % paradiseVersion)

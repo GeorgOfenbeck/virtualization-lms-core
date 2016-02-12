@@ -13,6 +13,7 @@ import scala.lms.internal._
 trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
+
   case class CodeDescriptor(
                              max_nodes_per_block: Int,
                              max_toplevel_args: Int,
@@ -41,7 +42,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                        curr_nodes_in_block: Int,
                        curr_nest_depth: Int,
                        curr_nr_functions: Int,
-                       avail_ops: Map[Set[GenTypes[_]], Set[Op]]
+                       avail_ops: Map[Set[GenTypes[_]], Set[Op]],
+                       dynOpNrTimesUsed: Map[Op, Int]
                      )
 
   /** *
@@ -514,7 +516,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
 
   //override in traits that would nest to check if its a valid op in the context
-  def filterNestDepth(desc: CodeDescriptor, seval: EvalGenIterStep[Rep], op: Op, cCStatus: CCStatus): Boolean = {
+  def filterNestDepth(desc: CodeDescriptor, dag: Dag, op: Op, cCStatus: CCStatus): Boolean = {
     true
   }
 
@@ -527,12 +529,27 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     * @return
     */
 
-  def genOp(desc: CodeDescriptor, cCStatus: CCStatus, dag: Dag): Gen[Op] = {
+  def genOp(desc: CodeDescriptor, cCStatus: CCStatus, dag: Dag): Gen[(Op, CCStatus)] = {
     //val availTypes: AvailUniqueTypes = seval.types.toSet //all types we currently see in the code
     val availTypes: AvailUniqueTypes = dag.availTypes() //all types we currently see in the code
     val availOps = filterOps(cCStatus, availTypes, dag) //filter which ops can operate on those types
     val flattened = availOps.flatMap(opset => opset._2)
-    for {randomop <- Gen.oneOf(flattened.toSeq)} yield randomop
+    val nestcheck = flattened.filter(p => {
+      filterNestDepth(desc, dag, p, cCStatus) &&
+        (cCStatus.dynOpNrTimesUsed.get(p).isEmpty ||
+        cCStatus.dynOpNrTimesUsed.get(p).get < desc.max_calls)
+    })
+
+    for {randomop <- Gen.oneOf(nestcheck.toSeq)} yield {
+      val t = randomop
+      val nStatus: CCStatus = if (randomop.localfidx.isDefined) {
+        if (cCStatus.dynOpNrTimesUsed.get(t).isDefined)
+          cCStatus.copy(dynOpNrTimesUsed = (cCStatus.dynOpNrTimesUsed + (t -> (cCStatus.dynOpNrTimesUsed(t) + 1))))
+        else
+          cCStatus.copy(dynOpNrTimesUsed = (cCStatus.dynOpNrTimesUsed + (t -> 1)))
+      } else cCStatus
+      (t,nStatus)
+    }
   }
 
 
@@ -580,29 +597,32 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     */
 
   //def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
-  def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[Dag] = {
+  def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[(CCStatus,Dag)] = {
     for {
-      wop <- genOp(desc, cCStatus, indag)
-      (fop, nf, uCStatus) <- createFunction(desc, wop, indag, cCStatus)
+      (wop, oCCStatus) <- genOp(desc, cCStatus, indag)
+      (fop, nf, uCStatus) <- createFunction(desc, wop, indag, oCCStatus)
       op <- removeWildCards(fop, indag)
       assign <- Gen.sequence[Vector[Int], Int](op.args.map(arg => genAssignment(indag, arg)))
     } yield {
       if (nf.isDefined) {
         //the op is defining a new local function
+        assert(false, "here")
         ???
       }
-      else indag.addOp(op, assign)
+      else (uCStatus,indag.addOp(op, assign))
     }
   }
 
   //def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, iniv: Vector[EvalGenIterStep[NoRep]], inis: Vector[EvalGenIterStep[Rep]]):
-  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[Dag] = {
+  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[(CCStatus,Dag)] = Gen.lzy{
     if (cCStatus.curr_nodes_in_block < desc.max_nodes_per_block) {
       for {
-        (nextdag) <- genDagStep(desc, cCStatus, indag)
-        tail <- genNodes(desc, cCStatus.copy(curr_nodes_in_block = cCStatus.curr_nodes_in_block + 1), nextdag)
-      } yield tail
-    } else indag
+        (nstatus,nextdag) <- genDagStep(desc, cCStatus, indag)
+        (ustatus,tail) <- genNodes(desc, nstatus.copy(curr_nodes_in_block = nstatus.curr_nodes_in_block + 1), nextdag)
+      } yield {
+        (ustatus,tail)
+      }
+    } else (cCStatus,indag)
   }
 
   /**
@@ -660,13 +680,11 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
   }
 
   //def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[(Vector[EvalGenIterStep[NoRep]], Vector[EvalGenIterStep[Rep]])] = {
-  def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[Dag] = {
+  def genCode(desc: CodeDescriptor, cCStatus: CCStatus): Gen[(CCStatus,Dag)] = {
     for {
-      ini <- genArgs(desc.max_toplevel_args)
-      //(vecv, vecs) <- genNodes(desc, cCStatus, Vector(EvalGenIterStep[NoRep](ini, null, Map.empty)), Vector(EvalGenIterStep[Rep](ini, null, Map.empty)))
-      ndag <- genNodes(desc, cCStatus, ini)
-      tail <- ndag //genReturns(desc, vecv,vecs)
-    } yield tail
+      ini <- genArgs(desc.max_toplevel_args) //(vecv, vecs) <- genNodes(desc, cCStatus, Vector(EvalGenIterStep[NoRep](ini, null, Map.empty)), Vector(EvalGenIterStep[Rep](ini, null, Map.empty)))
+      (uStatus,ndag) <- genNodes(desc, cCStatus, ini)
+    } yield (uStatus,ndag)
   }
 
   @tailrec

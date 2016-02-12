@@ -143,7 +143,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
   def getCodeDescription(randomClass: RandomClass): randomClass.CodeDescriptor
 
   def iniCCStatus(randomClass: RandomClass): randomClass.CCStatus = {
-    randomClass.CCStatus(0,0,0,Map.empty)
+    randomClass.CCStatus(0,0,0,Map.empty, Map.empty)
   }
 
   abstract class DSLwCode {
@@ -167,7 +167,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
     println("here")
     for {
       dslr <- genDSL()
-      rdag <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
+      (status,rdag) <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
       //(codev, codes) <- dslr.genCode(getCodeDescription(dslr),iniCCStatus(dslr))
     } yield new DSLwCode {
       override val dsl: dslr.type = dslr
