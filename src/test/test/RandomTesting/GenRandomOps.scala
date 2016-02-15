@@ -552,7 +552,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     }
   }
 
-
+/*
   def createf[S[_]](assign: Vector[Int], op: Op, eval: Vector[S[_]] => Vector[S[_]])
   : (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = {
     val f: (Vector[SoV[S, _]] => Vector[SoV[S, _]]) = (in: Vector[SoV[S, _]]) => {
@@ -583,7 +583,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       in ++ retwithtags //concatenate symbol/values so far with the new results
     }
     f
-  }
+  }*/
 
 
   /** *
@@ -606,8 +606,58 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     } yield {
       if (nf.isDefined) {
         //the op is defining a new local function
-        assert(false, "here")
-        ???
+        val dagwithfcreate = indag.addOp(op, assign) //we add the function
+        val opid = (indag.opLookUp.opargsrets -- dagwithfcreate.opLookUp.opargsrets).head
+        val localf = op.returns.head
+        val (args, returns) = nf.get
+
+        val functionvaridx = opid.returns.head //here we put the function or the tuple
+
+        val applyop: Op = {
+          val f: Function1[Vector[_],Vector[_]] = (x: Vector[_]) => {
+            val functionsym = x.head
+            //val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
+            val inargs = x.tail
+            val lamops = functionsym.asInstanceOf[Vector[_] => Vector[_]]
+            val res = lamops(inargs)
+            //val withouttag: Vector[Any] = res.map(ele => ele.sym)
+            val withouttag: Vector[Any] = res
+            withouttag
+          }
+          val sf: Function1[Vector[Rep[_]],Vector[Rep[_]]] = (x: Vector[Rep[_]]) => {
+            val (functionexp,stagedFunction) = x.head.asInstanceOf[(Exp[_],StagedFunction[_,_])] //we construct function applys such that the function is always the first arg
+            //val  = x.tail.head.asInstanceOf[]
+            val functiontp: TP[_] = if (!functionexp.isInstanceOf[Exp[_]])
+              {
+                println("how did we end up here?")
+                ???
+              }
+              else
+                exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
+            val inargs = x.tail.tail //.asInstanceOf[Vector[Rep[_]]]
+            //val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
+            val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[Rep[_]],Vector[Rep[_]]]]
+            //val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
+            //val res: Vector[cTP] = ??? //functiontyped(inasctp)
+            //val res: Vector[cTP] = lamops(inasctp) //functiontyped(inasctp)
+            val res = lamops(inargs)
+            //val withouttag: Vector[Any] = res.map(ele => ele.sym)
+            //withouttag
+            res
+          }
+          //val returntypes = returns.map(e => e.tag)
+          /*println ("returns .... ->")
+          println(returntypes)
+          println("-----------------")*/
+          Op("apply"+functionvaridx, args,returns,f,sf,Some(functionvaridx))
+        }
+
+        val dagwithfcreateandapply =
+          dagwithfcreate.copy(
+            dynamically_defined_functions =  registerOp(applyop,dagwithfcreate.dynamically_defined_functions)
+          )
+
+        (uCStatus,dagwithfcreateandapply)
       }
       else (uCStatus,indag.addOp(op, assign))
     }
@@ -752,10 +802,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       //then use this vector with the execution (symbolic or actual) get the result
       val ret: Vector[S[_]] =
         if (opid.op.localfidx.isDefined) {
-          ???
-          /*val localf: SoV[S, _] = in(op.localfidx.get)
-          val fplusargsyms = localf +: argsyms
-          eval(fplusargsyms)*/
+          val fplusargsyms = in(opid.op.localfidx.get).sym +: symsonly
+          eval(fplusargsyms)
         }
         else
           eval(symsonly)

@@ -57,7 +57,8 @@ trait GenRandomFunctions extends GenRandomOps {
           val sf: Function1[Vector[Rep[_]], Vector[Rep[_]]] = (x: Vector[Rep[_]]) => {
             val lambda = fun(callstack_staged, false)(exposeargs, exposeres)
             val lambdatp: TP[_] = exp2tp(lambda.exp)
-            Vector(lambdatp.sym)
+            val horriblecast = lambda.asInstanceOf[Rep[Any]]
+            Vector(lambdatp.sym, horriblecast)
           }
 
           val dyntypes: Unit => (Vector[TypeRep[_]], Vector[TypeRep[_]]) = (u: Unit) => {

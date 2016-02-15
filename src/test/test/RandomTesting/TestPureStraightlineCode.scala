@@ -3,7 +3,6 @@
 package RandomTesting
 
 
-
 import java.io.{PrintWriter, StringWriter}
 
 import org.scalacheck.Gen._
@@ -22,18 +21,34 @@ import scala.tools.nsc.interpreter.AbstractFileClassLoader
 import scala.tools.nsc.util
 
 
-object TestPureStraightlineCode  extends RandomTester{
- class MRandomClass extends RandomClass
- with BooleanOpsExp
- with PurePrimitiveOpsExpOpt
- with ImplicitOpsExp
- with FunctionsExp
- with GenRandomBooleanOps
- with GenRandomPrimitiveOps
- with GenRandomFunctions
- { self => override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenPrimitivOps{ val IR: self.type = self}  }
+object TestPureStraightlineCode extends RandomTester {
 
-  def getCodeDescription(randomClass: RandomClass) = randomClass.CodeDescriptor(300, 2, 20, 3, 1, 20 ,1 ,1 ,Map.empty)
+  class MRandomClass extends RandomClass
+    with BooleanOpsExp
+    with PurePrimitiveOpsExpOpt
+    with ImplicitOpsExp
+    with FunctionsExp
+    with GenRandomBooleanOps
+    with GenRandomPrimitiveOps
+    with GenRandomFunctions {
+    self =>
+    override val codegen = new EmitHeadInternalFunctionAsClass with ScalaGenBooleanOps with ScalaGenPrimitivOps {
+      val IR: self.type = self
+    }
+  }
+
+  def getCodeDescription(randomClass: RandomClass) = randomClass.CodeDescriptor(
+    max_nodes_per_block = 300,
+    max_toplevel_args = 2,
+    max_args = 3,
+    max_nest_depth = 4,
+    max_functions = 4,
+    max_returns = 20, //ignored atm
+    max_calls = 1,
+    max_dynamic_calls = 1,
+    max_opset_calls = Map.empty
+  )
+
   def iniRandomC(): RandomClass = new MRandomClass()
 }
 
