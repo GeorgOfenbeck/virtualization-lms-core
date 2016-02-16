@@ -12,7 +12,7 @@ import scala.lms.internal._
 
 trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
-
+  var funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = Map.empty
 
   case class CodeDescriptor(
                              max_nodes_per_block: Int,
@@ -356,7 +356,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
     def availTypes(): AvailUniqueTypes = dag.flatMap(x => x.map(n => n.typ)).toSet
 
     def addOp(op: Op, assignedids: Vector[Int]): Dag = {
-      val depth = assignedids.map(e => getDeepth(e)).max
+      val depth = (assignedids.map(e => getDeepth(e)) :+ 0 ).max //this puts ops without args at level 1 (just below f args)
       val t = op.returns.zipWithIndex.map(e => DagNode(e._1, e._2 + highestid + 1))
       val returnNodes = t.toSet
       val ids = t.map(e => e.id)
@@ -607,7 +607,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       if (nf.isDefined) {
         //the op is defining a new local function
         val dagwithfcreate = indag.addOp(op, assign) //we add the function
-        val opid = (indag.opLookUp.opargsrets -- dagwithfcreate.opLookUp.opargsrets).head
+        val t = (dagwithfcreate.opLookUp.opargsrets -- indag.opLookUp.opargsrets)
+        val opid = t.head
         val localf = op.returns.head
         val (args, returns) = nf.get
 
@@ -625,7 +626,8 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
             withouttag
           }
           val sf: Function1[Vector[Rep[_]],Vector[Rep[_]]] = (x: Vector[Rep[_]]) => {
-            val (functionexp,stagedFunction) = x.head.asInstanceOf[(Exp[_],StagedFunction[_,_])] //we construct function applys such that the function is always the first arg
+            val functionexp = x.head //.asInstanceOf[(Exp[_],StagedFunction[_,_])] //we construct function applys such that the function is always the first arg
+            val stagedFunction: StagedFunction[_,_] = funexp2StagedFunction(functionexp)
             //val  = x.tail.head.asInstanceOf[]
             val functiontp: TP[_] = if (!functionexp.isInstanceOf[Exp[_]])
               {
@@ -652,10 +654,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
           Op("apply"+functionvaridx, args,returns,f,sf,Some(functionvaridx))
         }
 
-        val dagwithfcreateandapply =
-          dagwithfcreate.copy(
+        val dagwithfcreateandapply = dagwithfcreate
+          /*dagwithfcreate.copy(
             dynamically_defined_functions =  registerOp(applyop,dagwithfcreate.dynamically_defined_functions)
-          )
+          )*/
 
         (uCStatus,dagwithfcreateandapply)
       }

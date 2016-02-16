@@ -33,11 +33,11 @@ trait ScalaGenPrimitivOps extends ScalaCodegen{
    //case ObjIntegerParseInt(s) => Vector(emitValDef(tp, "java.lang.Integer.parseInt(" + quote(s) + ")")
    case ObjIntMaxValue() => Vector(emitValDef(tp, "scala.Int.MaxValue"))
    case ObjIntMinValue() => Vector(emitValDef(tp, "scala.Int.MinValue"))
-   //case IntPlus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
-   case IntPlus(lhs,rhs) => {
+   case IntPlus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
+/*   case IntPlus(lhs,rhs) => {
 //    println("BE AWARE THAT WE ON PURPOSE INTRODUCED A BUG HERE!")
     Vector(emitValDef(tp, "if (" + quote(lhs) + "%2 == 0) 7 else " + quote(lhs) + " + " + quote(rhs)))
-   }
+   }*/
    case IntMinus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
    case IntTimes(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
    // case IntDivideFrac(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))

@@ -27,10 +27,15 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
     val argtuple = codegen.tupledeclarehelper(x.map(a => codegen.remap(a.tag.mf)), "")
 
     def workaround(a: SoV[NoRep, _]): String = {
-      if (a.tag.mf.toString() == manifest[Long].toString())
-        "(" + a.sym.toString + "L).asInstanceOf[" + codegen.remap(a.tag.mf) + "]"
-      else
-      "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap(a.tag.mf) + "]"
+      val longstring = manifest[Long].toString()
+      val floatstring = manifest[Float].toString()
+      val doublestring = manifest[Double].toString()
+      a.tag.mf.toString() match {
+        case `longstring` => "(" + a.sym.toString + "L).asInstanceOf[" + codegen.remap (a.tag.mf) + "]"
+        case `floatstring` => "(" + a.sym.toString + "f).asInstanceOf[" + codegen.remap (a.tag.mf) + "]"
+        case `doublestring` => "(" + a.sym.toString + "D).asInstanceOf[" + codegen.remap (a.tag.mf) + "]"
+        case _ => "(" + a.sym.toString + ").asInstanceOf[" + codegen.remap (a.tag.mf) + "]"
+      }
     }
 
     val withvalues = codegen.tupledeclarehelper(x.map(a => workaround(a) ), "")
@@ -339,6 +344,8 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
                 val t = unstagedresult(idx).sym
                 if (e != unstagedresult(idx).sym)
                   {
+                    println("Input")
+                    rargs.map(e => println(e.sym))
                     println("Difference")
                     println(e)
                     println(t)
@@ -391,6 +398,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
             file.close()
             println("caught")
             println("msg: " + ex.getMessage)
+            println(ex.printStackTrace())
             val trace = ex.getStackTrace
             println(trace)
             worked = false

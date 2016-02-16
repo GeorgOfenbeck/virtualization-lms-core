@@ -44,7 +44,7 @@ trait ScalaCompile {
 
 
   var compileCount = 0
-  var dumpGeneratedCode = false
+  var dumpGeneratedCode = true
 
 
   def compile[A,R](f: Function1[A,R])(implicit args: codegen.IR.ExposeRep[A], returns: codegen.IR.ExposeRep[R]) = {

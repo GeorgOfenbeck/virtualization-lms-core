@@ -37,8 +37,7 @@ trait GenRandomFunctions extends GenRandomOps {
         curr_nodes_in_block = 0,
         curr_nest_depth = cCStatus.curr_nest_depth + 1)
       cur_nr_functions = cur_nr_functions + 1
-      if (ncCStatus.curr_nest_depth > 3)
-        println("wtf?")
+
       for {
         ini <- genExistingArgs(desc, dag, ncCStatus)
         (uStatus,ndag) <- genNodes(desc, ncCStatus, ini) //does not take any outside symbol for now (capture)
@@ -49,6 +48,8 @@ trait GenRandomFunctions extends GenRandomOps {
         val exposeargs = genExposeRep(inisyms)
         val exposeres = genExposeRep(resultsyms)
 
+
+
         val createinternalfunction: Op = {
           val f: Function1[Vector[_], Vector[_]] = (x: Vector[_]) => {
             val lambda = callstack
@@ -57,8 +58,8 @@ trait GenRandomFunctions extends GenRandomOps {
           val sf: Function1[Vector[Rep[_]], Vector[Rep[_]]] = (x: Vector[Rep[_]]) => {
             val lambda = fun(callstack_staged, false)(exposeargs, exposeres)
             val lambdatp: TP[_] = exp2tp(lambda.exp)
-            val horriblecast = lambda.asInstanceOf[Rep[Any]]
-            Vector(lambdatp.sym, horriblecast)
+            funexp2StagedFunction = funexp2StagedFunction + (lambda.exp -> lambda)
+            Vector(lambdatp.sym)
           }
 
           val dyntypes: Unit => (Vector[TypeRep[_]], Vector[TypeRep[_]]) = (u: Unit) => {
@@ -76,7 +77,7 @@ trait GenRandomFunctions extends GenRandomOps {
         }
 
         val afterCStatus = uStatus.copy(curr_nr_functions = uStatus.curr_nr_functions + 1)
-        (createinternalfunction, Some((inisyms, resultsyms)), afterCStatus)
+        (createinternalfunction, Some((inisyms, resultsyms )), afterCStatus)
       }
     }
     else super.createFunction(desc, op, dag, cCStatus)
