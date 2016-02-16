@@ -104,7 +104,7 @@ object TestCompile extends App {
      val g = createsf(deepth - 1)
      val h: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
 
-      val nums = for (j <- 0 until 100)
+      val nums = for (j <- 0 until 1)
        yield (i + unit(j))
 
       val t0 = nums.reduce( (a,b) => {
@@ -124,7 +124,17 @@ object TestCompile extends App {
     }
    }
 
-   val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(3).apply(i)
+   def createsf2(deepth: Int): StagedFunction[Rep[Int],Rep[Int]] = {
+    val f: Rep[Int] => Rep[Int] = (i: Rep[Int]) => {
+     val t = unit(1)
+     i + t
+
+    }
+    val sf = doLambda(f, false)
+    sf
+   }
+
+   val mystagedf: Rep[Int] => Rep[Int] = (i: Rep[Int]) => createsf(8).apply(i)
    //val iarg = exposeRepFromRep[Int]
    //val inest = exposeFunction[Complex,Complex]
    //val iret = exposeFunction[Complex,Complex => Complex](exposeComplex,inest)

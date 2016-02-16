@@ -225,9 +225,9 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
           "("+ argtuple +") => (" + returntuple + ") = " +
            "(helper: ("+ argtuple+")) =>{\n" + helper + "\n"
           val t2: Vector[String] = block_callback(y,Vector(t1))
-          val t3 =   "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
-          "}\n"
-        Vector(t1) ++ t2 :+ t3
+          val t3 =   "\n "+ tupledeclarehelper(restuple,"") +  "\n" + "}\n"
+        //Vector(t1) ++ t2 :+ t3
+        Vector(t3) //t1 and t2 streamed out through the block callback
         //emitValDef(tp,string)
         //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
       }
