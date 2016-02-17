@@ -69,14 +69,14 @@ trait GenRandomFunctions extends GenRandomOps {
             val r = rets.map(_.tp)
             (a, r)
           }
-
           val rettype = Tag(manifest[Function[_, _]], Some(dyntypes))
           val declaration = Op("createinternalfunction" + dag.highestid, Vector.empty, Vector(rettype), f, sf, None)
           //giving the op a number depending on the fnest size (not unique in nested case?)
           declaration
         }
 
-        val afterCStatus = uStatus.copy(curr_nr_functions = uStatus.curr_nr_functions + 1)
+        val afterCStatus = cCStatus.copy(curr_nr_functions = cCStatus.curr_nr_functions + 1)
+        //uStatus.copy(curr_nr_functions = uStatus.curr_nr_functions + 1)
         (createinternalfunction, Some((inisyms, resultsyms )), afterCStatus)
       }
     }

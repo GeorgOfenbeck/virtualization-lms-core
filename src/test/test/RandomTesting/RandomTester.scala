@@ -231,7 +231,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
 
 
 
-   implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
+   /*implicit val shrinkCode: Shrink[DSLwCode] = Shrink({
     case s: DSLwCode => {
       println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!shrinking" + s.dag.opLookUp.opargsrets.size)
       shrink = true
@@ -281,7 +281,7 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
     }
   })
 
-
+*/
   property("my prop test" ) =
     Prop.forAll(genDSLwCode()) {
       dslwcode => {
@@ -351,7 +351,8 @@ abstract class RandomTester extends org.scalacheck.Properties("Random Testing"){
                     println(t)
                   }
 
-                e == t || t.toString().contains("function") || (NanCheck(t) && NanCheck(e))
+                e == t || resultsyms(idx).mf.toString().contains("Function") ||
+                  t.toString().contains("function") || (NanCheck(t) && NanCheck(e))
               })
               if (!dropit.isEmpty || shrink) {
 

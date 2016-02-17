@@ -598,6 +598,9 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
 
   //def genEvalGenIterStep(desc: CodeDescriptor, cCStatus: CCStatus, veval: EvalGenIterStep[NoRep], seval: EvalGenIterStep[Rep])
   def genDagStep(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[(CCStatus,Dag)] = {
+    if (!indag.dynamically_defined_functions.isEmpty)
+      println("dlkfajslkfj")
+
     for {
       (wop, oCCStatus) <- genOp(desc, cCStatus, indag)
       (fop, nf, uCStatus) <- createFunction(desc, wop, indag, oCCStatus)
@@ -619,10 +622,16 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
             val functionsym = x.head
             //val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
             val inargs = x.tail
-            val lamops = functionsym.asInstanceOf[Vector[_] => Vector[_]]
-            val res = lamops(inargs)
-            //val withouttag: Vector[Any] = res.map(ele => ele.sym)
-            val withouttag: Vector[Any] = res
+            val lamops = functionsym.asInstanceOf[Vector[SoV[NoRep,_]] => Vector[SoV[NoRep,_]]]
+            val inasctp: Vector[SoV[NoRep,Any]] = x.tail.zipWithIndex.map(ele => {
+              val a = ele._1
+              val b: GenTypes[Any] = args(ele._2).asInstanceOf[GenTypes[Any]]
+              val t = SoV[NoRep,Any](ele._1,b)
+              t
+            })
+            val res = lamops(inasctp)
+            val withouttag: Vector[Any] = res.map(ele => ele.sym)
+            //val withouttag: Vector[Any] = res
             withouttag
           }
           val sf: Function1[Vector[Rep[_]],Vector[Rep[_]]] = (x: Vector[Rep[_]]) => {
@@ -636,16 +645,22 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
               }
               else
                 exp2tp.get(functionexp.asInstanceOf[Exp[_]]).get
-            val inargs = x.tail.tail //.asInstanceOf[Vector[Rep[_]]]
-            //val inasctp: Vector[cTP] = x.tail.zipWithIndex.map(ele => cTP(ele._1,args(ele._2).tag))
-            val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[Rep[_]],Vector[Rep[_]]]]
+            val inargs = x.tail
+            val inasctp: Vector[SoV[Rep,Any]] = x.tail.zipWithIndex.map(ele => {
+              val a = ele._1
+              val b: GenTypes[Any] = args(ele._2).asInstanceOf[GenTypes[Any]]
+              val t = SoV[Rep,Any](ele._1,b)
+              t
+            })
+            val lamops = toLambdaOps(stagedFunction).asInstanceOf[LambdaOps[Vector[SoV[Rep,_]],Vector[SoV[Rep,_]]]]
             //val functiontyped = functionuntyped.asInstanceOf[Vector[cTP] => Vector[cTP]]
             //val res: Vector[cTP] = ??? //functiontyped(inasctp)
             //val res: Vector[cTP] = lamops(inasctp) //functiontyped(inasctp)
-            val res = lamops(inargs)
+            val res = lamops(inasctp)
             //val withouttag: Vector[Any] = res.map(ele => ele.sym)
             //withouttag
-            res
+            val t = res.map(e => e.sym)
+            t
           }
           //val returntypes = returns.map(e => e.tag)
           /*println ("returns .... ->")
@@ -654,26 +669,30 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
           Op("apply"+functionvaridx, args,returns,f,sf,Some(functionvaridx))
         }
 
-        val dagwithfcreateandapply = dagwithfcreate
-          /*dagwithfcreate.copy(
+        val dagwithfcreateandapply = //dagwithfcreate
+        dagwithfcreate.copy(
             dynamically_defined_functions =  registerOp(applyop,dagwithfcreate.dynamically_defined_functions)
-          )*/
+          )
 
         (uCStatus,dagwithfcreateandapply)
+        //(uCStatus,dagwithfcreate)
       }
       else (uCStatus,indag.addOp(op, assign))
     }
   }
 
   //def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, iniv: Vector[EvalGenIterStep[NoRep]], inis: Vector[EvalGenIterStep[Rep]]):
-  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[(CCStatus,Dag)] = Gen.lzy{
+  def genNodes(desc: CodeDescriptor, cCStatus: CCStatus, indag: Dag): Gen[(CCStatus,Dag)] = {
     if (cCStatus.curr_nodes_in_block < desc.max_nodes_per_block) {
-      for {
+      /*for {
         (nstatus,nextdag) <- genDagStep(desc, cCStatus, indag)
         (ustatus,tail) <- genNodes(desc, nstatus.copy(curr_nodes_in_block = nstatus.curr_nodes_in_block + 1), nextdag)
       } yield {
         (ustatus,tail)
-      }
+      }*/
+      val y = genDagStep(desc,cCStatus,indag)
+      val t = y.flatMap{ case (nstatus,nextdag) => genNodes(desc, nstatus.copy(curr_nodes_in_block = nstatus.curr_nodes_in_block + 1), nextdag) }
+        t
     } else (cCStatus,indag)
   }
 
@@ -774,6 +793,7 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val m = in.zipWithIndex.foldLeft(Map.empty[Int, SoV[NoRep, _]]) { (acc, ele) => acc + (ele._2 -> ele._1) }
       val mr = real.foldLeft(m) { (acc, ele) => ele(acc) }
       val vr = mr.toVector.sortWith((a, b) => (a._1 < b._1)).map(e => e._2)
+      //vr.filter(p => !p.tag.mf.toString().contains("Function"))
       vr
     }
 
@@ -781,8 +801,10 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
       val m = in.zipWithIndex.foldLeft(Map.empty[Int, SoV[Rep, _]]) { (acc, ele) => acc + (ele._2 -> ele._1) }
       val mr = symbolic.foldLeft(m) { (acc, ele) => ele(acc) }
       val vr = mr.toVector.sortWith((a, b) => (a._1 < b._1)).map(e => e._2)
+      //vr.filter(p => !p.tag.mf.toString().contains("Function"))
       vr
     }
+
 
     (freal, fsym)
     //(real,symbolic)

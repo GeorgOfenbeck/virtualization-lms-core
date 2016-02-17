@@ -39,7 +39,7 @@ object TestPureStraightlineCode extends RandomTester {
   }
 
   def getCodeDescription(randomClass: RandomClass) = randomClass.CodeDescriptor(
-    max_nodes_per_block = 3,
+    max_nodes_per_block = 5,
     max_toplevel_args = 2,
     max_args = 3,
     max_nest_depth = 2,
