@@ -34,8 +34,12 @@ trait GraphVizExport {
 
   def emitNode(node: cm.EnrichedGraphNode): String = {
    val tp = cm.reifiedIR.id2tp(node.irdef)
-   val nodestring = tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()) +
-   "\n,shape=box]"
+   val nodestring = tp.rhs match {
+    case IR.InternalLambda(f,x,y,hot,args,returns) => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + "InternalLambda - Args: " + x + "Ret:" + y.res + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
+    case IR.ExternalLambda(f,x,y,hot,args,returns) => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + "InternalLambda - Args: " + x + "Ret:" + y.res + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
+    case _ => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
+
+   }
 
    val sucessorstring = node.successors.foldLeft(""){
     (acc,ele) => acc + "\n\"" + node.irdef + "\" -> \"" + ele + "\"" + " [label=\"s\"] "

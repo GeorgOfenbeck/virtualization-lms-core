@@ -5,23 +5,32 @@ import scala.virtualization.lms.util.ClosureCompare
 
 
 trait ExposeRepBase extends Expressions {
+
   trait ExposeRep[T] {
     val freshExps: Unit => Vector[Exp[_]]
     val vec2t: Vector[Exp[_]] => T
     val t2vec: T => Vector[Exp[_]]
   }
+
 }
 
 trait Functions extends Base with ExposeRepBase {
 
+
+  var funTable: Map[Any, StagedFunction[_,_]] = Map.empty
+
   def doLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+
   def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
   implicit def fun[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doLambda(f, hot)
+
   implicit def internalfun[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doInternalLambda(f, hot)
+
   //def doApply[A,R](fun: Rep[_ => _], arg: A)(implicit args: ExposeRep[A], returns: ExposeRep[R]): R
 
   case class StagedFunction[A, R](f: A => R, exp: Rep[_ => _], args: ExposeRep[A], returns: ExposeRep[R])
+
   implicit def toLambdaOps[A, R](fun: StagedFunction[A, R]) = new LambdaOps(fun)
 
   class LambdaOps[A, R](f: StagedFunction[A, R]) {
@@ -34,6 +43,7 @@ trait Functions extends Base with ExposeRepBase {
 
 trait FunctionsExp extends Functions with BaseExp with ClosureCompare with EffectExp {
   implicit def liftFunction2[T, R](implicit t: TypeRep[T], r: TypeRep[R]): TypeRep[T => R] = typeRep[T => R]
+
   implicit def exposeFunction[A, R](implicit args: ExposeRep[A], returns: ExposeRep[R]): ExposeRep[StagedFunction[A, R]] =
     new ExposeRep[StagedFunction[A, R]]() {
       val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
@@ -71,22 +81,23 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
   }
 
   case class ReturnArg(f: Exp[_], newsym: Exp[_], pos: Int, tuple: Boolean, last: Boolean) extends Def[Any]
+
   abstract class AbstractLambda[CA, CR](val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], val x: Vector[TP[_]], val y: Block, val hot: Boolean,
-                               val args: ExposeRep[CA], val returns: ExposeRep[CR]) extends Def[_ => _]
+                                        val args: ExposeRep[CA], val returns: ExposeRep[CR]) extends Def[_ => _]
 
   //seems we can only put any here since we cannot know at compile time
   case class InternalLambda[CA, CR](override val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], override val x: Vector[TP[_]],
                                     override val y: Block,
                                     override val hot: Boolean,
                                     override val args: ExposeRep[CA],
-                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f,x,y,hot,args,returns)
+                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f, x, y, hot, args, returns)
 
   //seems we can only put any here since we cannot know at compile time
   case class ExternalLambda[CA, CR](override val f: Function1[Vector[Exp[_]], Vector[Exp[_]]], override val x: Vector[TP[_]],
                                     override val y: Block,
                                     override val hot: Boolean,
                                     override val args: ExposeRep[CA],
-                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f,x,y,hot,args,returns)
+                                    override val returns: ExposeRep[CR]) extends AbstractLambda(f, x, y, hot, args, returns)
 
 
   case class InternalApply[CA, CR](f: Exp[_ => _], arg: Vector[Exp[_]]) extends Def[Any]
@@ -104,6 +115,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
       val hres = returns.t2vec(tres)
       hres
     }
+
     val explist = vecf(freshexps)
     val summary = summarizeContext()
     val t = context
@@ -165,19 +177,34 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
         }
       }
     }
-    val y = doLambdaDef(f, internal,hot)(args, returns)
-    val tag = helper(y)
-    val exp = toAtom(y)(tag, null)
-    val tp = id2tp(exp.id).asInstanceOf[TP[_ => _]]
-    val stagedFunction: StagedFunction[A, R] = StagedFunction(f, exp, y.args, y.returns)
-    stagedFunction
+    val can = canonicalize(f)
+    if (funTable.contains(can)) {
+      val t: StagedFunction[_,_] = funTable(can)
+      t.asInstanceOf[StagedFunction[A,R]]
+    }
+    else {
+      val expx: Rep[_=>_] = fresh[_=>_]
+      val sf = StagedFunction(f,expx,args,returns)
+      funTable = funTable + (can -> sf )
+
+      val y: AbstractLambda[A,R] = doLambdaDef(f, internal, hot)(args, returns) //creates the Def (recurses!)
+      val tag = helper(y)
+      //val exp = toAtom(y)(tag, null)
+      val tp = createDefinition(expx, y) (tag)
+      //val tp = id2tp(exp.id).asInstanceOf[TP[_ => _]]
+      //val stagedFunction: StagedFunction[A, R] = StagedFunction(f, exp, y.args, y.returns)
+      //funTable = funTable + (can -> stagedFunction)
+      sf
+    }
+
   }
 
   override def doLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f,false, hot)
+    doAbstractLambda(f, false, hot)
   }
+
   override def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f,true, hot)
+    doAbstractLambda(f, true, hot)
   }
 
   override def syms(e: Any): Vector[Exp[_]] = e match {
@@ -208,7 +235,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
 
 
   override def symsFreq(e: Any): Vector[(Exp[_], Double)] = e match {
-    case TP(sym,rhs,tag) => rhs match {
+    case TP(sym, rhs, tag) => rhs match {
       case InternalLambda(f, x, y, hot, args, returns) => if (hot) freqHot(sym) else freqCold(sym)
       case ExternalLambda(f, x, y, hot, args, returns) => if (hot) freqHot(sym) else freqCold(sym)
       case _ => super.symsFreq(e)

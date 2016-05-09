@@ -28,7 +28,7 @@ trait IfThenElsePureExp extends IfThenElse with BaseExp with FunctionsExp{
   {
     val thenf: Rep[Unit] => A = (u: Rep[Unit]) => thenp
     val elsef: Rep[Unit] => A = (u: Rep[Unit]) => elsep
-    val thenlambda = doInternalLambda(thenf,false)
+    val thenlambda = doInternalLambda(thenf, false)
     val elselambda = doInternalLambda(elsef, false)
 
     val newsyms = branch.freshExps()

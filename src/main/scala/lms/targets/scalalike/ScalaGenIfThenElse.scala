@@ -20,11 +20,11 @@ trait ScalaGenIfThenElse extends ScalaCodegen with EmitHeadInternalFunctionAsCla
           val l1 = "val " + quote(tp) + " = if (" + quote(cond) + ") {\n"
           val l2 = block_callback(ty,Vector(l1))
           val trestuple: Vector[String] = ty.res.map(r => quote(r))
-          val l3: String = l2 + tupledeclarehelper(trestuple,"")
+          val l3: String = l2.mkString("") + tupledeclarehelper(trestuple,"")
           val l4 = l3 + "\n} else {\n"
           val l5 = block_callback(ey,Vector(l4))
           val erestuple: Vector[String] = ey.res.map(r => quote(r))
-          val l6: String = l5 + tupledeclarehelper(erestuple,"")
+          val l6: String = l5.mkString("") + tupledeclarehelper(erestuple,"")
           l6 + "\n}\n"
         } )
         case _ => {

@@ -221,7 +221,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         res
       }
       else {
-           val t1 = "val " + quote(tp) + ": " +
+           val t1 = "def " + quote(tp) + ": " +
           "("+ argtuple +") => (" + returntuple + ") = " +
            "(helper: ("+ argtuple+")) =>{\n" + helper + "\n"
           val t2: Vector[String] = block_callback(y,Vector(t1))

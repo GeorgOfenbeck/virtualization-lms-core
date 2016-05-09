@@ -132,7 +132,6 @@ trait CodeMotion {
                              )
   //: (Block, Int, Vector[(Int, Set[Int])], Map[Int, (Int, Int)], Map[Int, EnrichedGraphNode], Set[Int], Vector[(Int, Block)] /*, Map[Block, BlockInfo3]*/) = {
   : RetTmp = {
-
     val (ln, lnext) = nexts.last
     if (!lnext.contains(n)) {
       assert(false, "this should not happen")
@@ -792,7 +791,7 @@ trait CodeMotion {
     val children = r.pmark.foldLeft(em) { (acc, ele) => {
       ele._2.foldLeft(acc) {
         (acc2, level) => {
-          acc.updated(level, acc(level) + ele._1)
+          acc2.updated(level, acc2(level) + ele._1)
         }
       }
     }
@@ -800,7 +799,7 @@ trait CodeMotion {
     val roots = r.roots.foldLeft(em) { (acc, ele) => {
       ele._2.foldLeft(acc) {
         (acc2, level) => {
-          acc.updated(level, acc(level) + ele._1)
+          acc2.updated(level, acc2(level) + ele._1)
         }
       }
     }

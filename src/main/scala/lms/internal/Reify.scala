@@ -68,6 +68,9 @@ trait ReifyPure{
    val def2tp: Map[IR.Def[_], IR.TP[_]] = self.IR.def2tp
    val id2tp: Map[Int,IR.TP[_]] = self.IR.id2tp
    val block2tps: Map[Block,Vector[IR.TP[_]]] = self.IR.block2tps
+   val funTable: Map[Any, StagedFunction[_,_]] = self.IR.funTable
+
+
    //val funexp2AR: Map[Exp[_], (Vector[Exp[_]],Vector[Exp[_]])] = self.IR.funexp2AR
    //val funexp2StagedFunction: Map[Exp[_], StagedFunction[_,_]] = self.IR.funexp2StagedFunction
    //val fun2tp: Map[StagedFunction[_,_], IR.TP[_=>_]] = self.IR.fun2tp

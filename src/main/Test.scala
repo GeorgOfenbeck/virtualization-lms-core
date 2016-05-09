@@ -46,6 +46,9 @@ trait ScalaGenTest extends ScalaCodegen {
 }*/
 
 object TestCompile extends App {
+
+
+
  testdsl()
  def testdsl(): Unit =  {
 
