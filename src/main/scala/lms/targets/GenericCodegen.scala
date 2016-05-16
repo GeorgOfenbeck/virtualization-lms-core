@@ -28,7 +28,8 @@ trait GenericCodegen extends Emit[Vector[String]]{
   def emitStream(stream: PrintWriter, acc: Vector[String], it: Iterator[self.IR.TP[_]], block_callback: (self.IR.Block, Vector[String]) => Vector[String]): Unit = {
     acc.map(stream.print(_))
     for (ele <- it) {
-      val t: Vector[String] = emitNode(ele,acc,block_callback)
+      val x = ele
+      val t: Vector[String] = emitNode(x,acc,block_callback)
       t map (ele => stream.print(ele))
     }
 /*    it.map(ele => {
