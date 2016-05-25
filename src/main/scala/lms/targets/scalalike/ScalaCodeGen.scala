@@ -179,7 +179,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
 
   override def emitNode(tp: self.IR.TP[_], acc: Vector[String],
                block_callback: (self.IR.Block,Vector[String]) => Vector[String]): Vector[String] = tp.rhs match {
-    case IR.ExternalLambda(f,x,y,hot,args,returns) => {
+    case IR.ExternalLambda(f,x,y,hot,args,returns,global) => {
       val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {

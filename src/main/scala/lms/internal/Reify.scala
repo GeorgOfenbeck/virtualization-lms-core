@@ -46,7 +46,7 @@ trait ReifyPure{
 
  def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): ReificationPure{ val IR: self.IR.type} = {
   IR.reset()
-  val lambda = IR.fun(f, false)
+  val lambda = IR.doLambda(f, false)
   val lambdatp: IR.TP[_] = IR.exp2tp(lambda.exp)
   reifyProgramfromLambda(lambdatp)
  }
@@ -55,7 +55,7 @@ trait ReifyPure{
   //val tp = exp2tp(lambda)
   val lam: AbstractLambda[_,_] = lambdatp.rhs match{
    case x@InternalLambda(_,_,block,_,_,_) => x
-   case x@ExternalLambda(_,_,block,_,_,_) => x
+   case x@ExternalLambda(_,_,block,_,_,_,_) => x
    case _ => {
     assert(false, "This should not be possible")
     ???
@@ -103,7 +103,7 @@ trait Reify extends ReifyPure{
 
  override def reifyProgram[A,R](f: Function1[A,R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): Reification{ val IR: self.IR.type} = {
   IR.reset()
-  val lambda = IR.fun(f, false)
+  val lambda = IR.doLambda(f, false)
   val lambdatp: IR.TP[_] = IR.exp2tp(lambda.exp)
   reifyProgramfromLambda(lambdatp)
  }
@@ -112,7 +112,7 @@ trait Reify extends ReifyPure{
   //val tp = exp2tp(lambda)
   val lam: AbstractLambda[_,_] = lambdatp.rhs match{
    case x@InternalLambda(_,_,block,_,_,_) => x
-   case x@ExternalLambda(_,_,block,_,_,_) => x
+   case x@ExternalLambda(_,_,block,_,_,_,_) => x
    case _ => {
     assert(false, "This should not be possible")
     ???
