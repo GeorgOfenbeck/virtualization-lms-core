@@ -13,7 +13,7 @@ trait MyRange extends PurePrimitiveOpsExp with FunctionsExp with ImplicitOpsExp 
   case class RangeMap[T: Manifest](start: Exp[Int], end: Exp[Int], body: Exp[_ => _]) extends Def[IndexedSeq[T]]
 
   def range_map[T](s: Exp[Int], end: Exp[Int], block: Exp[Int] => Exp[T])(implicit tr: TypeRep[T], mf: Manifest[T]): Exp[IndexedSeq[T]] = {
-    val lambda = doInternalLambda(block,true)(exposeRepFromRep[Int], exposeRepFromRep[T])
+    val lambda = doInternalLambda(block,true, false)(exposeRepFromRep[Int], exposeRepFromRep[T])
     val cc = RangeMap[T](s, end, lambda.exp)
     toAtom(cc)
   }

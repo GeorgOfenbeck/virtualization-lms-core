@@ -78,7 +78,7 @@ object GlobalF extends App {
     case class SumFold(till: Exp[Int], ini: Exp[ComplexVector], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
     def sumFold[A](till: Rep[Int], ini: Single, body: ISingle => Single)(implicit tupleexpose: ExposeRep[ISingle], singleexpose: ExposeRep[Single]): Single = {
-      val lambda = doInternalLambda(body, false)(tupleexpose, singleexpose)
+      val lambda = doInternalLambda(body, false, false)(tupleexpose, singleexpose)
       val newsyms = singleexpose.freshExps()
       val looptuple = tupleexpose.freshExps()
       val loopvar = looptuple.head.asInstanceOf[Exp[Int]]
@@ -283,7 +283,7 @@ object GlobalF extends App {
         val vec2t: Vector[Exp[_]] => DMix = (in: Vector[Exp[_]]) => {
           val (aa, na) = if(sm.a.isEmpty) (in.tail,Some(in.head.asInstanceOf[Rep[Int]])) else (in,None)
           val (ab, nb) = if(sm.b.isEmpty) (aa.tail,Some(aa.head.asInstanceOf[Rep[Int]])) else (aa,None)
-          val nc = nb.head.asInstanceOf[Rep[Int]]
+          val nc = ab.head.asInstanceOf[Rep[Int]]
           DMix(na,nb,nc)
         }
         val t2vec: DMix => Vector[Exp[_]]  = (in: DMix) => {
@@ -296,29 +296,55 @@ object GlobalF extends App {
 
 
     def GT(dexpose: ExposeRep[DMix], innerf: DMix => Rep[Int]): StagedFunction[DMix, Rep[Int]] = {
-
       val inner: DMix => Rep[Int] = (wuf: DMix) => innerf(wuf)
       val intexp: ExposeRep[Rep[Int]] = exposeRepFromRep[Int]
-      val t: StagedFunction[DMix, Rep[Int]] = doGlobalLambda(inner) (dexpose,intexp)
+      val t: StagedFunction[DMix, Rep[Int]] = doGlobalLambda(inner, true) (dexpose,intexp)
       t
     }
 
     def myprog(s: SMix): (DMix => Rep[Int]) = {
-
       val outer: (DMix => Rep[Int]) = (z: DMix) => {
-
         val mixin = Mix(s,z)
-        val changea = mixin.a * mixin.a
+        val changea = mixin.a * mixin.b * SInt(mixin.c)
         val newmix = mixin.copy(a = changea)
         val static_info: SMix = newmix.getSMix()
+        val dyn_info: DMix = newmix.getDMix()
         val exp = exposeDMix(static_info)
-        val f1: StagedFunction[DMix, Rep[Int]] = GT(exp, myprog(static_info))
-        f1(z)
 
 
+        val f = myprog(static_info)
+        val f1: StagedFunction[DMix, Rep[Int]] = GT(exp, f)
+        val frew = f1(dyn_info)
+        /*
+        val cond = isbasecase(changea.toRep())
+        val res = myifThenElse(cond, {
+          z.c
+        },{
+          frew
+          //f1(dyn_info)
+          //z.c
+        })
+        res */
+        frew
       }
       outer
     }
+
+
+    def wrap(s: SMix): (DMix => Rep[Int]) = {
+      val outer: (DMix => Rep[Int]) = (z: DMix) => {
+        val intexp: ExposeRep[Rep[Int]] = exposeRepFromRep[Int]
+        val smix = SMix(Some(1),Some(2))
+        val exp = exposeDMix(smix)
+        val dmix = DMix(None,None,z.c)
+        val f1: StagedFunction[DMix, Rep[Int]] = doGlobalLambda(myprog(smix), true)(exp, intexp)
+        //val f1: StagedFunction[DMix, Rep[Int]] = doLambda(myprog(smix),true, true)(exp, intexp)
+        f1(dmix)
+      }
+      outer
+    }
+
+
 
 
    def myprog2(r: Rep[Int]): Rep[Int] = {
@@ -335,16 +361,16 @@ object GlobalF extends App {
         r
        }
 
-       val ft = doGlobalLambda(g)
+       val ft = doGlobalLambda(g, true)
 
-       val fs = doGlobalLambda(f)
+       val fs = doGlobalLambda(f, true)
 
        //val cond = isbasecase(x)
        //val t: Rep[Int] = myifThenElse(cond, {fs(x)},{ ft(x)})
        fs(ft(x))
        //t
      }
-     val fs =  doGlobalLambda(f)
+     val fs =  doGlobalLambda(f, true)
      fs(r)
 
 
@@ -359,7 +385,8 @@ object GlobalF extends App {
       val smix = SMix(None,None)
       val expose = exposeDMix(smix)
       val intexp: ExposeRep[Rep[Int]] = exposeRepFromRep[Int]
-      val f: (DMix => Rep[Int]) = myprog(smix)
+      val f: (DMix => Rep[Int]) = wrap(smix)
+      //val f: (DMix => Rep[Int]) = myprog(smix)
       val (code, cm) = emitGraph.emitDepGraphf(f)(expose,intexp)
       val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DFT_recursion_step.dot"))
       stream.println(code)
@@ -372,7 +399,8 @@ object GlobalF extends App {
       val smix = SMix(None,None)
       val expose = exposeDMix(smix)
       val intexp: ExposeRep[Rep[Int]] = exposeRepFromRep[Int]
-      val f: (DMix => Rep[Int]) = myprog(smix)
+      val f: (DMix => Rep[Int]) = wrap(smix)
+      //val f: (DMix => Rep[Int]) = myprog(smix)
       val esc = codegen.emitSource(f, "testClass", stream2)     (expose,intexp)
       stream2.flush()
       stream2.close()
@@ -384,7 +412,7 @@ object GlobalF extends App {
 
 
   dsl.codeexport()
-  dsl.graphvizexport()
+  //dsl.graphvizexport()
 
 
 }

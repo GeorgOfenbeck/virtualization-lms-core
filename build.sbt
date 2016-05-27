@@ -1,6 +1,6 @@
 name := "LMSz"
 
-version := "1.3"
+version := "1.4"
 
 organization := "EPFL"
 

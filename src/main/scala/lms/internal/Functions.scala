@@ -17,13 +17,13 @@ trait ExposeRepBase extends Expressions {
 trait Functions extends Base with ExposeRepBase {
 
 
-  var funTable: Map[Any, StagedFunction[_,_]] = Map.empty
+  var funTable: Map[Any, StagedFunction[_, _]] = Map.empty
 
-  def doLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
-  def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
-  def doGlobalLambda[A,R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  def doGlobalLambda[A, R](f: Function1[A, R], recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
 
   //implicit def fun[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doLambda(f, hot)
@@ -105,7 +105,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
   //RF (any?)
 
 
-  def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean)
+  def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recuse: Boolean)
                        (implicit args: ExposeRep[A], returns: ExposeRep[R]): AbstractLambda[A, R] = {
     addBlockTPBuffer()
     val freshexps = args.freshExps()
@@ -161,7 +161,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
   }
 
 
-  def doAbstractLambda[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+  def doAbstractLambda[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recurse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
     def helper[T](d: Def[T])(implicit tag: TypeRep[T]): TypeRep[T] = {
       tag match {
         case x@TypeExp(mf, dynTags) => {
@@ -178,45 +178,52 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
         }
       }
     }
-    val can = canonicalize(f)
-    if (funTable.contains(can)) {
-      val t: StagedFunction[_,_] = funTable(can)
-      t.asInstanceOf[StagedFunction[A,R]]
+    if (recurse) {
+      val can = canonicalize(f)
+      if (funTable.contains(can)) {
+        val t: StagedFunction[_, _] = funTable(can)
+        t.asInstanceOf[StagedFunction[A, R]]
+      }
+      else {
+        {
+          val expx: Rep[_ => _] = fresh[_ => _]
+          val sf = StagedFunction(f, expx, args, returns)
+          funTable = funTable + (can -> sf)
+
+          val y: AbstractLambda[A, R] = doLambdaDef(f, internal, hot, global, recurse)(args, returns)
+          val tag = helper(y)
+          val tp = createDefinition(expx, y)(tag)
+          sf
+        }
+      }
     }
     else {
-      val expx: Rep[_=>_] = fresh[_=>_]
-      val sf = StagedFunction(f,expx,args,returns)
-      funTable = funTable + (can -> sf )
-
-      val y: AbstractLambda[A,R] = doLambdaDef(f, internal, hot, global)(args, returns) //creates the Def (recurses!)
+      val expx: Rep[_ => _] = fresh[_ => _]
+      val sf = StagedFunction(f, expx, args, returns)
+      val y: AbstractLambda[A, R] = doLambdaDef(f, internal, hot, global, recurse)(args, returns)
       val tag = helper(y)
-      //val exp = toAtom(y)(tag, null)
-      val tp = createDefinition(expx, y) (tag)
-      //val tp = id2tp(exp.id).asInstanceOf[TP[_ => _]]
-      //val stagedFunction: StagedFunction[A, R] = StagedFunction(f, exp, y.args, y.returns)
-      //funTable = funTable + (can -> stagedFunction)
+      val tp = createDefinition(expx, y)(tag)
       sf
     }
-
   }
 
-  override def doLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f, false, hot, false)
+  override def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+    doAbstractLambda(f, false, hot, false, recuse)
   }
 
-  override def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f, true, hot, false)
+  override def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+    doAbstractLambda(f, true, hot, false, recuse)
   }
 
-  override def doGlobalLambda[A, R](f: Function1[A, R])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
-    doAbstractLambda(f, false, true, true)
+  override def doGlobalLambda[A, R](f: Function1[A, R], recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+    doAbstractLambda(f, false, true, true, recuse)
   }
 
   override def syms(e: Any): Vector[Exp[_]] = e match {
     case InternalLambda(f, x, y, hot, args, returns) => {
       Vector.empty
     }
-    case ExternalLambda(f, x, y, hot, args, returns,global) => {
+    case ExternalLambda(f, x, y, hot, args, returns, global) => {
       Vector.empty
     }
     case _ => {
@@ -228,12 +235,13 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
     case a@InternalApply(f, arg) => {
       Vector.empty
     }
-    case l@InternalLambda(f, x, y, hot, _, _) => { //The parameters of the function need to be bound
+    case l@InternalLambda(f, x, y, hot, _, _) => {
+      //The parameters of the function need to be bound
       val exps = l.x map (tp => tp.sym)
       val t = syms(exps)
       t
     }
-    case l@ExternalLambda(f, x, y, hot, _, _,_) => {
+    case l@ExternalLambda(f, x, y, hot, _, _, _) => {
       val exps = l.x map (tp => tp.sym)
       val t = syms(exps)
       t

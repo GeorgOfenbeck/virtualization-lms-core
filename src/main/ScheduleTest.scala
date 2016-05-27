@@ -39,7 +39,7 @@ object ScheduleTest extends App {
           i + t
 
         }
-        val sf = doLambda(f, false)
+        val sf = doLambda(f, false, true)
         sf
       } else {
         val f = createsf(deepth - 1)
@@ -61,7 +61,7 @@ object ScheduleTest extends App {
           val c = i - t3
           f.apply(c) + g.apply(c)
         }
-        val sf = doLambda(h, false)
+        val sf = doLambda(h, false, true)
         sf
       }
     }
@@ -76,7 +76,7 @@ object ScheduleTest extends App {
         })
         res
       }
-      val sf = doLambda(f, false)
+      val sf = doLambda(f, false, true)
       sf
     }
 

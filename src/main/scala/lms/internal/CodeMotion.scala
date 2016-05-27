@@ -142,15 +142,8 @@ trait CodeMotion {
     }
 
 
-    if (isglobal(tp) && curr_tlevel.treelevel != 0) {
-      val rlinfo = LevelInfo(0, 0, 0, Set.empty, Set.empty)
-      visit_nested3(rlinfo, curr_level: LevelInfo, curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Map[Int, Set[Int]], roots: Map[Int, Set[Int]],
-        scope: Map[Int, EnrichedGraphNode],
-        block_nexts: Vector[(Int, Block)], level2block: Map[LevelInfo, Block], block2level: Map[Block, LevelInfo],
-        lastcold: Map[Block, LevelInfo], potentialroot: Map[Int, Set[Int]], parentlevel: LevelInfo, all_levels: Map[Int, LevelInfo], backtrack: Set[(Int, Int)]
-      )
-    }
-    else {
+
+    val t_level = if (isglobal(tp) && curr_tlevel.treelevel != 0 && !scope.contains(n)) LevelInfo(0, 0, 0, Set.empty, Set.empty) else curr_tlevel
 
       val (ln, lnext) = nexts.last
       if (!lnext.contains(n)) {
@@ -215,10 +208,10 @@ trait CodeMotion {
           val cur_lastcold = lastcold(curr_block)
           val nlastcold = lastcold ++ {
             nodeblocks.map(b =>
-              tp match {
-                /*case ExternalLambda(f, x, y, hot, args, returns,true) => {
-                  (b -> le)
-                }*/
+              tp.rhs match {
+                case ExternalLambda(f, x, y, hot, args, returns,true) => {
+                  (b -> nblock2level(b))
+                }
                 case _ => {
                   if (iscold(b, tp)) (b -> nblock2level(b))
                   else {
@@ -478,15 +471,15 @@ trait CodeMotion {
         //check if it lives in one the parents of our current target
         // (isparent of tlevel, istlevel, tlevel > actual level >= currentlevel)
         //small early abort optimization opportunity here
-        val checkbtwlevel = !(curr_level.treeid == curr_tlevel.treeid)
+        val checkbtwlevel = !(curr_level.treeid == t_level.treeid)
 
-        if (plevels.contains(curr_tlevel.treeid)) (true, false, true, false)
+        if (plevels.contains(t_level.treeid)) (true, false, true, false)
         else {
           val (rtparent, rtlevel, rbtwlevel) = plevels.foldLeft((false, false, false)) {
             (acc, ele) => {
               val (tparent, tlevel, btwlevel) = acc
-              val ntparent = if (!tparent) curr_tlevel.allparents.contains(ele) else tparent
-              val ntlevel = if (!tlevel) curr_tlevel.treeid == ele else tlevel
+              val ntparent = if (!tparent) t_level.allparents.contains(ele) else tparent
+              val ntlevel = if (!tlevel) t_level.treeid == ele else tlevel
               val nbtwlevel = if (checkbtwlevel && !btwlevel) (curr_level.allparents.contains(ele) && !ntlevel) || curr_level.treeid == ele else btwlevel
               (ntparent, ntlevel, nbtwlevel)
             }
@@ -626,11 +619,12 @@ trait CodeMotion {
 
         if (rtlevel) {
           //the node exits on the level where we want to put it already - nothing do
+          val nroots: Map[Int, Set[Int]] = if (roots.contains(n)) roots + (n -> (roots(n) + t_level.treeid)) else roots + (n -> Set(t_level.treeid))
           if (nlnext.isEmpty) {
             // this node might have predecessors - but they are already done - and was the last predec. of its sucessor
             val nnext = nexts.dropRight(1)
             if (nnext.isEmpty) {
-              val nroots = backtrack.foldLeft(roots) { (acc, ele) => {
+              val xroots = backtrack.foldLeft(nroots) { (acc, ele) => {
                 val (id, level) = ele
                 if (acc.contains(id)) {
                   val sofar = acc(id)
@@ -642,7 +636,7 @@ trait CodeMotion {
               }
               if (nblocks_next.isEmpty) {
                 //we are also done with all subgraphs - therefore we are done
-                RetTmp(backtrackit(backtrack, fpmark), curr_scope, rlevel2block, rblock2level, nroots, alllevels)
+                RetTmp(backtrackit(backtrack, fpmark), curr_scope, rlevel2block, rblock2level, xroots, alllevels)
               }
               else {
                 //we recurse into a sub block
@@ -652,15 +646,15 @@ trait CodeMotion {
                 val ids = bresids ++ beffids
                 val rnexts = Vector((-1, ids))
                 val ntlevel = rlastcold(block)
-                visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack, fpmark), nroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
+                visit_nested3(ntlevel, block2level(block), block, -1, block.res.head.id, rnexts, backtrackit(backtrack, fpmark), xroots, curr_scope, nblocks_next.tail, /*nblockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, Set.empty)
               }
             }
             else {
-              visit_nested3(curr_tlevel, curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, fpmark, roots, curr_scope, nblocks_next, /*blockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, backtrack)
+              visit_nested3(curr_tlevel, curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, fpmark, nroots, curr_scope, nblocks_next, /*blockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, backtrack)
             }
           } else {
             val nnext = nexts.dropRight(1) :+(ln, nlnext) //remove our self from the next list and recurse
-            visit_nested3(curr_tlevel, curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, fpmark, roots, curr_scope, nblocks_next, /*blockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, backtrack)
+            visit_nested3(curr_tlevel, curr_level, curr_block, nnext.last._1, nnext.last._2.head, nnext, fpmark, nroots, curr_scope, nblocks_next, /*blockinfo,*/ rlevel2block, rblock2level, rlastcold, potentialroot, curr_level, alllevels, backtrack)
           }
         } else {
           if (rtparent || rbtwlevel) {
@@ -742,17 +736,17 @@ trait CodeMotion {
         val fnext = focused.predecessors
         val nfpmark = if (fpmarkcontain) {
           // lets check if its a neighbour
-          if (curr_tlevel.allneighbour.contains(n)) {
+          if (t_level.allneighbour.contains(n)) {
             //its a neighbour - just mark it down
             println("fill me")
             assert(false, "FILL ME!")
           }
-          fpmark + (n -> (fpmark(n) + curr_tlevel.treeid)) //we add the additional site of this node
+          fpmark + (n -> (fpmark(n) + t_level.treeid)) //we add the additional site of this node
           //in any case we are actually adding it to the wished target level (and conflict with neighbours are resolved later
-        } else fpmark + (n -> Set(curr_tlevel.treeid))
+        } else fpmark + (n -> Set(t_level.treeid))
         if (fnext.isEmpty) {
           //it has no predecessor - therefore we are done with the node
-          val nroots: Map[Int, Set[Int]] = if (roots.contains(n)) roots + (n -> (roots(n) + curr_tlevel.treeid)) else roots + (n -> Set(curr_tlevel.treeid))
+          val nroots: Map[Int, Set[Int]] = if (roots.contains(n)) roots + (n -> (roots(n) + t_level.treeid)) else roots + (n -> Set(t_level.treeid))
           if (nlnext.isEmpty) {
             // this node has no predecessors - and was the last predec. of its sucessor (therefore a root)
             val nnext = nexts.dropRight(1)
@@ -803,7 +797,7 @@ trait CodeMotion {
       }
 
 
-    }
+
   }
 
 
