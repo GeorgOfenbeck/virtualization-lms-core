@@ -214,10 +214,10 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         val res =  t1 :+
           "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
           "}" +
-          "}" +
+          "" +
           "\n/*****************************************\n"+
-          "  End of Generated Code                  \n"+
-          "*******************************************/"
+          "  End Main                  \n"+
+          "*******************************************/\n"
         res
       }
       else {

@@ -47,6 +47,28 @@ trait ScheduleChoice {
   newroots
  }
 
+ def getNewGlobalScheduleChoice(done: Set[Int]): MyScheduleChoice2 = {
+  val globals = cminfo.block_cache3.globals
+  val globalids: Set[Int] = globals.map( p => p.sym.id).toSet
+  val newfront = globalids -- done
+  val newfs: Vector[(Int , Unit => MyScheduleChoice2)] = newfront.toVector map (
+    node => {
+     val f: (Unit => MyScheduleChoice2) = (u: Unit) => {
+      val t: MyScheduleChoice2 = getNewGlobalScheduleChoice(done + node)
+      t
+     }
+     (node,f)
+    })
+
+  val newtrav: MyScheduleChoice2 = new ScheduleChoice {
+   val cminfo: self.cminfo.type = self.cminfo
+   val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice2)] = newfs
+   val explored: Vector[Int] = Vector()
+  }
+  newtrav
+
+ }
+
  def getNewScheduleChoice(block: cminfo.BlockInfo3, current_roots: Set[Int], root: Int, done: Set[Int]): MyScheduleChoice2 = {
   val newfront = getNewFront(block,current_roots,root, done).toVector
   val newfs: Vector[(Int , Unit => MyScheduleChoice2)] = newfront map (
@@ -83,6 +105,8 @@ trait ExposeScheduleChoice {
  //returns a traversal iterator which traverses the DAG in Arguments -> Result direction
  def getForwardIterator(): MyScheduleChoice = {
   val lam = cminfo.reifiedIR.rootlambda
+
+
   val t: MyScheduleChoice = new ScheduleChoice {
    val cminfo: self.cminfo.type = self.cminfo
    val scheduleoptions = Vector()
@@ -106,9 +130,65 @@ trait ExposeScheduleChoice {
    Vector((id,f))
   }
 
+  val newfs2: Vector[(Int , Unit => MyScheduleChoice)] = {
+   val cache = cminfo.block_cache3
+   val globals = cminfo.block_cache3.globals
+   val globalids = globals.map( p => p.sym.id)
+
+   val lambdas: Vector[(Int,cminfo.reifiedIR.IR.AbstractLambda[_,_])] = globals.flatMap(p => {
+    val t: Vector[(Int,cminfo.reifiedIR.IR.AbstractLambda[_,_])] = p.rhs match {
+     case gl@cminfo.reifiedIR.IR.ExternalLambda(f,x,y,hot,args,returns,true) => {
+      val w: (Int,cminfo.reifiedIR.IR.AbstractLambda[_,_]) = (p.sym.id,gl)
+      Vector( w  )
+     }
+     case _ => Vector.empty
+    }
+    t
+   }
+   )
+   val globalchoice = lambdas.map(
+    lamtup => {
+     val id = lamtup._1
+     val lam = lamtup._2
+     val f: (Unit => MyScheduleChoice) = (u: Unit) => {
+      val blockinfo = cache.blockinfo(lam.y)
+      //t.getNewScheduleChoice(blockinfo,blockinfo.roots.tail,blockinfo.roots.head, Set.empty)
+
+      //this is under the assumption that at the top level the only choice is the lambda
+      val newtrav: MyScheduleChoice = new ScheduleChoice {
+       val cminfo: self.cminfo.type = self.cminfo
+       val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice2)] = globalids.map(p => (p, (u: Unit) => getNewGlobalScheduleChoice(Set(p,id))))
+       val explored: Vector[Int] = Vector()
+      }
+      newtrav
+     }
+     (id,f)
+    }
+   )
+
+   val id = cminfo.reifiedIR.def2tp(lam).sym.id
+
+   val f: (Unit => MyScheduleChoice) = (u: Unit) => {
+    val blockinfo = cache.blockinfo(lam.y)
+    //t.getNewScheduleChoice(blockinfo,blockinfo.roots.tail,blockinfo.roots.head, Set.empty)
+
+    //this is under the assumption that at the top level the only choice is the lambda
+    val newtrav: MyScheduleChoice = new ScheduleChoice {
+     val cminfo: self.cminfo.type = self.cminfo
+     val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice2)] = globalids.map(p => (p, (u: Unit) => getNewGlobalScheduleChoice(Set(p,id))))
+     val explored: Vector[Int] = Vector()
+    }
+    newtrav
+   }
+
+
+   Vector((id,f) ) ++ globalchoice
+  }
+
+
   val newtrav: MyScheduleChoice = new ScheduleChoice {
    val cminfo: self.cminfo.type = self.cminfo
-   val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice)]  = newfs
+   val scheduleoptions: Vector[(Int , Unit => MyScheduleChoice)]  = newfs2
    val explored: Vector[Int] = Vector()
   }
   newtrav

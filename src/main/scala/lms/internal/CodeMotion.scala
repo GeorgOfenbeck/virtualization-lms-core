@@ -12,7 +12,7 @@ import scala.lms.util._
 
 
 object CodeMotion {
-  val plot = true
+  val plot = false
 
   /** Takes a reified program as an input.
     * Traverses the resulting graph in reverse order (result to inputs). (which will result in DeadCode Elemination)
@@ -123,6 +123,11 @@ trait CodeMotion {
 
   var markit = -1
 
+  var globals: Vector[TP[_]] = Vector.empty
+
+  var boundhack: Vector[Int] = Vector.empty
+
+
   //pmark is a Set of treeids
   @tailrec
   private def visit_nested3(curr_tlevel: LevelInfo, curr_level: LevelInfo, curr_block: Block, successor: Int, n: Int, nexts: Vector[(Int, Set[Int])], pmark: Map[Int, Set[Int]], roots: Map[Int, Set[Int]],
@@ -143,7 +148,11 @@ trait CodeMotion {
 
 
 
-    val t_level = if (isglobal(tp) && curr_tlevel.treelevel != 0 && !scope.contains(n)) LevelInfo(0, 0, 0, Set.empty, Set.empty) else curr_tlevel
+    val t_level = if (isglobal(tp) && curr_tlevel.treelevel != 0 && !scope.contains(n)) {
+      globals = globals :+ tp
+      LevelInfo(0, 0, 0, Set.empty, Set.empty)
+    }
+    else curr_tlevel
 
       val (ln, lnext) = nexts.last
       if (!lnext.contains(n)) {
@@ -164,11 +173,13 @@ trait CodeMotion {
           val allneighborids: Set[Int] = (for (i <- 1 until nodeblocks.size + 1) yield levelcounter + i).toSet
           val tmp =
             nodeblocks.zipWithIndex.map(b =>
-              LevelInfo(curr_level.treelevel + 1, levelcounter + 1 + b._2, curr_level.treeid, curr_level.allparents + curr_level.treeid, allneighborids - (levelcounter + 1 + b._2)) -> b._1).toMap
+              //LevelInfo(curr_level.treelevel + 1, levelcounter + 1 + b._2, curr_level.treeid, curr_level.allparents + curr_level.treeid, allneighborids - (levelcounter + 1 + b._2)) -> b._1).toMap
+              LevelInfo(t_level.treelevel + 1, levelcounter + 1 + b._2, t_level.treeid, t_level.allparents + t_level.treeid, allneighborids - (levelcounter + 1 + b._2)) -> b._1).toMap
           val nlevel2block = level2block ++ tmp
           //((curr_level._1 + 1, levelcounter + b._2 + 1) -> b._1)).toMap
           val nblock2level = block2level ++ nodeblocks.zipWithIndex.map(b =>
-            b._1 -> LevelInfo(curr_level.treelevel + 1, levelcounter + 1 + b._2, curr_level.treeid, curr_level.allparents + curr_level.treeid, allneighborids - (levelcounter + 1 + b._2))).toMap
+            //b._1 -> LevelInfo(curr_level.treelevel + 1, levelcounter + 1 + b._2, curr_level.treeid, curr_level.allparents + curr_level.treeid, allneighborids - (levelcounter + 1 + b._2))).toMap
+            b._1 -> LevelInfo(t_level.treelevel + 1, levelcounter + 1 + b._2, t_level.treeid, t_level.allparents + t_level.treeid, allneighborids - (levelcounter + 1 + b._2))).toMap
           //(b._1 ->(curr_level._1 + 1, levelcounter + b._2 + 1))).toMap
           if (tmp.size > 1) assert(false, "when does this actually happen?")
           val fpmark: Map[Int, Set[Int]] = {
@@ -188,6 +199,7 @@ trait CodeMotion {
                 val tp = id2tp(bound)
                 val entry = TP2EnrichedGraphNode(tp) //getNode(n)
                 assert(entry.blocks.isEmpty, "we dont support bound symbols containing block (should only be lambdas) yet- bind a symbol containing it")
+                boundhack = boundhack :+ bound
                 acc + (bound -> entry)
               }
               }
@@ -619,7 +631,9 @@ trait CodeMotion {
 
         if (rtlevel) {
           //the node exits on the level where we want to put it already - nothing do
-          val nroots: Map[Int, Set[Int]] = if (roots.contains(n)) roots + (n -> (roots(n) + t_level.treeid)) else roots + (n -> Set(t_level.treeid))
+          val nroots: Map[Int, Set[Int]] = if (boundhack.contains(n)) {
+            if (roots.contains(n)) roots + (n -> (roots(n) + t_level.treeid)) else roots + (n -> Set(t_level.treeid))
+          } else roots
           if (nlnext.isEmpty) {
             // this node might have predecessors - but they are already done - and was the last predec. of its sucessor
             val nnext = nexts.dropRight(1)
@@ -811,14 +825,17 @@ trait CodeMotion {
     * @param block The bottom most symbol of the graph which should always be the block contained in the root lambda
     * @return A Hashmap of Block -> BlockInfo which also contains info about the root block
     */
-  protected def getBlockInfo3[A, B](lambda: AbstractLambda[A, B]): (Map[Int, EnrichedGraphNode], Map[Block, BlockInfo3]) = {
+  protected def getBlockInfo3[A, B](lambda: AbstractLambda[A, B]): (Map[Int, EnrichedGraphNode], Map[Block, BlockInfo3], Vector[TP[_]]) = {
+    globals = Vector.empty
+    boundhack = Vector.empty
     TimeLog.timer("CodeMotion_getBlockInfo3", true)
     val bres: Set[Int] = lambda.y.res.map(t => t.id).toSet
     val beff: Set[Int] = lambda.y.effects.map(t => t.id).toSet
     val nexts = Vector((-1, bres ++ beff))
     val n = lambda.y.res.head.id
     //val rlinfo = LevelInfo(0, 0, 0, Set.empty, Set.empty)
-    val rlinfo = LevelInfo(0, 0, 0, Set.empty, Set.empty)
+    //val rlinfo = LevelInfo(0, 0, 0, Set.empty, Set.empty)
+    val rlinfo = LevelInfo(1, 1, 0, Set.empty, Set.empty)
     val l2b: Map[LevelInfo, Block] = Map(rlinfo -> lambda.y)
     val b2l: Map[Block, LevelInfo] = Map(lambda.y -> rlinfo)
     val lastcold: Map[Block, LevelInfo] = Map(lambda.y -> rlinfo)
@@ -949,7 +966,9 @@ trait CodeMotion {
     val u = binfo(r.level2block(r.alllevels(4)))*/
     printlog("finished CM")
     TimeLog.timer("CodeMotion_getBlockInfo", false)
-    (r.scope, binfo)
+    val resglobals = globals
+    globals = Vector.empty
+    (r.scope, binfo,resglobals)
 
   }
 
@@ -961,9 +980,9 @@ trait CodeMotion {
 
     println("starting Code Motion")
     TimeLog.timer("CodeMotion_getBlockInfo", true)
-    val (fulldag, binfo) = getBlockInfo3(reifiedIR.rootlambda)
+    val (fulldag, binfo, resglobals) = getBlockInfo3(reifiedIR.rootlambda)
     val entry = TP2EnrichedGraphNode(def2tp(reifiedIR.rootlambda))
-    val r = IRBlockInfo3(reifiedIR.def2tp(reifiedIR.rootlambda), binfo)
+    val r = IRBlockInfo3(reifiedIR.def2tp(reifiedIR.rootlambda), binfo, resglobals)
     TimeLog.timer("CodeMotion_getBlockInfo", false)
     println("finished Code Motion")
     (fulldag + (entry.irdef -> entry), r)
@@ -974,7 +993,7 @@ trait CodeMotion {
     * @param root
     * @param blockinfo
     */
-  case class IRBlockInfo3(val root: TP[_], val blockinfo: Map[Block, BlockInfo3]) {
+  case class IRBlockInfo3(val root: TP[_], val blockinfo: Map[Block, BlockInfo3], globals: Vector[TP[_]]) {
     def getHead(): BlockInfo3 = {
       root.rhs match {
         //case InternalLambda(f, x, y, hot, args, returns) => blockinfo(y) ?
