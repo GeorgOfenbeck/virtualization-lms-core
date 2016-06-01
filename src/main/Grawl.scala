@@ -42,6 +42,9 @@ object Grawl extends App {
 
     def ivecappend(vec: Exp[Vector[Int]], y: Exp[Int]): Exp[Vector[Int]] = IVecAppend(vec, y)
 
+    case class IVecMult(base: Exp[Int], vec1: Exp[Vector[Int]], vec2: Exp[Vector[Int]]) extends Def[Int]
+
+    def ivecmult(base: Exp[Int], vec1: Exp[Vector[Int]], vec2: Exp[Vector[Int]]): Exp[Int] = IVecMult(base, vec1, vec2)
 
     case class IVecZipMagic(vec1: Exp[Vector[Int]], vec2: Exp[Vector[Int]]) extends Def[Vector[Int]]
 
@@ -65,11 +68,11 @@ object Grawl extends App {
 
     case class Minus(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
 
-    def minus(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = minus(lhs, rhs)
+    def minus(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Minus(lhs, rhs)
 
     case class Times(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
 
-    def times(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = times(lhs, rhs)
+    def times(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Times(lhs, rhs)
 
     //case class SumLoop[T: TypeRep](till: Exp[Int], body: Exp[ComplexVector]) extends Def[ComplexVector]
 
@@ -108,101 +111,36 @@ object Grawl extends App {
   }
 
 
+  val t = Vector(1,2,3)
+  val t1 = t.updated(1,3)
+
   trait ScalaGenBaseCase extends ScalaCodegen with EmitHeadInternalFunctionAsClass {
     val IR: DFT_Exp
 
     import IR._
 
-    var delay: Vector[ ( TP[_],Vector[String], (Block, Vector[String]) => Vector[String] )] = Vector.empty
+    var delay: Vector[(TP[_], Vector[String], (Block, Vector[String]) => Vector[String])] = Vector.empty
     var delaynow: Boolean = false
 
     override def emitNode(tp: TP[_], acc: Vector[String],
                           block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
       val ma = tp.rhs match {
-        /*case IR.ExternalLambda(f,x,y,hot,args,returns,global) => {
-          val t:  Vector[String] = if (global && delaynow) {
-            delay = delay :+(tp: TP[_], Vector.empty, block_callback: (Block, Vector[String]) => Vector[String])
-            Vector.empty
-          } else {
-            val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag)), "")
-            val restuple: Vector[String] = y.res.map(r => quote(r))
-            val helper = if (x.size > 1) {
-              x.zipWithIndex.map(a => {
-                val (tp, index) = a
-                val typ = remap(tp.tag.mf)
-                "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index, "", index == x.size - 1)
-              }).mkString("\n")
-            } else {
-              //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
-              "val " + quote(x.head) + " : " + remap(x.head.tag) + " = helper\n"
-            }
-            val argtuple = tupledeclarehelper(x.map(a => remap(a.tag)), "")
-
-            if (head == null || head == tp) {
-              delay = Vector.empty
-              delaynow = true
-              head = tp
-              /*if (y.res.size > 1)
-              assert(false, "still need to implement multiy result unparsing")*/
-
-
-              val stringheader =
-                "/*****************************************\n" +
-                  "  Emitting Generated Code                  \n" +
-                  "*******************************************/\n" +
-                  "class " + className + (if (staticData.isEmpty) "" else "(" + staticData.map(p => "p" + quote(p._1) + ":" + p._1.tag).mkString(",") + ")") +
-                  " extends ((" + argtuple + ")=> (" + returntuple + ")) {" +
-                  //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
-                  "\ndef apply( helper: (" + argtuple + ")): (" + returntuple + ") = {\n" + helper + "\n"
-
-              val t1 = block_callback(y, Vector(stringheader))
-              delaynow = false
-              //val delayedstring = ""
-              val beforedelay = t1 :+
-                "\n " + tupledeclarehelper(restuple, "") + "\n" +
-                  "}" +
-                  "}\n" +
-                  "object " + className + "{\n"
-
-              val afterdelay = if (!delay.isEmpty) {
-                val newhead = delay(0).copy(_2 = beforedelay)
-                delay = Vector(newhead) ++ delay.tail
-                val x = delay.map(p => emitNode(p._1,p._2,p._3))
-                beforedelay
-                //Vector.empty
-              }
-              else beforedelay
-
-
-              afterdelay :+
-                  "}\n" +
-                  "\n/*****************************************\n" +
-                  "  End of Generated Code                  \n" +
-                  "*******************************************/"
-
-            }
-            else {
-              val t1 = "def " + quote(tp) + ": " +
-                "(" + argtuple + ") => (" + returntuple + ") = " +
-                "(helper: (" + argtuple + ")) =>{\n" + helper + "\n"
-              val t2: Vector[String] = block_callback(y, Vector(t1))
-              val t3 = "\n " + tupledeclarehelper(restuple, "") + "\n" + "}\n"
-              //Vector(t1) ++ t2 :+ t3
-              Vector(t3) //t1 and t2 streamed out through the block callback
-              //emitValDef(tp,string)
-              //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
-            }
-          }
-          t
-        }*/
 
         case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
         //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
         case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(" + quote(n) + ") //buffer creation"))
+        case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, ""  + quote(vec) + "("+ quote(i) + ")" ))
+        case VecUpdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]) => Vector(emitValDef(tp, ""  + quote(vec) + ".update("+ quote(i) + ","+ quote(y) + ")" ))
         case IVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "Vector.empty[Int] //creating vector with " + quote(n)))
         case IVecAppend(v: Exp[Vector[Int]], y: Exp[Int]) => Vector(emitValDef(tp, quote(v) + " :+ " + quote(y)))
         case IVecApply(vec, i) => Vector(emitValDef(tp, quote(vec) + "(" + quote(i) + ")"))
         case IVecZipMagic(r, s) => Vector(emitValDef(tp, "Vector(" + quote(r) + ".head * " + quote(s) + ".head) ++ " + quote(r) + ".zipAll(" + quote(s) + ",0,0).map(p => p._1 + " + quote(r) + ".head * p._2)"))
+        case IVecMult(b,s, l) => Vector(emitValDef(tp, " VectorMult(" + quote(b) + "," + quote(s) + "," + quote(l) + ")"))
+
+        case Plus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
+        case Minus(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
+        case Times(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
+        //case Divide(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))
 
 
         case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
@@ -331,16 +269,17 @@ object Grawl extends App {
       }
     }
 
-    object IMH{
+    object IMH {
       def apply(s: StatIMH, d: DynIMH): IMH = {
-        val nb = (s.base,d.base) match {
+        val nb = (s.base, d.base) match {
           case (None, Some(r)) => SInt(r)
           case (Some(i), None) => SInt(i)
           case _ => ???
         }
-        IMH(nb,d.strides)
+        IMH(nb, d.strides)
       }
     }
+
     //case class IMH(base: SInt, strides: Vector[SInt])
     case class IMH(base: SInt, strides: Rep[Vector[Int]]) {
 
@@ -378,20 +317,21 @@ object Grawl extends App {
 
     object GTSkeletonFull {
       def apply(s: StatGTSkeleton, d: DynGTSkeleton): GTSkeletonFull = {
-        val na = (s.n,d.n) match {
+        val na = (s.n, d.n) match {
           case (None, Some(r)) => SInt(r)
           case (Some(i), None) => SInt(i)
           case _ => ???
         }
-        val nl = (s.loopbound,d.loopbound) match {
+        val nl = (s.loopbound, d.loopbound) match {
           case (None, Some(r)) => SInt(r)
           case (Some(i), None) => SInt(i)
           case _ => ???
         }
-        GTSkeletonFull(d.x,d.y,na,nl,IMH(s.g,d.g),IMH(s.s,d.s),d.v)
+        GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v)
 
       }
     }
+
     case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, g: IMH, s: IMH, v: Rep[Vector[Int]]) {
 
 
@@ -454,9 +394,6 @@ object Grawl extends App {
     }
 
 
-
-
-
     implicit val exposeSingle = new ExposeRep[Single]() {
       val freshExps = (u: Unit) => Vector(Arg[ComplexVector])
       val vec2t: Vector[Exp[_]] => Single = (in: Vector[Exp[_]]) => Single(in.head.asInstanceOf[Rep[ComplexVector]])
@@ -466,12 +403,64 @@ object Grawl extends App {
 
     def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = {
       val im = StatIMH(None)
-      val ingt = if (n.isEmpty) StatGTSkeleton( None, Some(1), im, im) else  StatGTSkeleton( n, Some(1), im, im)
+      val ingt = if (n.isEmpty) StatGTSkeleton(None, Some(1), im, im) else StatGTSkeleton(n, Some(1), im, im)
       ingt
     }
 
 
-    def F2(z: GTSkeletonFull): Single = z.x
+
+    def F2x(z: GTSkeletonFull): Single = {
+      val target: Single = z.y
+      val scatterim = z.s
+      val gatherim = z.g
+
+      val gindex1: Rep[Int] = ivecmult(gatherim.base.toRep(),gatherim.strides,z.v)
+      val gindex2: Rep[Int] = gindex1 + Const(1)
+
+      val sindex1: Rep[Int] = ivecmult(scatterim.base.toRep(),scatterim.strides,z.v)
+      val sindex2: Rep[Int] = sindex1 + Const(1)
+
+      val t1 = vecapply(z.x.y, gindex1)
+      val t2 = vecapply(z.x.y, gindex2)
+
+      val cres1 = plus(t1, t2)
+      val cres2 = minus(t1, t2)
+
+
+      val res1 = vecupdate(target.y, sindex1, cres1)
+      val res2 = vecupdate(res1, sindex1, cres2)
+      Single(res2)
+      z.x
+    }
+
+    def F2(stat: StatGTSkeleton): StagedFunction[DynGTSkeleton, Single] = {
+      val expose = exposeDynGTSkeleton(stat)
+      val f: (DynGTSkeleton => Single) = (z: DynGTSkeleton) => {
+        val mix = GTSkeletonFull(stat,z)
+        val target: Single = mix.y
+        val scatterim = mix.s
+        val gatherim = mix.g
+
+        val gindex1: Rep[Int] = ivecmult(gatherim.base.toRep(),gatherim.strides,z.v)
+        val gindex2: Rep[Int] = gindex1 + Const(1)
+
+        val sindex1: Rep[Int] = ivecmult(scatterim.base.toRep(),scatterim.strides,z.v)
+        val sindex2: Rep[Int] = sindex1 + Const(1)
+
+        val t1 = vecapply(z.x.y, gindex1)
+        val t2 = vecapply(z.x.y, gindex2)
+
+        val cres1 = plus(t1, t2)
+        val cres2 = minus(t1, t2)
+
+
+        val res1 = vecupdate(target.y, sindex1, cres1)
+        val res2 = vecupdate(res1, sindex1, cres2)
+        Single(res2)
+
+      }
+      doGlobalLambda(f,true)(expose, exposeSingle)
+    }
 
     def static_chooseRadix(n: Int) = n / 2
 
@@ -488,7 +477,7 @@ object Grawl extends App {
     def DFTstart(stat: StatGTSkeleton): (DynGTSkeleton => Single) = {
       val outer: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
         val stage1expose = exposeDynGTSkeleton(stat)
-        val f1: StagedFunction[DynGTSkeleton , Single] = zGT(stage1expose, DFT(stat))
+        val f1: StagedFunction[DynGTSkeleton, Single] = zGT(stage1expose, DFT(stat))
         val t1 = f1(dyn)
         t1
       }
@@ -502,15 +491,19 @@ object Grawl extends App {
     }
 
 
+
+
     def DFT(stat: StatGTSkeleton): (DynGTSkeleton => Single) = {
       val outer: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
 
-        val mix = GTSkeletonFull(stat,dyn)
+        val mix = GTSkeletonFull(stat, dyn)
 
         val sn: Rep[Int] = mix.n.toRep()
         val cond = isbasecase(sn)
         myifThenElse(cond, {
-          F2(mix)
+          val f2f = F2(stat)
+          val t= f2f(dyn)
+          t
         }, {
           val m = chooseRadix(mix.n)
           val k = mix.n / m
@@ -525,7 +518,7 @@ object Grawl extends App {
                   val base = SInt(0)
                   val t0 = iveccreate(m.toRep()) //dirty workaround to fix it inside the function
                   val t1 = ivecappend(t0, k.toRep())
-                  val t2 = ivecappend(t1, Const(1))                  
+                  val t2 = ivecappend(t1, Const(1))
                   val inner = IMH(base, t2)
                   //val inner = IMH(base, strides)
                   fuseIM(mix.g, inner) //gather therefore swapped
@@ -548,9 +541,9 @@ object Grawl extends App {
               val stage1stat = stage1.getStatSkel()
               val stage1expose = exposeDynGTSkeleton(stage1stat)
               val stage1dyn = stage1.getDynSkel()
-              val f1: StagedFunction[DynGTSkeleton , Single] = zGT(stage1expose, DFT(stage1stat))
+              val f1: StagedFunction[DynGTSkeleton, Single] = zGT(stage1expose, DFT(stage1stat))
               val t1 = f1(stage1dyn)
-              
+
 
               val stage2 = {
                 val loopvars = ivecappend(mix.v, i)
@@ -559,11 +552,11 @@ object Grawl extends App {
                   val base = SInt(0) //: Either[Rep[Int], Option[Int]] = Right(Some(0))
                   val t0 = iveccreate(m.toRep()) //dirty workaround to fix it inside the function
                   val t1 = ivecappend(t0, m.toRep())
-                  val t2 = ivecappend(t1, Const(1))                  
+                  val t2 = ivecappend(t1, Const(1))
                   IMH(base, t2)
                 }
                 val s1_gather = fuseIM(mix.g, before_fuse_gather) //gather therefore swapped                
-                val s1_scatter = fuseIM(mix.s, before_fuse_gather)                
+                val s1_scatter = fuseIM(mix.s, before_fuse_gather)
 
                 mix.copy(x = t1, y = mix.y, n = k, loopbound = m, g = s1_gather, s = s1_scatter, loopvars)
                 //mix.copy(x = t1, y = mix.y, n = k, loopbound = m, g = mix.g, s = mix.s, loopvars)
@@ -571,7 +564,7 @@ object Grawl extends App {
               val stage2stat = stage2.getStatSkel()
               val stage2expose = exposeDynGTSkeleton(stage2stat)
               val stage2dyn = stage2.getDynSkel()
-              val f2: StagedFunction[DynGTSkeleton , Single] = zGT(stage2expose, DFT(stage2stat))
+              val f2: StagedFunction[DynGTSkeleton, Single] = zGT(stage2expose, DFT(stage2stat))
               val t2 = f2(stage2dyn)
               t2
               //t1
@@ -609,8 +602,8 @@ object Grawl extends App {
     def codeexport() = {
       lazy val ingt = iniGTSkeleton(None)
       val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
-      stream2.println("package apps")
-      stream2.println("class ComplexVector(n: Int)")
+
+      stream2.println("package apps\n\ncase class Complex(val re: Double, val im: Double) {\n  def +(rhs: Complex): Complex = Complex(re + rhs.re, im + rhs.im)\n  def -(rhs: Complex): Complex = Complex(re - rhs.re, im - rhs.im)\n}\n\nclass ComplexVector(n: Int) {\n  val save = new Array[Complex](n)\n  def apply(i: Int): Complex = save(i)\n\n  def update(i: Int, y: Complex): ComplexVector = {\n    save(i) = y\n    this\n  }\n}\n\nobject VectorMult {\n  def apply(base: Int, strides: Vector[Int], loopvars: Vector[Int]): Int = base + loopvars.zip(strides).foldLeft(0)({(acc,ele) => acc + (ele._1 * ele._2)})\n}\n\nobject Testit extends App{\n  val t = new testClass\n  val one = Complex(1,0)\n  val zero = Complex(0,0)\n\n  val in = new ComplexVector(2)\n  val x1 = in.update(0,one)\n  val x2 = x1.update(1,zero)\n\n  val out = new ComplexVector(2)\n  t.callme(in,out,2,1,Vector.empty,1,Vector.empty,Vector.empty)\n\n}")
       val esc = codegen.emitSource((DFT(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
       //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
       stream2.println("\n}\n")
