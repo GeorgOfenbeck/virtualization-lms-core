@@ -334,7 +334,6 @@ object Grawl extends App {
           case _ => ???
         }
         GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v)
-
       }
     }
 
