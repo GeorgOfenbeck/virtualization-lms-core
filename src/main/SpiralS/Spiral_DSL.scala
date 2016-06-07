@@ -21,6 +21,10 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with P
   def isbasecase(n: Exp[Int]): Exp[Boolean] = BaseCase(n)
 
 
+  case class IVecUpRank(v: Exp[Vector[Int]]) extends Def[Vector[Int]]
+
+  def ivecuprank(v: Exp[Vector[Int]]): Exp[Vector[Int]]  = IVecUpRank(v)
+
   case class IVecCreate(s: Exp[Int]) extends Def[Vector[Int]]
 
   def iveccreate(i: Exp[Int]): Exp[Vector[Int]] = IVecCreate(i)
@@ -123,6 +127,9 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
   var delay: Vector[(TP[_], Vector[String], (Block, Vector[String]) => Vector[String])] = Vector.empty
   var delaynow: Boolean = false
 
+  val t = Vector(1,2,3)
+  val y = Vector(t.head,0) ++ t.tail
+
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
@@ -138,6 +145,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case IVecZipMagic(r, s) => Vector(emitValDef(tp, "Vector(" + quote(r) + ".headOption.getOrElse(0) * " + quote(s) + ".headOption.getOrElse(0)) ++ " + quote(r) + ".tail.zipAll(" + quote(s) + ".tail,0,0).map(p => p._1 + " + quote(r) + ".headOption.getOrElse(0) * p._2)"))
       case IVecMult(b, s, l) => Vector(emitValDef(tp, " VectorMult(" + quote(b) + "," + quote(s) + "," + quote(l) + ")"))
       case IVecFirstorZero(v) => Vector(emitValDef(tp, quote(v) + ".headOption.getOrElse(0)"))
+      case IVecUpRank(v) => Vector(emitValDef(tp, "Vector("+ quote(v) + ".head, 0) ++ " + quote(v) + ".tail"))
       case Plus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
       case Minus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
       case Times(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
