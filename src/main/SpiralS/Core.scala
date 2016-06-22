@@ -19,7 +19,8 @@ class Core extends Skeleton {
     val IR: self.type = self
   }
 
-  def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = if (n.isEmpty) StatGTSkeleton(None, Some(1), StatIMH(None), StatIMH(None), Some(ParInfo(6,64))) else StatGTSkeleton(n, Some(1), StatIMH(None), StatIMH(None),Some(ParInfo(6,64)))
+  //def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = if (n.isEmpty) StatGTSkeleton(None, Some(1), StatIMH(None), StatIMH(None), Some(ParInfo(6,64))) else StatGTSkeleton(n, Some(1), StatIMH(None), StatIMH(None),Some(ParInfo(6,64)))
+  def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = if (n.isEmpty) StatGTSkeleton(None, Some(1), StatIMH(None), StatIMH(None), None, None) else StatGTSkeleton(n, Some(1), StatIMH(None), StatIMH(None), None,None)
 
   def F2(stat: StatGTSkeleton): StagedFunction[DynGTSkeleton, Single] = {
     val expose = exposeDynGTSkeleton(stat)
@@ -131,6 +132,14 @@ class Core extends Skeleton {
         } else Single(t1.y)
 
 
+        //val twiddle_indexed = twiddle_apply_indexed()
+
+
+
+
+
+
+
 
 
         val stage2 = {
@@ -140,16 +149,17 @@ class Core extends Skeleton {
             val base = SInt(0) //: Either[Rep[Int], Option[Int]] = Right(Some(0))
             val t0 = iveccreate(m.toRep()) //dirty workaround to fix it inside the function
             val t1 = ivecappend(t0, m.toRep())
-            //val t2 = ivecappend(t1, Const(0)) //uprank
             val t3 = ivecappend(t1, Const(1))
             IMH(base, t3)
           }
+
           val s1_gather = before_fuse_gather //GTI!!
           val outer_upranked = IMH(mix.s.base, ivecuprank(mix.s.strides))
           val s1_scatter = fuseIM(outer_upranked, before_fuse_gather)
 
-
-          mix.copy(x = after_twiddle, y = mix.y, n = k, loopbound = m, g = s1_gather, s = s1_scatter, loopvars, newparcond)
+          //assert(mix.twiddleScaling.isEmpty)
+          val tw = TwiddleScaling(SInt(mix.n.toRep()), SInt(m.toRep()), SInt(Const(1))) //this is assuming that we always fuse into stage one and therefore can always override stage 2 Twiddle
+          mix.copy(x = after_twiddle, y = mix.y, n = k, loopbound = m, g = s1_gather, s = s1_scatter, loopvars, newparcond, twiddleScaling = Some(tw))
           //mix.copy(x = t1, y = mix.y, n = k, loopbound = m, g = mix.g, s = mix.s, loopvars)
         }
         val stage2stat = stage2.getStatSkel()

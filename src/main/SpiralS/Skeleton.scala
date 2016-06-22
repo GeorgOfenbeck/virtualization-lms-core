@@ -9,6 +9,7 @@ import scala.lms.targets.scalalike._
 
 trait Skeleton extends Spiral_DSL {
 
+
   object SInt {
     def apply(nos: Int): SInt = SInt(Right(nos))
 
@@ -77,6 +78,63 @@ trait Skeleton extends Spiral_DSL {
     }
   }
 
+
+  case class TwiddleScaling(n: SInt, d: SInt, k: SInt) {
+    def getDynTwiddleScaling(): DynTwiddleScaling = {
+      val on: Option[Rep[Int]] = n.i.fold(fa => Some(fa), fb => None)
+      val ok: Option[Rep[Int]] = k.i.fold(fa => Some(fa), fb => None)
+      val od: Option[Rep[Int]] = d.i.fold(fa => Some(fa), fb => None)
+      DynTwiddleScaling(on, ok, od)
+    }
+
+    def getStatTwiddleScaling(): StatTwiddleScaling = {
+      val on: Option[Int] = n.i.fold(fa => None, fb => Some(fb))
+      val ok: Option[Int] = k.i.fold(fa => None, fb => Some(fb))
+      val od: Option[Int] = d.i.fold(fa => None, fb => Some(fb))
+      StatTwiddleScaling(on, ok, od)
+    }
+  }
+
+  case class StatTwiddleScaling(n: Option[Int], d: Option[Int], k: Option[Int]){
+    def freshExps(): Vector[Exp[_]] = Vector(n,d,k).foldLeft(Vector.empty[Exp[_]]){ (acc,ele) => if (ele.isEmpty) acc :+ Arg[Int] else acc}
+
+    def vec2t(v: Vector[Exp[_]]): (DynTwiddleScaling, Vector[Exp[_]]) = {
+      val (on, an) = if (n.isEmpty) (Some(v.head.asInstanceOf[Exp[Int]]), v.tail) else (None,v)
+      val (od, ad) = if (d.isEmpty) (Some(an.head.asInstanceOf[Exp[Int]]), an.tail) else (None,an)
+      val (ok, ak) = if (k.isEmpty) (Some(ad.head.asInstanceOf[Exp[Int]]), ad.tail) else (None,ad)
+      (DynTwiddleScaling(on,od,ok),ak)
+    }
+  }
+
+  case class DynTwiddleScaling(n: Option[Rep[Int]], d: Option[Rep[Int]], k: Option[Rep[Int]]){
+
+    def t2vec(): Vector[Exp[_]] = Vector(n,d,k).flatten
+  }
+
+
+  object TwiddleScaling {
+    def apply(stat: StatTwiddleScaling, dyn: DynTwiddleScaling): TwiddleScaling = {
+
+      val n: SInt = (stat.n, dyn.n) match {
+        case (None, Some(r)) => SInt(r)
+        case (Some(i), None) => SInt(i)
+        case _ => ???
+      }
+      val d: SInt = (stat.d, dyn.d) match {
+        case (None, Some(r)) => SInt(r)
+        case (Some(i), None) => SInt(i)
+        case _ => ???
+      }
+      val k: SInt = (stat.k, dyn.k) match {
+        case (None, Some(r)) => SInt(r)
+        case (Some(i), None) => SInt(i)
+        case _ => ???
+      }
+      TwiddleScaling(n, d, k)
+    }
+  }
+
+
   object IMH {
     def apply(s: StatIMH, d: DynIMH): IMH = {
       val nb = (s.base, d.base) match {
@@ -122,9 +180,10 @@ trait Skeleton extends Spiral_DSL {
 
   case class ParInfo(p: Int, cls: Int)
 
-  case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], g: DynIMH, s: DynIMH, v: Rep[Vector[Int]])
 
-  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], g: StatIMH, s: StatIMH, parInfo: Option[ParInfo])
+  case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], g: DynIMH, s: DynIMH, v: Rep[Vector[Int]], dynTwiddleScaling: Option[DynTwiddleScaling])
+
+  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], g: StatIMH, s: StatIMH, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling])
 
   object GTSkeletonFull {
     def apply(s: StatGTSkeleton, d: DynGTSkeleton): GTSkeletonFull = {
@@ -138,23 +197,33 @@ trait Skeleton extends Spiral_DSL {
         case (Some(i), None) => SInt(i)
         case _ => ???
       }
-      GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v, s.parInfo)
+      val tw: Option[TwiddleScaling] = (s.statTwiddleScaling,d.dynTwiddleScaling) match {
+        case (Some(x),Some(y)) => Some(TwiddleScaling(x,y))
+        case (None,None) => None
+        case _ => ???
+      }
+
+      GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v, s.parInfo, tw)
     }
   }
 
-  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, g: IMH, s: IMH, v: Rep[Vector[Int]], parInfo: Option[ParInfo]) {
+
+  //, twiddle: Option[Twi]
+  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, g: IMH, s: IMH, v: Rep[Vector[Int]], parInfo: Option[ParInfo], twiddleScaling: Option[TwiddleScaling]) {
 
 
     def getDynSkel() = {
       val on: Option[Rep[Int]] = n.i.fold(fa => Some(fa), fb => None)
       val ol: Option[Rep[Int]] = loopbound.i.fold(fa => Some(fa), fb => None)
-      DynGTSkeleton(x, y, on, ol, g.getDynIMH(), s.getDynIMH(), v)
+      val to: Option[DynTwiddleScaling] = twiddleScaling.map( e => e.getDynTwiddleScaling())
+      DynGTSkeleton(x, y, on, ol, g.getDynIMH(), s.getDynIMH(), v, to)
     }
 
     def getStatSkel() = {
       val on: Option[Int] = n.i.fold(fa => None, fb => Some(fb))
       val ol: Option[Int] = loopbound.i.fold(fa => None, fb => Some(fb))
-      StatGTSkeleton(on, ol, g.getStatIMH(), s.getStatIMH(), parInfo)
+      val to: Option[StatTwiddleScaling] = twiddleScaling.map( e => e.getStatTwiddleScaling())
+      StatGTSkeleton(on, ol, g.getStatIMH(), s.getStatIMH(), parInfo, to)
     }
   }
 
@@ -164,8 +233,13 @@ trait Skeleton extends Spiral_DSL {
         val fn = if (stat.n.isEmpty) Vector(Arg[Int]) else Vector.empty
         val fl = if (stat.loopbound.isEmpty) Vector(Arg[Int]) else Vector.empty
 
+        val tw: Vector[Exp[_]] = stat.statTwiddleScaling match {
+          case Some(x) => x.freshExps()
+          case None => Vector.empty
+        }
+
         exposeSingle.freshExps() ++ exposeSingle.freshExps() ++
-          fn ++ fl ++ stat.g.freshExps() ++ stat.s.freshExps() ++ Vector(Arg[Vector[Int]])
+          fn ++ fl ++ stat.g.freshExps() ++ stat.s.freshExps() ++ Vector(Arg[Vector[Int]]) ++ tw
       }
       val vec2t: Vector[Exp[_]] => DynGTSkeleton = (in: Vector[Exp[_]]) => {
         assert(in.size >= 2)
@@ -179,12 +253,23 @@ trait Skeleton extends Spiral_DSL {
         val (g, outg) = stat.g.vec2t(outl)
         val (s, outs) = stat.s.vec2t(outg)
         val v = outs.head.asInstanceOf[Exp[Vector[Int]]]
-        DynGTSkeleton(x, y, n, l, g, s, v)
+        val (tw, outtw): (Option[DynTwiddleScaling],Vector[Exp[_]]) = stat.statTwiddleScaling match {
+          case Some(stattw) => {
+            val t = stattw.vec2t(outs.tail)
+            (Some(t._1), t._2)
+          }
+          case None => (None,outs.tail)
+        }
+        DynGTSkeleton(x, y, n, l, g, s, v, tw)
       }
       val t2vec: DynGTSkeleton => Vector[Exp[_]] = (in: DynGTSkeleton) => {
         val vn = in.n.map(p => Vector(p)).getOrElse(Vector.empty)
         val vl = in.loopbound.map(p => Vector(p)).getOrElse(Vector.empty)
-        Vector(in.x.y, in.y.y) ++ vn ++ vl ++ in.g.t2vec() ++ in.s.t2vec() ++ Vector(in.v)
+        val tw = in.dynTwiddleScaling match {
+          case Some(dyn) => dyn.t2vec()
+          case None => Vector.empty
+        }
+        Vector(in.x.y, in.y.y) ++ vn ++ vl ++ in.g.t2vec() ++ in.s.t2vec() ++ Vector(in.v) ++ tw
       }
     }
   }

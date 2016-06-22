@@ -6,7 +6,7 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with PurePrimitiveOpsExp with ImplicitOpsExp with ScalaCompile {
+trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with PurePrimitiveOpsExp with ImplicitOpsExp with ScalaCompile  {
 
   case class ISingle(s: Single, i: Rep[Int])
 
@@ -62,6 +62,8 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with P
   case class Twiddle_Apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]) extends Def[ComplexVector]
 
   def twiddle_apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]): Exp[ComplexVector] = Twiddle_Apply(vec,size,n,d,k)
+
+
 
   case class VecCreate(s: Exp[Int]) extends Def[ComplexVector]
 
