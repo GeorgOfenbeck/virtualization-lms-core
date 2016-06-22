@@ -63,7 +63,9 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with P
 
   def twiddle_apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]): Exp[ComplexVector] = Twiddle_Apply(vec,size,n,d,k)
 
+  case class Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) extends Def[Complex]
 
+  def twiddle_apply_index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index(n,d,k,i)
 
   case class VecCreate(s: Exp[Int]) extends Def[ComplexVector]
 
@@ -159,7 +161,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case Times(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
       //case Divide(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))
       case Twiddle_Apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int])  => Vector(emitValDef(tp, " Twiddle(" + quote(vec) + "," + quote(n) + "," + quote(d) + "," + quote(k) + ")"))
-
+      case Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
 
       case SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
