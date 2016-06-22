@@ -142,7 +142,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
     val ma = tp.rhs match {
 
       case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
-      case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " true //put prime factor check here"))
+      case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " false //put prime factor check here"))
       //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
       case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(" + quote(n) + ") //buffer creation"))
       case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
