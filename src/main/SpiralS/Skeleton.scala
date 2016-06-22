@@ -119,9 +119,12 @@ trait Skeleton extends Spiral_DSL {
   //case class IMH(base: SInt, strides: Vector[SInt])
 
   //case class GTSkeletonFull(x: Single, y: Single, n: SInt, g: IMH, s: IMH, v: Vector[Rep[Int]])
+
+  case class ParInfo(p: Int, cls: Int)
+
   case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], g: DynIMH, s: DynIMH, v: Rep[Vector[Int]])
 
-  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], g: StatIMH, s: StatIMH)
+  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], g: StatIMH, s: StatIMH, parInfo: Option[ParInfo])
 
   object GTSkeletonFull {
     def apply(s: StatGTSkeleton, d: DynGTSkeleton): GTSkeletonFull = {
@@ -135,11 +138,11 @@ trait Skeleton extends Spiral_DSL {
         case (Some(i), None) => SInt(i)
         case _ => ???
       }
-      GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v)
+      GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v, s.parInfo)
     }
   }
 
-  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, g: IMH, s: IMH, v: Rep[Vector[Int]]) {
+  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, g: IMH, s: IMH, v: Rep[Vector[Int]], parInfo: Option[ParInfo]) {
 
 
     def getDynSkel() = {
@@ -151,7 +154,7 @@ trait Skeleton extends Spiral_DSL {
     def getStatSkel() = {
       val on: Option[Int] = n.i.fold(fa => None, fb => Some(fb))
       val ol: Option[Int] = loopbound.i.fold(fa => None, fb => Some(fb))
-      StatGTSkeleton(on, ol, g.getStatIMH(), s.getStatIMH())
+      StatGTSkeleton(on, ol, g.getStatIMH(), s.getStatIMH(), parInfo)
     }
   }
 
