@@ -181,9 +181,9 @@ trait Skeleton extends Spiral_DSL {
   case class ParInfo(p: Int, cls: Int)
 
 
-  case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], g: DynIMH, s: DynIMH, v: Rep[Vector[Int]], dynTwiddleScaling: Option[DynTwiddleScaling])
+  case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], im: DynIM, v: Rep[Vector[Int]], dynTwiddleScaling: Option[DynTwiddleScaling])
 
-  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], g: StatIMH, s: StatIMH, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling])
+  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], im: StatIM, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling])
 
   object GTSkeletonFull {
     def apply(s: StatGTSkeleton, d: DynGTSkeleton): GTSkeletonFull = {
@@ -203,27 +203,95 @@ trait Skeleton extends Spiral_DSL {
         case _ => ???
       }
 
-      GTSkeletonFull(d.x, d.y, na, nl, IMH(s.g, d.g), IMH(s.s, d.s), d.v, s.parInfo, tw)
+      GTSkeletonFull(d.x, d.y, na, nl, IM(s.im,d.im), d.v, s.parInfo, tw)
+
+    }
+  }
+
+  object IM{
+    def apply(s: StatIM, d: DynIM): IM = {
+      (s,d) match {
+        case (gts: Stat_GT_IM, gtd: Dyn_GT_IM) => GT_IM(IMH(gts.g, gtd.g), IMH(gts.s, gtd.s))
+        case (gts: Stat_GTI_IM, gtd: Dyn_GTI_IM) => GTI_IM(IMH(gts.im, gtd.im), IMH(gts.twim, gtd.twim))
+        case _ => ???
+      }
+    }
+  }
+
+  abstract class IM {
+    def getDynIM(): DynIM
+    def getStatIM(): StatIM
+    def gather(): IMH
+    def scatter(): IMH
+  }
+  case class GT_IM (g: IMH, s: IMH) extends IM
+  {
+    def getDynIM(): Dyn_GT_IM = new Dyn_GT_IM(g.getDynIMH(),s.getDynIMH())
+    def getStatIM(): Stat_GT_IM = new Stat_GT_IM(g.getStatIMH(),s.getStatIMH())
+    def gather() = g
+    def scatter() = s
+  }
+  case class GTI_IM(im: IMH, twim: IMH) extends IM
+  {
+    def getDynIM(): Dyn_GTI_IM = new Dyn_GTI_IM(im.getDynIMH(), twim.getDynIMH())
+    def getStatIM(): Stat_GTI_IM = new Stat_GTI_IM(im.getStatIMH(), twim.getStatIMH())
+    def gather() = im
+    def scatter() = im
+  }
+
+  abstract class DynIM
+  {
+    def t2vec(): Vector[Exp[_]]
+  }
+  case class Dyn_GT_IM(g: DynIMH, s: DynIMH) extends DynIM
+  {
+    def t2vec(): Vector[Exp[_]] = g.t2vec() ++ s.t2vec()
+  }
+  case class Dyn_GTI_IM(im: DynIMH, twim: DynIMH) extends DynIM
+  {
+    def t2vec(): Vector[Exp[_]] = im.t2vec() ++ twim.t2vec()
+  }
+  abstract class StatIM{
+    def freshExps(): Vector[Exp[_]]
+    def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]])
+  }
+  case class Stat_GT_IM(g: StatIMH, s: StatIMH) extends StatIM
+  {
+    def freshExps(): Vector[Exp[_]] = g.freshExps() ++ s.freshExps()
+    def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]]) = {
+      val (a,b) = g.vec2t(v)
+      val (c,d) = s.vec2t(b)
+      (new Dyn_GT_IM(a,c),d)
+    }
+  }
+  case class Stat_GTI_IM( im: StatIMH, twim: StatIMH) extends StatIM
+  {
+    def freshExps(): Vector[Exp[_]] = im.freshExps() ++ twim.freshExps()
+    def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]]) = {
+      val (a,b) = im.vec2t(v)
+      val (c,d) = twim.vec2t(b)
+      (new Dyn_GTI_IM(a,c),d)
     }
   }
 
 
   //, twiddle: Option[Twi]
-  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, g: IMH, s: IMH, v: Rep[Vector[Int]], parInfo: Option[ParInfo], twiddleScaling: Option[TwiddleScaling]) {
-
-
+  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, im: IM, v: Rep[Vector[Int]], parInfo: Option[ParInfo], twiddleScaling: Option[TwiddleScaling]) {
     def getDynSkel() = {
       val on: Option[Rep[Int]] = n.i.fold(fa => Some(fa), fb => None)
       val ol: Option[Rep[Int]] = loopbound.i.fold(fa => Some(fa), fb => None)
       val to: Option[DynTwiddleScaling] = twiddleScaling.map( e => e.getDynTwiddleScaling())
-      DynGTSkeleton(x, y, on, ol, g.getDynIMH(), s.getDynIMH(), v, to)
+      //DynGTSkeleton(x, y, on, ol, g.getDynIMH(), s.getDynIMH(), v, to)
+      val dynim = im.getDynIM()
+      DynGTSkeleton(x, y, on, ol, dynim, v, to)
     }
 
     def getStatSkel() = {
       val on: Option[Int] = n.i.fold(fa => None, fb => Some(fb))
       val ol: Option[Int] = loopbound.i.fold(fa => None, fb => Some(fb))
       val to: Option[StatTwiddleScaling] = twiddleScaling.map( e => e.getStatTwiddleScaling())
-      StatGTSkeleton(on, ol, g.getStatIMH(), s.getStatIMH(), parInfo, to)
+      val statim = im.getStatIM()
+      StatGTSkeleton(on, ol, statim, parInfo, to)
     }
   }
 
@@ -239,7 +307,8 @@ trait Skeleton extends Spiral_DSL {
         }
 
         exposeSingle.freshExps() ++ exposeSingle.freshExps() ++
-          fn ++ fl ++ stat.g.freshExps() ++ stat.s.freshExps() ++ Vector(Arg[Vector[Int]]) ++ tw
+          fn ++ fl ++ stat.im.freshExps() ++ Vector(Arg[Vector[Int]]) ++ tw
+        //stat.g.freshExps() ++ stat.s.freshExps()
       }
       val vec2t: Vector[Exp[_]] => DynGTSkeleton = (in: Vector[Exp[_]]) => {
         assert(in.size >= 2)
@@ -250,8 +319,8 @@ trait Skeleton extends Spiral_DSL {
         val outy = outx.drop(singlesize)
         val (n, outn) = if (stat.n.isEmpty) (Some(outy.head.asInstanceOf[Rep[Int]]), outy.tail) else (None, outy)
         val (l, outl) = if (stat.loopbound.isEmpty) (Some(outn.head.asInstanceOf[Rep[Int]]), outn.tail) else (None, outn)
-        val (g, outg) = stat.g.vec2t(outl)
-        val (s, outs) = stat.s.vec2t(outg)
+        //val (g, outg) = stat.g.vec2t(outl)
+        val (im, outs) = stat.im.vec2t(outl)
         val v = outs.head.asInstanceOf[Exp[Vector[Int]]]
         val (tw, outtw): (Option[DynTwiddleScaling],Vector[Exp[_]]) = stat.statTwiddleScaling match {
           case Some(stattw) => {
@@ -260,7 +329,7 @@ trait Skeleton extends Spiral_DSL {
           }
           case None => (None,outs.tail)
         }
-        DynGTSkeleton(x, y, n, l, g, s, v, tw)
+        DynGTSkeleton(x, y, n, l, im, v, tw)
       }
       val t2vec: DynGTSkeleton => Vector[Exp[_]] = (in: DynGTSkeleton) => {
         val vn = in.n.map(p => Vector(p)).getOrElse(Vector.empty)
@@ -269,7 +338,8 @@ trait Skeleton extends Spiral_DSL {
           case Some(dyn) => dyn.t2vec()
           case None => Vector.empty
         }
-        Vector(in.x.y, in.y.y) ++ vn ++ vl ++ in.g.t2vec() ++ in.s.t2vec() ++ Vector(in.v) ++ tw
+        Vector(in.x.y, in.y.y) ++ vn ++ vl ++ in.im.t2vec() ++ Vector(in.v) ++ tw
+        //in.g.t2vec() ++ in.s.t2vec() ++ Vector(in.v) ++ tw
       }
     }
   }
