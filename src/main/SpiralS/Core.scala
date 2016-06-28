@@ -21,8 +21,8 @@ class Core extends Skeleton {
 
   //def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = if (n.isEmpty) StatGTSkeleton(None, Some(1), StatIMH(None), StatIMH(None), Some(ParInfo(6,64))) else StatGTSkeleton(n, Some(1), StatIMH(None), StatIMH(None),Some(ParInfo(6,64)))
   def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = {
-
-    if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), None, None) else StatGTSkeleton(n, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), None,None)
+    val par = Some(ParInfo(6,64))
+    if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par, None) else StatGTSkeleton(n, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par,None)
     //if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None) else StatGTSkeleton(n, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None)
   }
 
@@ -54,7 +54,7 @@ class Core extends Skeleton {
               val twgindex1: Rep[Int] = ivecmult(gti_tw_im.base.toRep(), gti_tw_im.strides, nv0)
               val twgindex2: Rep[Int] = ivecmult(gti_tw_im.base.toRep(), gti_tw_im.strides, nv1)
               val m1 = twiddle_apply_index(twiddleScaling.n.toRep(), twiddleScaling.d.toRep(), twiddleScaling.k.toRep(), twgindex1)
-              val m2 = twiddle_apply_index(twiddleScaling.n.toRep(), twiddleScaling.d.toRep(), twiddleScaling.k.toRep(), twgindex1)
+              val m2 = twiddle_apply_index(twiddleScaling.n.toRep(), twiddleScaling.d.toRep(), twiddleScaling.k.toRep(), twgindex2)
               (times(m1, t01), times(m2, t02))
             }
             case im_gt: GT_IM => {
@@ -107,7 +107,7 @@ class Core extends Skeleton {
 
   val WHT = false
 
-  val inplace = false
+  val inplace = true
 
   def DFT_CT(mix: GTSkeletonFull): Single = {
     val m = chooseRadix(mix.n)
