@@ -192,12 +192,12 @@ trait Skeleton extends Spiral_DSL {
 
   case class ParInfo(p: Int, cls: Int)
 
-  case class VecInfo(u: Int, applied: Rep[Boolean])
+  case class VecInfo(u: Int, applied: Boolean)
 
 
-  case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], im: DynIM, v: Rep[Vector[Int]], dynTwiddleScaling: Option[DynTwiddleScaling], vecinfo_dyn: Option[Rep[Boolean]])
+  case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], im: DynIM, v: Rep[Vector[Int]], dynTwiddleScaling: Option[DynTwiddleScaling])
 
-  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], im: StatIM, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling], vecinfo_stat: Option[Int])
+  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], im: StatIM, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling], vecinfo_stat: Option[VecInfo])
 
   object GTSkeletonFull {
     def apply(s: StatGTSkeleton, d: DynGTSkeleton): GTSkeletonFull = {
@@ -216,11 +216,7 @@ trait Skeleton extends Spiral_DSL {
         case (None,None) => None
         case _ => ???
       }
-      val vecinfo = (s.vecinfo_stat,d.vecinfo_dyn) match {
-        case (Some(u),Some(b)) => Some(VecInfo(u,b))
-        case (None,None) => None
-        case _ => ???
-      }
+      val vecinfo = s.vecinfo_stat
 
       GTSkeletonFull(d.x, d.y, na, nl, IM(s.im,d.im), d.v, s.parInfo, tw, vecinfo)
 
@@ -314,8 +310,7 @@ trait Skeleton extends Spiral_DSL {
       val to: Option[DynTwiddleScaling] = twiddleScaling.map( e => e.getDynTwiddleScaling())
       //DynGTSkeleton(x, y, on, ol, g.getDynIMH(), s.getDynIMH(), v, to)
       val dynim = im.getDynIM()
-      val dvec: Option[Rep[Boolean]] = vecinfo.map(e => e.applied)
-      DynGTSkeleton(x, y, on, ol, dynim, v, to, dvec)
+      DynGTSkeleton(x, y, on, ol, dynim, v, to)
     }
 
     def getStatSkel() = {
@@ -323,8 +318,7 @@ trait Skeleton extends Spiral_DSL {
       val ol: Option[Int] = loopbound.i.fold(fa => None, fb => Some(fb))
       val to: Option[StatTwiddleScaling] = twiddleScaling.map( e => e.getStatTwiddleScaling())
       val statim = im.getStatIM()
-      val svec: Option[Int] = vecinfo.map(e => e.u)
-      StatGTSkeleton(on, ol, statim, parInfo, to, svec)
+      StatGTSkeleton(on, ol, statim, parInfo, to, vecinfo)
     }
   }
 
@@ -338,13 +332,9 @@ trait Skeleton extends Spiral_DSL {
           case Some(x) => x.freshExps()
           case None => Vector.empty
         }
-        val vec: Vector[Exp[_]] = stat.vecinfo_stat match {
-          case Some(x) => Vector(Arg[Boolean])
-          case None => Vector.empty
-        }
 
         exposeSingle.freshExps() ++ exposeSingle.freshExps() ++
-          fn ++ fl ++ stat.im.freshExps() ++ Vector(Arg[Vector[Int]]) ++ tw ++ vec
+          fn ++ fl ++ stat.im.freshExps() ++ Vector(Arg[Vector[Int]]) ++ tw
         //stat.g.freshExps() ++ stat.s.freshExps()
       }
       val vec2t: Vector[Exp[_]] => DynGTSkeleton = (in: Vector[Exp[_]]) => {
@@ -366,11 +356,7 @@ trait Skeleton extends Spiral_DSL {
           }
           case None => (None,outs.tail)
         }
-        val (tvec, outvec): (Option[Rep[Boolean]],Vector[Exp[_]]) = stat.vecinfo_stat match {
-          case Some(statvec) => (Some(outtw.head.asInstanceOf[Rep[Boolean]]), outtw.tail)
-          case None => (None,outtw)
-        }
-        DynGTSkeleton(x, y, n, l, im, v, tw, tvec)
+        DynGTSkeleton(x, y, n, l, im, v, tw)
       }
       val t2vec: DynGTSkeleton => Vector[Exp[_]] = (in: DynGTSkeleton) => {
         val vn = in.n.map(p => Vector(p)).getOrElse(Vector.empty)
@@ -379,11 +365,8 @@ trait Skeleton extends Spiral_DSL {
           case Some(dyn) => dyn.t2vec()
           case None => Vector.empty
         }
-        val tvec = in.vecinfo_dyn match {
-          case Some(dyn) => Vector(dyn)
-          case None => Vector.empty
-        }
-        Vector(in.x.y, in.y.y) ++ vn ++ vl ++ in.im.t2vec() ++ Vector(in.v) ++ tw ++ tvec
+
+        Vector(in.x.y, in.y.y) ++ vn ++ vl ++ in.im.t2vec() ++ Vector(in.v) ++ tw
         //in.g.t2vec() ++ in.s.t2vec() ++ Vector(in.v) ++ tw
       }
     }

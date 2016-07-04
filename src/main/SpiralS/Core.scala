@@ -22,7 +22,7 @@ class Core extends Skeleton {
   //def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = if (n.isEmpty) StatGTSkeleton(None, Some(1), StatIMH(None), StatIMH(None), Some(ParInfo(6,64))) else StatGTSkeleton(n, Some(1), StatIMH(None), StatIMH(None),Some(ParInfo(6,64)))
   def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = {
     val par = Some(ParInfo(6,64))
-    val vec = Some(2)//Some(VecInfo(2), Const(false))
+    val vec = Some(VecInfo(2,false))
     //val vec = None
     if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par, None, vec) else StatGTSkeleton(n, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par,None, vec)
     //if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None) else StatGTSkeleton(n, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None)
@@ -161,7 +161,7 @@ class Core extends Skeleton {
       })
     } else Const(false)
 
-    val newvecinfo = if(mix.vecinfo.isDefined) Some(VecInfo(mix.vecinfo.get.u, vecit)) else None
+    //val newvecinfo = if(mix.vecinfo.isDefined) Some(VecInfo(mix.vecinfo.get.u, vecit)) else None
 
     implicit val imexp = exposeIM(mix.im)
 
@@ -237,13 +237,36 @@ class Core extends Skeleton {
 
           }
           val nim = GT_IM(s1_gather, s1_scatter)
-          vmix.copy(x = vmix.x, y = stage1_target, n = m, loopbound = k, im = nim, loopvars, newparcond, vecinfo = newvecinfo)
+          vmix.copy(x = vmix.x, y = stage1_target, n = m, loopbound = k, im = nim, loopvars, newparcond)
         }
-        val stage1stat = stage1.getStatSkel()
+
+        val nmix = stage1
+        val stage1stat = nmix.getStatSkel()
         val stage1expose = exposeDynGTSkeleton(stage1stat)
-        val stage1dyn = stage1.getDynSkel()
-        val f1: StagedFunction[DynGTSkeleton, Single] = zGT(stage1expose, DFT(stage1stat))
-        val after_stage1 = f1(stage1dyn)
+        val stage1dyn = nmix.getDynSkel()
+
+        //val newvecinfo = if(mix.vecinfo.isDefined) Some(VecInfo(mix.vecinfo.get.u, vecit)) else None
+        val after_stage1 = if (mix.vecinfo.isDefined && !mix.vecinfo.get.applied) //we want to vectorize - but didn't do it yet
+        {
+          myifThenElse(vecit,{
+            //we are vectorizing
+            val f1: StagedFunction[DynGTSkeleton, Single] = zGT(stage1expose, DFT(stage1.copy(vecinfo = Some(VecInfo(mix.vecinfo.get.u, true))).getStatSkel()))
+            f1(stage1dyn)
+          },
+          {
+            val f1: StagedFunction[DynGTSkeleton, Single] = zGT(stage1expose, DFT(stage1stat))
+            f1(stage1dyn)
+          })
+        }
+        else
+          {
+            val f1: StagedFunction[DynGTSkeleton, Single] = zGT(stage1expose, DFT(stage1stat))
+            f1(stage1dyn)
+          }
+
+
+
+
 
         //val after_twiddle = Single(t1.y)
 
@@ -263,14 +286,46 @@ class Core extends Skeleton {
 
           //assert(vmix.twiddleScaling.isEmpty)
           val nim = if (inplace) GTI_IM(s1_scatter, s1_gather) else GT_IM(s1_gather, s1_scatter) //if inplace then we also must merge the scatter in the first step (stage1)
-          vmix.copy(x = after_stage1, y = vmix.y, n = k, loopbound = m, im = nim, loopvars, newparcond, twiddleScaling = Some(tw), vecinfo = newvecinfo)
+          vmix.copy(x = after_stage1, y = vmix.y, n = k, loopbound = m, im = nim, loopvars, newparcond, twiddleScaling = Some(tw))
           //vmix.copy(x = t1, y = vmix.y, n = k, loopbound = m, g = vmix.g, s = vmix.s, loopvars)
         }
-        val stage2stat = stage2.getStatSkel()
+
+        val t2 = if(false) //if (mix.vecinfo.isDefined && !mix.vecinfo.get.applied) //we want to vectorize - but didn't do it yet
+        {
+          myifThenElse[Single](vecit,{
+            //we are vectorizing
+            val nmix = stage2.copy(vecinfo = Some(VecInfo(mix.vecinfo.get.u, true)))
+            val stage2stat = nmix.getStatSkel()
+            val stage2expose = exposeDynGTSkeleton(stage2stat)
+            val stage2dyn = nmix.getDynSkel()
+            val f2: StagedFunction[DynGTSkeleton, Single] = zGT(stage2expose, DFT(stage2stat))
+            f2(stage2dyn)
+          },
+            {
+              val nmix = stage2
+              val stage2stat = nmix.getStatSkel()
+              val stage2expose = exposeDynGTSkeleton(stage2stat)
+              val stage2dyn = nmix.getDynSkel()
+              val f2: StagedFunction[DynGTSkeleton, Single] = zGT(stage2expose, DFT(stage2stat))
+              f2(stage2dyn)
+            })
+        }
+        else
+        {
+          val nmix = stage2
+          val stage2stat = nmix.getStatSkel()
+          val stage2expose = exposeDynGTSkeleton(stage2stat)
+          val stage2dyn = nmix.getDynSkel()
+          val f2: StagedFunction[DynGTSkeleton, Single] = zGT(stage2expose, DFT(stage2stat))
+          f2(stage2dyn)
+        }
+
+
+        /*val stage2stat = stage2.getStatSkel()
         val stage2expose = exposeDynGTSkeleton(stage2stat)
         val stage2dyn = stage2.getDynSkel()
         val f2: StagedFunction[DynGTSkeleton, Single] = zGT(stage2expose, DFT(stage2stat))
-        val t2 = f2(stage2dyn)
+        val t2 = f2(stage2dyn)*/
         t2
         //t1
       }
@@ -282,9 +337,9 @@ class Core extends Skeleton {
 
   def DFT(stat: StatGTSkeleton): (DynGTSkeleton => Single) = {
     val outer: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
-      val vecup = if(dyn.vecinfo_dyn.isDefined) Some(Const(false)) else None
-      val dynup = dyn.copy(vecinfo_dyn = vecup)
-      val mix = GTSkeletonFull(stat, dynup)
+      /*val vecup = if(dyn.vecinfo_dyn.isDefined) Some(Const(false)) else None
+      val dynup = dyn.copy(vecinfo_dyn = vecup)*/
+      val mix = GTSkeletonFull(stat, dyn)
       val sn: Rep[Int] = mix.n.toRep()
       val cond = isbasecase(sn)
       myifThenElse(cond, {
