@@ -15,20 +15,24 @@ class Core extends Skeleton {
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
   }
-  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenIfThenElse {
+  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenPrimitivOps  with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse {
     val IR: self.type = self
   }
 
   //def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = if (n.isEmpty) StatGTSkeleton(None, Some(1), StatIMH(None), StatIMH(None), Some(ParInfo(6,64))) else StatGTSkeleton(n, Some(1), StatIMH(None), StatIMH(None),Some(ParInfo(6,64)))
   def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = {
     val par = Some(ParInfo(6,64))
-    if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par, None) else StatGTSkeleton(n, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par,None)
+    val vec = Some(2)//Some(VecInfo(2), Const(false))
+    //val vec = None
+    if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par, None, vec) else StatGTSkeleton(n, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par,None, vec)
     //if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None) else StatGTSkeleton(n, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None)
   }
 
   def F2(stat: StatGTSkeleton): StagedFunction[DynGTSkeleton, Single] = {
     val expose = exposeDynGTSkeleton(stat)
     val f: (DynGTSkeleton => Single) = (z: DynGTSkeleton) => {
+
+
       val nv0 = ivecappend(z.v, Const(0))
       val nv1 = ivecappend(z.v, Const(1))
       val mix = GTSkeletonFull(stat, z)
@@ -115,15 +119,85 @@ class Core extends Skeleton {
 
     //val res = sumFold(mix.loopbound.toRep(), Single(veccreate(mix.n.toRep())), {
     val parcond = mix.loopbound.i.fold(fa => true, fb => fb > 1)
-    val res = sumFold(mix.loopbound.toRep(), parcond && mix.parInfo.isDefined, mix.y, {
+    val vecond_stat = mix.loopbound.i.fold(fa => {
+      !(parcond && mix.parInfo.isDefined) && mix.vecinfo.isDefined//we don't vectorize if we already parallelize
+    }, fb => {
+      if (!(parcond && mix.parInfo.isDefined)) //we don't vectorize if we already parallelize
+        if( mix.vecinfo.isDefined) fb % mix.vecinfo.get.u == 0 else false
+      else
+        false
+    })
+
+    val veccond_dyn: Rep[Boolean] = if(vecond_stat)
+      mix.loopbound.i.fold(fa => int_eq(fa % Const(mix.vecinfo.get.u), Const(0)), fb => Const(false))
+    else Const(false)
+
+
+    val vecloopbound: SInt = if (vecond_stat) {
+      mix.loopbound.i.fold(fa => {
+        val res = myifThenElse(boolean_and(veccond_dyn,Const(true)),{
+          (fa / Const(mix.vecinfo.get.u))
+        },{
+          fa
+        })
+        SInt(res)
+      }, fb => SInt(fb / mix.vecinfo.get.u) )
+    } else mix.loopbound
+
+
+    //in the case of vectorization we first check the static and dynamic conditions to see if we should vectorize.
+    //if we do we split the loop by vectorlength and remember that we have to have an vector length fold after
+
+
+    val vecit: Rep[Boolean] = if (vecond_stat) {
+      vecloopbound.i.fold(fa => {
+        myifThenElse(boolean_and(veccond_dyn,Const(true)),{
+          Const(true)
+        },{
+          Const(false)
+        })
+      }, fb => {
+        Const(fb % mix.vecinfo.get.u == 0)
+      })
+    } else Const(false)
+
+    val newvecinfo = if(mix.vecinfo.isDefined) Some(VecInfo(mix.vecinfo.get.u, vecit)) else None
+
+    implicit val imexp = exposeIM(mix.im)
+
+
+     val vim: IM = if (vecond_stat)
+       myifThenElse(vecit, {
+      val t: IM = mix.im match {
+        case gtim: GT_IM => {           
+          val gsofar = IMH(gtim.g.base,ivecaddstride(gtim.g.strides,Const(mix.vecinfo.get.u)))
+          val ssofar = IMH(gtim.s.base,ivecaddstride(gtim.s.strides,Const(mix.vecinfo.get.u)))
+          GT_IM(gsofar,ssofar)
+        }
+        case gtiim: GTI_IM => {
+          val gsofar = IMH(gtiim.im.base,ivecaddstride(gtiim.im.strides,Const(mix.vecinfo.get.u)))
+          val twsofar = IMH(gtiim.twim.base,ivecaddstride(gtiim.twim.strides,Const(mix.vecinfo.get.u)))
+          GTI_IM(gsofar, twsofar)
+        }
+      }
+       t
+    } , {
+      mix.im
+    } )
+    else
+       mix.im
+
+    val vmix = mix.copy(im = vim)
+
+    val res = sumFold(vecloopbound.toRep(), parcond && vmix.parInfo.isDefined, vmix.y, {
       isingle => {
-        val newparcond = if (parcond && mix.parInfo.isDefined) None else mix.parInfo
+        val newparcond = if (parcond && vmix.parInfo.isDefined) None else vmix.parInfo
         val i = isingle.i
         val acc = isingle.s
-        val stage1_target = if (inplace) mix.y else Single(veccreate(mix.n.toRep()))
+        val stage1_target = if (inplace) vmix.y else Single(veccreate(vmix.n.toRep()))
 
         val stage1 = {
-          val loopvars = ivecappend(mix.v, i)
+          val loopvars = ivecappend(vmix.v, i)
           val s1_gather = {
             val base = SInt(0)
             val t0 = iveccreate(m.toRep()) //dirty workaround to fix it inside the function
@@ -135,8 +209,8 @@ class Core extends Skeleton {
                 ivecappend(t1, m.toRep())
               }
             val inner = IMH(base, t2)
-            val outer_upranked = IMH(mix.im.gather().base, ivecuprank(mix.im.gather().strides))
-            //val outer_upranked = IMH(mix.g.base, ivecuprank(mix.g.strides))
+            val outer_upranked = IMH(vmix.im.gather().base, ivecuprank(vmix.im.gather().strides))
+            //val outer_upranked = IMH(vmix.g.base, ivecuprank(vmix.g.strides))
             fuseIM(outer_upranked, inner) //gather therefore swapped
             //inner
           }
@@ -154,7 +228,7 @@ class Core extends Skeleton {
                 val t3 = ivecappend(t1, Const(1))
                 IMH(base, t3)
               }
-              val outer_upranked = IMH(mix.im.scatter().base, ivecuprank(mix.im.scatter().strides))
+              val outer_upranked = IMH(vmix.im.scatter().base, ivecuprank(vmix.im.scatter().strides))
               //fuseIM(outer_upranked, fuseIM(s2_scatter, inner))
               fuseIM(outer_upranked, inner)
             }
@@ -163,7 +237,7 @@ class Core extends Skeleton {
 
           }
           val nim = GT_IM(s1_gather, s1_scatter)
-          mix.copy(x = mix.x, y = stage1_target, n = m, loopbound = k, im = nim, loopvars, newparcond)
+          vmix.copy(x = vmix.x, y = stage1_target, n = m, loopbound = k, im = nim, loopvars, newparcond, vecinfo = newvecinfo)
         }
         val stage1stat = stage1.getStatSkel()
         val stage1expose = exposeDynGTSkeleton(stage1stat)
@@ -174,8 +248,8 @@ class Core extends Skeleton {
         //val after_twiddle = Single(t1.y)
 
         val stage2 = {
-          val tw = TwiddleScaling(SInt(mix.n.toRep()), SInt(m.toRep()), SInt(Const(1))) //this is assuming that we always fuse into stage one and therefore can always override stage 2 Twiddle
-          val loopvars = ivecappend(mix.v, i)
+          val tw = TwiddleScaling(SInt(vmix.n.toRep()), SInt(m.toRep()), SInt(Const(1))) //this is assuming that we always fuse into stage one and therefore can always override stage 2 Twiddle
+          val loopvars = ivecappend(vmix.v, i)
           val before_fuse_gather = {
             val base = SInt(0) //: Either[Rep[Int], Option[Int]] = Right(Some(0))
             val t0 = iveccreate(m.toRep()) //dirty workaround to fix it inside the function
@@ -184,13 +258,13 @@ class Core extends Skeleton {
             IMH(base, t3)
           }
           val s1_gather = before_fuse_gather //GTI!!
-          val outer_upranked = IMH(mix.im.scatter().base, ivecuprank(mix.im.scatter().strides))
+          val outer_upranked = IMH(vmix.im.scatter().base, ivecuprank(vmix.im.scatter().strides))
           val s1_scatter = fuseIM(outer_upranked, before_fuse_gather)
 
-          //assert(mix.twiddleScaling.isEmpty)
+          //assert(vmix.twiddleScaling.isEmpty)
           val nim = if (inplace) GTI_IM(s1_scatter, s1_gather) else GT_IM(s1_gather, s1_scatter) //if inplace then we also must merge the scatter in the first step (stage1)
-          mix.copy(x = after_stage1, y = mix.y, n = k, loopbound = m, im = nim, loopvars, newparcond, twiddleScaling = Some(tw))
-          //mix.copy(x = t1, y = mix.y, n = k, loopbound = m, g = mix.g, s = mix.s, loopvars)
+          vmix.copy(x = after_stage1, y = vmix.y, n = k, loopbound = m, im = nim, loopvars, newparcond, twiddleScaling = Some(tw), vecinfo = newvecinfo)
+          //vmix.copy(x = t1, y = vmix.y, n = k, loopbound = m, g = vmix.g, s = vmix.s, loopvars)
         }
         val stage2stat = stage2.getStatSkel()
         val stage2expose = exposeDynGTSkeleton(stage2stat)
@@ -208,7 +282,9 @@ class Core extends Skeleton {
 
   def DFT(stat: StatGTSkeleton): (DynGTSkeleton => Single) = {
     val outer: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
-      val mix = GTSkeletonFull(stat, dyn)
+      val vecup = if(dyn.vecinfo_dyn.isDefined) Some(Const(false)) else None
+      val dynup = dyn.copy(vecinfo_dyn = vecup)
+      val mix = GTSkeletonFull(stat, dynup)
       val sn: Rep[Int] = mix.n.toRep()
       val cond = isbasecase(sn)
       myifThenElse(cond, {

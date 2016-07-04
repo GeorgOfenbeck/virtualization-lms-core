@@ -6,7 +6,7 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with PurePrimitiveOpsExp with ImplicitOpsExp with ScalaCompile  {
+trait Spiral_DSL extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with ImplicitOpsExp with ScalaCompile  {
 
   case class ISingle(s: Single, i: Rep[Int])
 
@@ -24,6 +24,9 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with P
 
   def isPrime(n: Exp[Int]): Exp[Boolean] = IsPrime(n)
 
+  case class Int_Eq(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Boolean]
+
+  def int_eq(lhs: Exp[Int], rhs: Exp[Int]): Exp[Boolean]  = Int_Eq(lhs,rhs)
 
   case class IVecUpRank(v: Exp[Vector[Int]]) extends Def[Vector[Int]]
 
@@ -46,6 +49,10 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with IfThenElsePureExp with P
   case class IVecUpdate(vec: Exp[Vector[Int]], i: Exp[Int], y: Exp[Int]) extends Def[Vector[Int]]
 
   def ivecupdate(vec: Exp[Vector[Int]], i: Exp[Int], y: Exp[Int]): Exp[Vector[Int]] = IVecUpdate(vec, i, y)
+
+  case class IVecAddStride(vec: Exp[Vector[Int]], y: Exp[Int]) extends Def[Vector[Int]]
+
+  def ivecaddstride(vec: Exp[Vector[Int]], y: Exp[Int]): Exp[Vector[Int]] = IVecAddStride(vec,y)
 
   case class IVecAppend(vec: Exp[Vector[Int]], y: Exp[Int]) extends Def[Vector[Int]]
 
@@ -136,8 +143,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
   var delay: Vector[(TP[_], Vector[String], (Block, Vector[String]) => Vector[String])] = Vector.empty
   var delaynow: Boolean = false
 
-  val t = Vector(1,2,3)
-  val y = Vector(t.head,0) ++ t.tail
+
 
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
@@ -149,6 +155,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(" + quote(n) + ") //buffer creation"))
       case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
       case VecUpdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]) => Vector(emitValDef(tp, "" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + ")"))
+      case IVecAddStride(v: Exp[Vector[Int]], y: Exp[Int]) => Vector(emitValDef(tp, quote(v) + ".dropRight(1) :+ " + quote(v) + ".last / " + quote(y)))
       case IVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "Vector.empty[Int] //creating vector with " + quote(n)))
       case IVecAppend(v: Exp[Vector[Int]], y: Exp[Int]) => Vector(emitValDef(tp, quote(v) + " :+ " + quote(y)))
       case IVecApply(vec, i) => Vector(emitValDef(tp, quote(vec) + "(" + quote(i) + ")"))
@@ -156,6 +163,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case IVecMult(b, s, l) => Vector(emitValDef(tp, " VectorMult(" + quote(b) + "," + quote(s) + "," + quote(l) + ")"))
       case IVecFirstorZero(v) => Vector(emitValDef(tp, quote(v) + ".headOption.getOrElse(0)"))
       case IVecUpRank(v) => Vector(emitValDef(tp, "Vector("+ quote(v) + ".head, 0) ++ " + quote(v) + ".tail"))
+      case Int_Eq(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
       case Plus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
       case Minus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
       case Times(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
