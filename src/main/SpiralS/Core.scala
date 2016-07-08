@@ -23,7 +23,7 @@ class Core extends Skeleton {
   def iniGTSkeleton(n: Option[Int]): StatGTSkeleton = {
     val par = Some(ParInfo(6,64))
     val vec = Some(VecInfo(2,false))
-    //val vec = None
+//    val vec = None
     if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par, None, vec) else StatGTSkeleton(n, Some(1), new Stat_GT_IM(StatIMH(None),StatIMH(None)), par,None, vec)
     //if (n.isEmpty) StatGTSkeleton(None, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None) else StatGTSkeleton(n, Some(1), new Stat_GTI_IM(StatIMH(None)), None, None)
   }
@@ -110,15 +110,25 @@ class Core extends Skeleton {
 
 
   val WHT = false
-
   val inplace = true
+
+
+
+
+
+
+
+
 
   def DFT_CT(mix: GTSkeletonFull): Single = {
     val m = chooseRadix(mix.n)
     val k = mix.n / m
 
-    //val res = sumFold(mix.loopbound.toRep(), Single(veccreate(mix.n.toRep())), {
-    val parcond = mix.loopbound.i.fold(fa => true, fb => fb > 1)
+
+    val parcond = mix.loopbound.i.fold(fa => true, fb => fb > 1) //compile time check
+
+
+    //compile time check
     val vecond_stat = mix.loopbound.i.fold(fa => {
       !(parcond && mix.parInfo.isDefined) && mix.vecinfo.isDefined//we don't vectorize if we already parallelize
     }, fb => {
@@ -170,13 +180,13 @@ class Core extends Skeleton {
        myifThenElse(vecit, {
       val t: IM = mix.im match {
         case gtim: GT_IM => {           
-          val gsofar = IMH(gtim.g.base,ivecaddstride(gtim.g.strides,Const(mix.vecinfo.get.u)))
-          val ssofar = IMH(gtim.s.base,ivecaddstride(gtim.s.strides,Const(mix.vecinfo.get.u)))
+          val gsofar = IMH(gtim.g.base,ivecaddstride(gtim.g.strides,Const(mix.vecinfo.get.u), m.toRep()))
+          val ssofar = IMH(gtim.s.base,ivecaddstride(gtim.s.strides,Const(mix.vecinfo.get.u), m.toRep()))
           GT_IM(gsofar,ssofar)
         }
         case gtiim: GTI_IM => {
-          val gsofar = IMH(gtiim.im.base,ivecaddstride(gtiim.im.strides,Const(mix.vecinfo.get.u)))
-          val twsofar = IMH(gtiim.twim.base,ivecaddstride(gtiim.twim.strides,Const(mix.vecinfo.get.u)))
+          val gsofar = IMH(gtiim.im.base,ivecaddstride(gtiim.im.strides,Const(mix.vecinfo.get.u), m.toRep()))
+          val twsofar = IMH(gtiim.twim.base,ivecaddstride(gtiim.twim.strides,Const(mix.vecinfo.get.u), m.toRep()))
           GTI_IM(gsofar, twsofar)
         }
       }
@@ -289,8 +299,8 @@ class Core extends Skeleton {
           vmix.copy(x = after_stage1, y = vmix.y, n = k, loopbound = m, im = nim, loopvars, newparcond, twiddleScaling = Some(tw))
           //vmix.copy(x = t1, y = vmix.y, n = k, loopbound = m, g = vmix.g, s = vmix.s, loopvars)
         }
-
-        val t2 = if(false) //if (mix.vecinfo.isDefined && !mix.vecinfo.get.applied) //we want to vectorize - but didn't do it yet
+        //if(false) //
+        val t2 = if (mix.vecinfo.isDefined && !mix.vecinfo.get.applied) //we want to vectorize - but didn't do it yet
         {
           myifThenElse[Single](vecit,{
             //we are vectorizing
