@@ -22,8 +22,6 @@ trait GenRandomOps extends ExposeRepBase with FunctionsExp {
                              max_functions: Int,
                              max_returns: Int,
                              max_calls: Int,
-                             //cur_nodes_per_block: Int = 0,
-                             //cur_nest_depth: Int = 0
                              max_dynamic_calls: Int,
                              max_opset_calls: Map[Set[Op], Int]
                            ) {
