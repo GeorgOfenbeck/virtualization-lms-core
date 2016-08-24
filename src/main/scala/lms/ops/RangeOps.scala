@@ -11,9 +11,12 @@ trait RangeOps extends OverloadHack {
   // workaround for infix not working with manifests
   implicit def repRangeToRangeOps(r: Rep[Range]) = new rangeOpsCls(r)
   class rangeOpsCls(r: Rep[Range]){
-    def foreach[B](f: (B,Rep[Int]) => Rep[B])(implicit pos: SourceContext) = range_foldLeft(r, f)
+    //def foldLeft[B](ini: B)(f: ((B,Rep[Int])) => B) = range_foldLeft(r,ini,f)
+    //def foreach[B](f: (B,Rep[Int]) => Rep[B])(implicit pos: SourceContext) = range_foldLeft(r, f)
   }
-  def range_foldLeft[B](r: Rep[Range], body: (B,Rep[Int]) => B): B
+  //def range_foldLeft[B](r: Rep[Range], ini: B, body: ((B,Rep[Int])) => B)(implicit exposeB: ExposeRep[B]): B
+  
+  def range_create(start: Rep[Int], end: Rep[Int]): Rep[Range]
 }
 
 trait RangeOpsExp extends RangeOps with BaseExp with FunctionsExp{
@@ -25,8 +28,10 @@ trait RangeOpsExp extends RangeOps with BaseExp with FunctionsExp{
   //case class RangeForeach(r: Exp[Range], i: Exp[Int], body: Exp[Unit]) extends Def[Unit]
   //case class RangeForeach(start: Exp[Int], end: Exp[Int], i: Sym[Int], body: Block[Unit]) extends Def[Unit]
 
-  case class RangeFoldLeft[B](r: Exp[Range], ini: B, loopvar: Exp[Int], loopacc: B, body: Exp[_ => _]) extends Def[_]
-  def range_foldLeft[B](r: Exp[Range], ini: B, body: (B,Exp[Int]) => B)(implicit exposeB: ExposeRep[B]): Exp[B] = {
+  def range_create(start: Exp[Int], end: Exp[Int]): Exp[Range] = Until(start,end)
+  
+  case class RangeFoldLeft[B](r: Exp[Range], ini: B, loopvar: Exp[Int], loopacc: B, body: Exp[_ => _]) extends Def[Any]
+  def range_foldLeft[B](r: Exp[Range], ini: B, body: ((B,Exp[Int])) => B)(implicit exposeB: ExposeRep[B]): B = {
 
     val exposeTuple =  new ExposeRep[(B,Exp[Int])]() {
       val freshExps = (u: Unit) => exposeB.freshExps() :+ Arg[Int]
@@ -35,7 +40,7 @@ trait RangeOpsExp extends RangeOps with BaseExp with FunctionsExp{
         val n: Exp[Int] = in.last.asInstanceOf[Rep[Int]]
         (b,n)
       }
-      val t2vec: (B,Exp[Int]) => Vector[Exp[_]] = (in: (B,Exp[Int])) => {
+      val t2vec: ((B,Exp[Int])) => Vector[Exp[_]] = (in: (B,Exp[Int])) => {
         exposeB.t2vec(in._1) :+ in._2
       }
     }

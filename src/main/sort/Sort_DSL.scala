@@ -7,7 +7,7 @@ import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
 
-trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with ImplicitOpsExp with ScalaCompile  {
+trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VectorOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
 
   case class ISingle(s: Single, i: Rep[Int])
 
