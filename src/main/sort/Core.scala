@@ -1,6 +1,8 @@
 package sort
 
 
+import org.scala_lang.virtualized.SourceContext
+
 import scala.lms._
 import scala.lms.internal._
 import scala.lms.ops._
@@ -25,15 +27,7 @@ class Core extends Skeleton {
 
 
 
-  def sort(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
-    
-    val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
-      
-      val mix = SelectionHeader(stat,dyn)
-      selectionsort(mix)
-    }
-    outer
-  }
+
 
 
   object SelectionHeader{
@@ -94,24 +88,127 @@ class Core extends Skeleton {
   }
 
 
+  implicit def exposeTuple[A: TypeRep,B: TypeRep](): ExposeRep[(Rep[A],Rep[B])] = new ExposeRep[(Rep[A],Rep[B])] {
+    val freshExps: Unit => Vector[Exp[_]] = (u: Unit) =>  Vector(Arg[A],Arg[B])
+    val vec2t: Vector[Exp[_]] => ((Exp[A],Exp[B])) = (in: Vector[Exp[_]]) => {
+      val a = in.head.asInstanceOf[Exp[A]]
+      val b = in.tail.head.asInstanceOf[Exp[B]]
+      (a,b)
+    }
+    val t2vec: ((Exp[A],Exp[B])) => Vector[Exp[_]] = (in: ((Exp[A],Exp[B]))) =>  Vector(in._1,in._2)
+  }
+
+
+  def mf(expose: ExposeRep[DynSelectionHeader], innerf: => (DynSelectionHeader => Rep[Vector[Int]])): StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = {
+    val f: (DynSelectionHeader => Rep[Vector[Int]]) = (wuf: DynSelectionHeader) => innerf(wuf)
+    println(f)
+    val t: StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = doGlobalLambda(f, true)(expose, exposeRepFromRep[Vector[Int]])
+    t
+  }
+
+
+  def checksize(x: SInt) = {
+
+  }
+
+
+  def sort(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
+    val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
+      val mix = SelectionHeader(stat,dyn)
+      val size = mix.start - mix.end
+      val sizerep = size.toRep()
+      val cond: Rep[Boolean] = ordering_gt(sizerep,Const(10))
+      myifThenElse(cond, {
+        quicksort(mix)
+      }, {
+        selectionsort(mix)
+      } )
+    }
+    outer
+  }
+
+  def quicksort(sh: SelectionHeader): Rep[Vector[Int]] = {
+    /*
+    val statskel = sh.getStatSkel()
+    val lessexpose = exposeDynSelectionHeader(statskel)
+    val dyn = sh.getDynSelectionHeader()
+
+    val fless = mf(lessexpose, sort(statskel))
+    val sless = fless(dyn)
+    sless */
+
+
+    val start = sh.start
+      val end = sh.end
+      val x = sh.x
+      val half = (end - start) / 2
+      val pivot = x(half)
+
+
+      val less = filter[Int](x, p => pivot > p)
+      val equal = filter[Int](x, p => pivot equiv p)
+      val greater = filter[Int](x, p => pivot < p)
+
+
+/*
+      val less = x
+      val equal = x
+      val greater = x
+*/
+
+    val sh1 = SelectionHeader(less, sh.start, half - 1)
+    val statsless = sh1.getStatSkel()
+    val lessexpose = exposeDynSelectionHeader(statsless)
+    val dynless = sh1.getDynSelectionHeader()
+
+    val fless = mf(lessexpose, sort(statsless))
+    val sless = fless(dynless)
+
+
+
+    val sh2 = SelectionHeader(greater, half + 1, sh.end)
+    val statgreater = sh2.getStatSkel()
+    val greaterexpose = exposeDynSelectionHeader(statgreater)
+    val fgreater = mf(greaterexpose, sort(statgreater))
+    val dyngreater = sh2.getDynSelectionHeader()
+    val sgreater = fgreater(dyngreater)
+
+    /*
+      val sh1 = SelectionHeader(less, sh.start, half - 1)
+      val lessexpose = exposeDynSelectionHeader(sh1.getStatSkel())
+      val fless = mf(lessexpose, sort(sh1.getStatSkel()))
+      val sless = fless(sh1.getDynSelectionHeader())
+  */
+
+    /*
+     */
+
+      concat(concat(sless, equal), sgreater)
+
+      //concat(equal,equal)
+
+      //sgreater
+  }
+
   def selectionsort(sh: SelectionHeader): Rep[Vector[Int]] = {
     val start = sh.start
     val end = sh.end
     val x = sh.x
+    implicit val itupexpose = exposeTuple[Int,Int]()
+
     (start until end).foldLeft(x){
-      (array, index) => {
-        val ab = x(index)
-        val pos: SInt = ( (index + 1) until end).foldLeft(index){
-          (iarray, index2) => {
-            val b = x(index2)
-            val t: Rep[Boolean] = ab < b
-            SInt(myifThenElse[Rep[Int]](t, index2.toRep() ,  index.toRep()))
+      case (array, index) => {
+        val swapele = array(index)
+        val (value,pos) = ( (index ) until end).foldLeft( (swapele,index.toRep()) ){
+          case ( (value,pos), index2) => {
+            val b = array(index2)
+            val t: Rep[Boolean] = value < b
+            myifThenElse[(Rep[Int],Rep[Int])](t, (b,index2.toRep()) , (value,pos))
           }
         }
-        val ax = x(index)
-        val bx = x(pos)
-        val up1 = x.update(index,bx)
-        up1.update(pos,ax)
+        val bx = array(pos)
+        array.update(index,bx).update(pos,swapele)
+
       }
     }
   }
@@ -129,8 +226,10 @@ class Core extends Skeleton {
   }
 
   def codeexport() = {
-    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\Test.scala"))
-    val esc = codegen.emitSource(f, "testClass", stream2)
+    val ini: StatSelectionHeader = StatSelectionHeader(None,None)
+    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+    stream2.println("import org.scalacheck._\nimport org.scalacheck.Properties\nimport org.scalacheck.Prop.forAll\n\nobject Bla extends org.scalacheck.Properties(\"Sort\"){\n\n  property(\"startsWith\") = forAll { (v: Vector[Int]) =>\n    val c = new testClass\n    val s = c(v, 0, v.length)\n    //val s2 = test(v,0,v.length)\n    val s3 = sortFunctional(v)\n\n    s3.corresponds(s){_ == _}\n\n  }\n\n  def sortFunctional(xs: Vector[Int]): Vector[Int] = {\n    if (xs.length <= 1) xs\n    else {\n      val pivot = xs(xs.length / 2)\n      val less = xs.filter(p => pivot > p)\n      val equal = xs.filter(p => pivot == p)\n      val greater = xs.filter(p => pivot < p)\n      sortFunctional(greater) ++  equal ++ sortFunctional(less)\n    }\n  }\n\n\n\n\n  def test(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n\n    (start until end).foldLeft(v) {\n      (acc,ele) => {\n        val swapele = acc(ele)\n        val (value, pos) = (ele until end).foldLeft((swapele,ele)){\n          (acc2,k) => {\n            val (value, pos) = acc2\n            val currcheck = acc(k)\n            if (swapele < currcheck)\n              (currcheck,k)\n            else\n              (value,pos)\n          }\n        }\n        val bx = acc(pos)\n        val o1 = acc.updated(pos,swapele)\n        val o2 = o1.updated(ele,value)\n        o2\n      }\n    }\n  }\n\n}\n//bla!")
+    val esc = codegen.emitSource(sort(ini), "testClass", stream2)(exposeDynSelectionHeader(ini), exposeRepFromRep[Vector[Int]])
     //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
     stream2.println("\n}\n")
     stream2.flush()

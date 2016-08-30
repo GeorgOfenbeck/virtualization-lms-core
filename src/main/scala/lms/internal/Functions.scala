@@ -180,6 +180,14 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
     }
     if (recurse) {
       val can = canonicalize(f)
+      if (true) {
+        val stream = new java.io.PrintWriter(new java.io.FileOutputStream("canon"+funTable.size+".txt"))
+        stream.println(can)
+        stream.flush()
+        stream.close()
+      }
+
+
       if (funTable.contains(can)) {
         val t: StagedFunction[_, _] = funTable(can)
         t.asInstanceOf[StagedFunction[A, R]]

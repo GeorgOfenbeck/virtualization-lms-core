@@ -1,6 +1,8 @@
 package scala.virtualization.lms
 package util
 
+import spray.json._
+import DefaultJsonProtocol._ // if you don't supply your own Protocol (see below)
 import java.io._
 
 trait ClosureCompare extends Externalizable {
@@ -16,6 +18,7 @@ trait ClosureCompare extends Externalizable {
  }
 
  def canonicalize(f: Function[_,_]) = {
+  //println(f.toJson.prettyPrint)
   val s = new java.io.ByteArrayOutputStream()
   val o = new java.io.ObjectOutputStream(s)
   o.writeObject(f)

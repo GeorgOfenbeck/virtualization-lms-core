@@ -9,6 +9,9 @@ import scala.lms.targets.scalalike._
 
 trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VectorOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
 
+
+
+
   case class ISingle(s: Single, i: Rep[Int])
 
   case class Single(y: Rep[ComplexVector])
@@ -99,9 +102,47 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   def times(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Times(lhs, rhs)
 
+  case class Concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
+
+  def concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Concat(lhs,rhs)
+
   //case class SumLoop[T: TypeRep](till: Exp[Int], body: Exp[ComplexVector]) extends Def[ComplexVector]
 
   //def sumLoop[T: TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = IfThenElse(cond, thenp, elsep)
+
+  case class Filter[T](v: Rep[Vector[T]], body: Exp[_ => _]) extends Def[Vector[T]]
+
+  def filter[T:Manifest](v: Rep[Vector[T]],body: Rep[T] => Rep[Boolean])(implicit tupleexpose: ExposeRep[Rep[T]], singleexpose: ExposeRep[Rep[Boolean]]): Rep[Vector[T]] = {
+    val lambda = doInternalLambda(body, false, false)(tupleexpose, singleexpose)
+    val newsyms = singleexpose.freshExps()
+    val looptuple = tupleexpose.freshExps()
+    //val sumloopnode = SumFold(till, parallel, ini.y, loopvar, loopacc, lambda.exp)
+    val sumloopnode = Filter[T](v,lambda.exp)
+    val sumnodeexp = toAtom(sumloopnode)
+
+    /*val returnNodes = if (newsyms.size > 1) {
+      newsyms.zipWithIndex.map(fsym => {
+        //had do to this ugly version since the compile time type is not know at this stage (of the return - Rep[_])
+        val otp = exp2tp(fsym._1)
+        val tag: TypeRep[Any] = otp.tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(sumnodeexp, fsym._1, fsym._2, true, newsyms.size == fsym._2 + 1)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    } else {
+      newsyms.zipWithIndex.map(fsym => {
+        val tag: TypeRep[Any] = exp2tp(fsym._1).tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(sumnodeexp, fsym._1, fsym._2, false, true)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    }
+    val x1234 = singleexpose.vec2t(returnNodes)*/
+    //Arg[Vector[T]]
+    sumloopnode
+  }
+
+
 
   case class SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
@@ -150,7 +191,13 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
-
+      case OrderingGT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " > " + quote(rhs)))
+      case OrderingEquiv(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
+      case OrderingLT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " < " + quote(rhs)))
+      case VectorUpdate(vec, i: Exp[Int], y) => Vector(emitValDef(tp, "" + quote(vec) + ".updated(" + quote(i) + "," + quote(y) + ")"))
+      case VectorApply(vec,i) => Vector(emitValDef(tp, quote(vec) + "(" + quote(i) + ")"))
+      case Concat(lhs,rhs) => Vector(emitValDef(tp,src"$lhs ++ $rhs"))
+      case Until(start, end) => Vector(emitValDef(tp,src"$start until $end"))
       case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
       case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " false //put prime factor check here"))
       //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
@@ -208,6 +255,79 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
         }
         rets
       }
+
+      case Filter(v, body) => {
+        val bodylambda = exp2tp(body)
+        val rets: Vector[String] = bodylambda.rhs match {
+          case InternalLambda(tf, tx, ty, thot, targs, treturns) => Vector({
+            //val l1 = "val " + quote(tp) + " = ("+ quote(loopvar) + " <- 0 until "+ quote(till) + ").foldLeft(Vector.empty) {\n "
+            val helper = if (tx.size > 1) {
+              tx.zipWithIndex.map(a => {
+                val (tp, index) = a
+                val typ = remap(tp.tag.mf)
+                "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index, "", index == tx.size - 1)
+              }).mkString("\n")
+            } else {
+              //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+              "val " + quote(tx.head) + " : " + remap(tx.head.tag) + " = helper\n"
+            }
+            val argtuple = tupledeclarehelper(tx.map(a => remap(a.tag)), "")
+            val l1 = "val " + quote(tp) + " = (" + quote(v) + ").filter( (helper) => {\n \n"
+            val l10 = l1 + "\n" + helper + "\n"
+            val l2 = block_callback(ty, Vector(l10))
+            val trestuple: Vector[String] = ty.res.map(r => quote(r))
+            val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
+            val l4 = l3 + "\n})\n"
+            l4
+          })
+          case _ => {
+            assert(false, "got an SumLoop statment which does not contain a lambda")
+            Vector.empty
+          }
+        }
+        rets
+      }
+
+      case RangeFoldLeft(expose, r: Exp[Range], ini, loopvar: Exp[Int], loopacc, body) => {
+        val bodylambda = exp2tp(body)
+        val rets: Vector[String] = bodylambda.rhs match {
+          case InternalLambda(tf, tx, ty, thot, targs, treturns) => Vector({
+            //val l1 = "val " + quote(tp) + " = ("+ quote(loopvar) + " <- 0 until "+ quote(till) + ").foldLeft(Vector.empty) {\n "
+            val helper = if (tx.size > 1) {
+              tx.zipWithIndex.map(a => {
+                val (tp, index) = a
+                val typ = remap(tp.tag.mf)
+                "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index, "", index == tx.size - 1)
+              }).mkString("\n")
+            } else {
+              //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+              "val " + quote(tx.head) + " : " + remap(tx.head.tag) + " = helper\n"
+            }
+            val argtuple = tupledeclarehelper(tx.map(a => remap(a.tag)), "")
+            val iniexps = expose.t2vec(ini)
+            val l1 = if (iniexps.size > 1) {
+              if (iniexps.size > 2) ???
+              "val " + quote(tp) + " = (" + quote(r) + ").foldLeft( (" + iniexps.map( e => quote(e)).mkString(",") + ") )(\n  (acc,ele) => {\n val helper = (acc._1,acc._2,ele)\n"
+
+            } else "val " + quote(tp) + " = (" + quote(r) + ").foldLeft( (" + iniexps.map( e => quote(e)).mkString(",") + ") )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
+
+
+
+            val l10 = l1 + "\n" + helper + "\n"
+            val l2 = block_callback(ty, Vector(l10))
+            val trestuple: Vector[String] = ty.res.map(r => quote(r))
+            val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
+            val l4 = l3 + "\n})\n"
+            l4
+          })
+          case _ => {
+            assert(false, "got an SumLoop statment which does not contain a lambda")
+            Vector.empty
+          }
+        }
+        rets
+      }
+
 
 
 

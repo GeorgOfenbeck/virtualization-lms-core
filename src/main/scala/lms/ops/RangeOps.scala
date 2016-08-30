@@ -30,7 +30,7 @@ trait RangeOpsExp extends RangeOps with BaseExp with FunctionsExp{
 
   def range_create(start: Exp[Int], end: Exp[Int]): Exp[Range] = Until(start,end)
   
-  case class RangeFoldLeft[B](r: Exp[Range], ini: B, loopvar: Exp[Int], loopacc: B, body: Exp[_ => _]) extends Def[Any]
+  case class RangeFoldLeft[B](expose: ExposeRep[B], r: Exp[Range], ini: B, loopvar: Exp[Int], loopacc: B, body: Exp[_ => _]) extends Def[Any]
   def range_foldLeft[B](r: Exp[Range], ini: B, body: ((B,Exp[Int])) => B)(implicit exposeB: ExposeRep[B]): B = {
 
     val exposeTuple =  new ExposeRep[(B,Exp[Int])]() {
@@ -49,7 +49,7 @@ trait RangeOpsExp extends RangeOps with BaseExp with FunctionsExp{
     val newsyms = exposeB.freshExps()
     val looptuple = exposeTuple.freshExps()
     val (loopacc,loopvar) = exposeTuple.vec2t(looptuple)
-    val sumloopnode = RangeFoldLeft(r, ini, loopvar, loopacc, lambda.exp)
+    val sumloopnode = RangeFoldLeft(exposeB, r, ini, loopvar, loopacc, lambda.exp)
     val sumnodeexp = toAtom(sumloopnode)
 
     val returnNodes = if (newsyms.size > 1) {

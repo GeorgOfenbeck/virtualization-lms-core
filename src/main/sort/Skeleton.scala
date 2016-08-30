@@ -19,6 +19,13 @@ trait Skeleton extends Sort_DSL {
 
   implicit def sint2rep(x: SInt): Rep[Int] = x.toRep()
   implicit def int2sint(x: Int): SInt = SInt(x)
+
+  implicit def exposeSInt(sint: SInt): ExposeRep[SInt] = new ExposeRep[SInt]() {
+    val freshExps: Unit => Vector[Exp[_]] = (u: Unit) =>  sint.i.fold(fa => Vector(Arg[Int]), fb => Vector.empty)
+    val vec2t: Vector[Exp[_]] => SInt = (in: Vector[Exp[_]]) => sint.i.fold(fa => SInt(in.head.asInstanceOf[Rep[Int]]), fb=> sint)
+    val t2vec: SInt => Vector[Exp[_]] = (in: SInt) =>  in.i.fold(fa => Vector(fa), fb => Vector.empty)
+  }
+
   //implicit def repint2sint(x: Rep[Int]) = SInt(x)
 
   case class SInt(i: Either[Rep[Int], Int]) {
@@ -96,8 +103,17 @@ trait Skeleton extends Sort_DSL {
 
   case class SRange(r: Either[Rep[Range],Range]){
 
-    def foldLeft[B](ini: B)(body: ((B, SInt)) => B): B = {
-     r.fold(fa => range_foldLeft(fa,ini,body), fb => fb.foldLeft(ini)(body))
+    def foldLeft[B](ini: B)(body: ((B, SInt)) => B)(implicit exposeRep: ExposeRep[B]): B = {
+     r.fold(
+       fa => {
+         val f: ((B,Rep[Int])) => B = (tup: ((B,Rep[Int]))) => body((tup._1,SInt(tup._2)))
+         range_foldLeft(fa,ini,f)
+       },
+       fb => {
+        val f: (B,Int) => B = (b: B,i : Int) => body((b,SInt(i)))
+        fb.foldLeft(ini)(f)
+      }
+     )
     }
   }
 

@@ -14,6 +14,8 @@ libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _ % 
 
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _ % "compile")
 
+libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
+
 libraryDependencies ++= Seq(
   //"org.scalatest" %% "scalatest" % "2.2.5-M3" % "test"
   "org.scalatest" %% "scalatest" % "3.0.0" % "test" // cross CrossVersion.full"
