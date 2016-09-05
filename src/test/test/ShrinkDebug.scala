@@ -41,6 +41,34 @@ object ShrinkDebug extends org.scalacheck.Properties("MySpec2") {
   })
  }
 
+ def test: Unit ={
+
+  def plus(x: Int, y: Int) = {   x + y  }
+  def multi(x: Int, y: Int) = {   x * y  }
+  def multf(x: Int, y: Float) = {   x * y  }
+
+  def f(a: Int, b: Int, c: Float) = {
+   val int1 = plus(a,b)
+   val int2 = plus(a,b)
+   val float1 = multf(b,c)
+   val int3 = multi(int1,int2)
+   val float2 = multf(int2,float1)
+   (int3,float2)
+  }
+
+  def staged(x0: Int, x1: Int, x2: Float) = {
+   val x3 = plus(x0,x1)
+   val x4 = mult(x1,x2)
+   val x5 = mult(x3,x3)
+   val x6 = mult(x3,x4)
+   (x5,x6)
+  }
+
+ }
+
+
+}
+
 
 
 

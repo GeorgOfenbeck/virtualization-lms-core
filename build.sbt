@@ -4,7 +4,7 @@ version := "1.4"
 
 organization := "EPFL"
 
-scalaVersion := "2.12.0-M3"
+scalaVersion := "2.12.0-M5"
 
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
@@ -14,11 +14,15 @@ libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-library" % _ % 
 
 libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _ % "compile")
 
+libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
+
 libraryDependencies ++= Seq(
-  "org.scalatest" %% "scalatest" % "2.2.5-M3" % "test"
+  //"org.scalatest" %% "scalatest" % "2.2.5-M3" % "test"
+  "org.scalatest" %% "scalatest" % "3.0.0" % "test" // cross CrossVersion.full"
 )
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.0" % "test"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.2" % "test" // cross CrossVersion.full"
+
 
 // tests are not thread safe
 parallelExecution in Test := false
