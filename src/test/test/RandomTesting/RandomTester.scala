@@ -4,7 +4,7 @@ package RandomTesting
 import java.io.{PrintWriter, StringWriter}
 
 import org.scalacheck.Shrink
-
+import org.scalacheck._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 import scala.reflect.io.VirtualDirectory
@@ -20,6 +20,8 @@ trait RandomClass extends GenRandomOps with ScalaCompile {
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
   }
+
+
 
 
 

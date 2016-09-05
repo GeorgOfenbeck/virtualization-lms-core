@@ -110,6 +110,18 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   //def sumLoop[T: TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = IfThenElse(cond, thenp, elsep)
 
+  case class ChooseSort(size: Exp[Int]) extends Def[Int]
+
+  def choose_sort(size: Exp[Int]): Exp[Int] = ChooseSort(size)
+
+  case class Merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
+
+  def merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Merge(lhs,rhs)
+
+  case class Size[T](v: Rep[Vector[T]]) extends Def[Int]
+
+  def size[T](v: Rep[Vector[T]]): Rep[Int] = Size(v)
+
   case class Filter[T](v: Rep[Vector[T]], body: Exp[_ => _]) extends Def[Vector[T]]
 
   def filter[T:Manifest](v: Rep[Vector[T]],body: Rep[T] => Rep[Boolean])(implicit tupleexpose: ExposeRep[Rep[T]], singleexpose: ExposeRep[Rep[Boolean]]): Rep[Vector[T]] = {
@@ -191,6 +203,10 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case ChooseSort(size) => Vector(emitValDef(tp, " 1"))
+      case Merge(lhs, rhs) => Vector(emitValDef(tp, "Bla.merge(" + quote(lhs) + " , " + quote(rhs) + ")"))
+      case Size(lhs) => Vector(emitValDef(tp, quote(lhs) + ".size"))
+      case OrderingGTEQ(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " >= " + quote(rhs)))
       case OrderingGT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " > " + quote(rhs)))
       case OrderingEquiv(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
       case OrderingLT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " < " + quote(rhs)))
