@@ -106,6 +106,11 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   def concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Concat(lhs,rhs)
 
+  case class InserationCore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]) extends Def[Vector[T]]
+
+  def inserationcore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]): Exp[Vector[T]] = InserationCore(v,e)
+
+
   //case class SumLoop[T: TypeRep](till: Exp[Int], body: Exp[ComplexVector]) extends Def[ComplexVector]
 
   //def sumLoop[T: TypeRep](cond: Rep[Boolean], thenp: => Rep[T], elsep: => Rep[T])(implicit pos: SourceContext) = IfThenElse(cond, thenp, elsep)
@@ -113,6 +118,11 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
   case class ChooseSort(size: Exp[Int]) extends Def[Int]
 
   def choose_sort(size: Exp[Int]): Exp[Int] = ChooseSort(size)
+
+  case class ChooseBase(size: Exp[Int]) extends Def[Int]
+
+  def choose_base(size: Exp[Int]): Exp[Int] = ChooseBase(size)
+
 
   case class Merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
 
@@ -203,6 +213,8 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
+      case ChooseBase(size) => Vector(emitValDef(tp, " 0"))
       case ChooseSort(size) => Vector(emitValDef(tp, " 1"))
       case Merge(lhs, rhs) => Vector(emitValDef(tp, "Bla.merge(" + quote(lhs) + " , " + quote(rhs) + ")"))
       case Size(lhs) => Vector(emitValDef(tp, quote(lhs) + ".size"))

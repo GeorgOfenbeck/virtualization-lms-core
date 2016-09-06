@@ -28,7 +28,21 @@ trait Skeleton extends Sort_DSL {
 
   //implicit def repint2sint(x: Rep[Int]) = SInt(x)
 
+  case class SBool(i: Either[Rep[Boolean], Boolean])
+
   case class SInt(i: Either[Rep[Int], Int]) {
+
+    def <(that: SInt): SBool = {
+      val t: Either[Rep[Boolean], Boolean] = i.fold(fa => {
+        val r: Rep[Boolean] = that.i.fold(ifa => fa < ifa, ifb => fa < unit(ifb))
+        Left(r)
+      }, fb => {
+        val r: Either[Rep[Boolean], Boolean] = that.i.fold(ifa => Left(unit(fb) < ifa), ifb => Right(fb < ifb))
+        r
+      })
+      SBool(t)
+    }
+
     def +(that: SInt): SInt = {
       val t: Either[Rep[Int], Int] = i.fold(fa => {
         val r: Rep[Int] = that.i.fold(ifa => fa + ifa, ifb => fa + unit(ifb))
