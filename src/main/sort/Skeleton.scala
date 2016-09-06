@@ -1,6 +1,8 @@
 package sort
 
 
+import org.scala_lang.virtualized.SourceContext
+
 import scala.lms._
 import scala.lms.internal._
 import scala.lms.ops._
@@ -28,9 +30,32 @@ trait Skeleton extends Sort_DSL {
 
   //implicit def repint2sint(x: Rep[Int]) = SInt(x)
 
+  //def myifThenElse[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A =
+  def _if[A](cond: SBool, thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A =
+    cond.i.fold(fa => myifThenElse(fa,thenp,elsep) , fb => if(fb) thenp else elsep)
+
+
+  def choose_base(size: Int) = 0
+  def choose_base(size: SInt): SInt = size.i.fold(fa => SInt(choose_base(fa)), fb => choose_base(fb))
+
+  def choose_sort(size: Int) = 0
+  def choose_sort(size: SInt): SInt = size.i.fold(fa => SInt(choose_sort(fa)), fb => choose_sort(fb))
+
+
   case class SBool(i: Either[Rep[Boolean], Boolean])
 
   case class SInt(i: Either[Rep[Int], Int]) {
+
+    def ==(that: SInt): SBool = {
+      val t: Either[Rep[Boolean], Boolean] = i.fold(fa => {
+        val r: Rep[Boolean] = that.i.fold(ifa => fa equiv ifa, ifb => fa equiv unit(ifb))
+        Left(r)
+      }, fb => {
+        val r: Either[Rep[Boolean], Boolean] = that.i.fold(ifa => Left(unit(fb) equiv ifa), ifb => Right(fb == ifb))
+        r
+      })
+      SBool(t)
+    }
 
     def <(that: SInt): SBool = {
       val t: Either[Rep[Boolean], Boolean] = i.fold(fa => {
