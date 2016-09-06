@@ -238,3 +238,152 @@ class Core extends Skeleton {
   }
 
 }
+/*
+import org.scalacheck._
+import org.scalacheck.Properties
+import org.scalacheck.Prop.forAll
+import org.scalacheck.Gen._
+
+object Bla extends org.scalacheck.Properties("Sort") {
+
+  val genPosVector = containerOf[List,Int](Gen.posNum[Int])
+  val maxvalue = 2147483647
+  val buckets = 32
+
+  def maxd(cur: Int): Int = if (maxvalue / Math.pow(buckets,cur) > 1) maxd(cur + 1) else cur
+  val maxdiv = maxd(0)-1
+
+  //val maxdiv =   1000000000
+  property("startsWith") = forAll(genPosVector) { l =>
+    val v = l.toVector
+    val c = new testClass
+    val s = c(v, 0, v.length)
+    //val s2 = test(v,0,v.length)
+    val s3 = sortFunctional(v)
+    val s4 = msortfunctional(v)
+    val s5 = msd_radix_sort_head(v)
+    val s6 = inserationsort(v,0,v.length)
+    s3.corresponds(s) {
+      _ == _
+    } && s3.corresponds(s4) {
+      _ == _
+    }&& s3.corresponds(s6) {
+      _ == _
+    }
+
+  }
+
+  def merge(xs: Vector[Int], ys: Vector[Int]): Vector[Int] = {
+    if (xs.isEmpty) ys
+    else if (ys.isEmpty) xs
+    else {
+      (xs, ys) match {
+        case (x +: xs1, y +: ys1) =>
+          if (x > y)
+            x +: merge(xs1, ys)
+          else
+            y +: merge(xs, ys1)
+      }
+    }
+  }
+
+
+
+
+
+
+  def digitsplit(xs: Vector[Int], pos: Int): Vector[Vector[Int]] = {
+    val div:Int  = Math.pow(buckets,maxdiv-pos).toInt
+    val tmpstore = new Array[Vector[Int]](buckets)
+    for (i <- 0 until tmpstore.size) tmpstore(i) = Vector.empty
+    val t = xs.foldLeft(tmpstore){
+      (acc,ele) => {
+        val killright = (ele / div).toInt
+        val key = killright % buckets
+        tmpstore(key) = tmpstore(key) :+ ele
+        tmpstore
+      }
+    }
+    t.toVector
+
+  }
+
+  def msd_radix_sort(xs: Vector[Int], pos: Int): Vector[Int] = {
+    if (pos == maxdiv || xs.size < 2) xs
+    else {
+      val vlist = digitsplit(xs, pos)
+      vlist.flatMap(l => msd_radix_sort(l, pos + 1))
+    }
+  }
+
+
+  def msd_radix_sort_head(xs: Vector[Int]): Vector[Int] = msd_radix_sort(xs,0)
+
+
+  def msortfunctional(xs: Vector[Int]): Vector[Int] = {
+    val n = xs.length / 2
+    if (n == 0) xs
+    else {
+      val (ys, zs) = xs splitAt n
+      merge(msortfunctional(ys), msortfunctional(zs))
+    }
+  }
+
+
+  def sortFunctional(xs: Vector[Int]): Vector[Int] = {
+    if (xs.length <= 1) xs
+    else {
+      val pivot = xs(xs.length / 2)
+      val less = xs.filter(p => pivot > p)
+      val equal = xs.filter(p => pivot == p)
+      val greater = xs.filter(p => pivot < p)
+      sortFunctional(greater) ++ equal ++ sortFunctional(less)
+    }
+  }
+
+  def inserationsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {
+    if (start < end && (end - start) > 1) {
+      (start + 1 until end).foldLeft(v) {
+        (acc, ele) => {
+          val currele = acc(ele)
+          val (sorted, rest) = acc.splitAt(ele)
+
+          val bigger = sorted.takeWhile(p => p > currele)
+          val smaller = sorted.drop(bigger.size)
+
+          (bigger :+ rest.head) ++ smaller ++ rest.tail
+        }
+      }
+    } else {
+      v
+    }
+
+
+  }
+
+
+  def selectionsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {
+
+    (start until end).foldLeft(v) {
+      (acc, ele) => {
+        val swapele = acc(ele)
+        val (value, pos) = (ele until end).foldLeft((swapele, ele)) {
+          (acc2, k) => {
+            val (value, pos) = acc2
+            val currcheck = acc(k)
+            if (swapele < currcheck)
+              (currcheck, k)
+            else
+              (value, pos)
+          }
+        }
+        val bx = acc(pos)
+        val o1 = acc.updated(pos, swapele)
+        val o2 = o1.updated(ele, value)
+        o2
+      }
+    }
+  }
+
+}
+//bla! */
