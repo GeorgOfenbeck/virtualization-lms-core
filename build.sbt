@@ -4,7 +4,9 @@ version := "1.4"
 
 organization := "EPFL"
 
-scalaVersion := "2.12.0-M5"
+//scalaVersion := "2.12.0-M5"
+
+scalaVersion := "2.11.8"
 
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
@@ -23,6 +25,9 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.2" % "test" // cross CrossVersion.full"
 
+libraryDependencies += "org.scala-lang.modules" %% "spores-core" % "0.2.4"
+
+libraryDependencies += "org.scala-lang.modules" %% "spores-pickling" % "0.2.4"
 
 // tests are not thread safe
 parallelExecution in Test := false

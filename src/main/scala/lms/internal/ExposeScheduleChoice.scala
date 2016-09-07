@@ -137,7 +137,7 @@ trait ExposeScheduleChoice {
 
    val lambdas: Vector[(Int,cminfo.reifiedIR.IR.AbstractLambda[_,_])] = globals.flatMap(p => {
     val t: Vector[(Int,cminfo.reifiedIR.IR.AbstractLambda[_,_])] = p.rhs match {
-     case gl@cminfo.reifiedIR.IR.ExternalLambda(f,x,y,hot,args,returns,true) => {
+     case gl@cminfo.reifiedIR.IR.ExternalLambda(f,x,y,hot,args,returns,true, name) => {
       val w: (Int,cminfo.reifiedIR.IR.AbstractLambda[_,_]) = (p.sym.id,gl)
       Vector( w  )
      }

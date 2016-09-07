@@ -83,7 +83,7 @@ trait InstGraphVizExport {
     def emitNodeString(tp: cm.reifiedIR.IR.TP[_]): String = {
       val nodestring = tp.rhs match {
         case IR.ConstDef(x) =>  x
-        case IR.ExternalLambda(f, x, y, hot, args, returns,global) =>  "EntryF"
+        case IR.ExternalLambda(f, x, y, hot, args, returns,global,name) =>  "EntryF"
         case IR.InternalLambda(f, x, y, hot, a, r) => "InternalF"
         case IR.RangeMap(s, e, b) => "Range"
         case IR.myIfThenElse(c, t, e, b) => "IF"
@@ -144,7 +144,7 @@ trait InstGraphVizExport {
         b.res.map( res => "\"" + sym.id + "\" -> \"" + res.id + "\"[style=dotted]").mkString("\n")
       }
       val args: String = rhs match{
-        case IR.ExternalLambda(f, x, y, hot, args, returns,global) =>  x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
+        case IR.ExternalLambda(f, x, y, hot, args, returns,global,name) =>  x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
         case IR.InternalLambda(f, x, y, hot, a, r) => x.map(ele => "\"" + sym.id + "\" -> \"" + ele.sym.id + "\"[style=dotted]").mkString("\n")
         case _ => ""
       }

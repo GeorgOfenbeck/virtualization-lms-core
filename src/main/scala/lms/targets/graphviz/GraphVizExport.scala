@@ -36,7 +36,7 @@ trait GraphVizExport {
    val tp = cm.reifiedIR.id2tp(node.irdef)
    val nodestring = tp.rhs match {
     case IR.InternalLambda(f,x,y,hot,args,returns) => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + "InternalLambda - Args: " + x + "Ret:" + y.res + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
-    case IR.ExternalLambda(f,x,y,hot,args,returns,global) => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + "ExternalLambda - Args: " + x + "Ret:" + y.res + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
+    case IR.ExternalLambda(f,x,y,hot,args,returns,global,name) => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + "ExternalLambda - Args: " + x + "Ret:" + y.res + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
     case _ => tp.sym.id + " [label=" + quote(tp.sym.id + " \\n " + tp.rhs + "\\n" + tp.tag.mf.toString()) + "\n,shape=box]"
 
    }

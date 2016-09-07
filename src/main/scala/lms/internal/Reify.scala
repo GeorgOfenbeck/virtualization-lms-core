@@ -55,7 +55,7 @@ trait ReifyPure{
   //val tp = exp2tp(lambda)
   val lam: AbstractLambda[_,_] = lambdatp.rhs match{
    case x@InternalLambda(_,_,block,_,_,_) => x
-   case x@ExternalLambda(_,_,block,_,_,_,_) => x
+   case x@ExternalLambda(_,_,block,_,_,_,_,name) => x
    case _ => {
     assert(false, "This should not be possible")
     ???
@@ -112,7 +112,7 @@ trait Reify extends ReifyPure{
   //val tp = exp2tp(lambda)
   val lam: AbstractLambda[_,_] = lambdatp.rhs match{
    case x@InternalLambda(_,_,block,_,_,_) => x
-   case x@ExternalLambda(_,_,block,_,_,_,_) => x
+   case x@ExternalLambda(_,_,block,_,_,_,_,name) => x
    case _ => {
     assert(false, "This should not be possible")
     ???

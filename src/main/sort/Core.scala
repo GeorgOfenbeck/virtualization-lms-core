@@ -104,17 +104,17 @@ class Core extends Skeleton {
   }
 
 
-  def mf(expose: ExposeRep[DynSelectionHeader], innerf: => (DynSelectionHeader => Rep[Vector[Int]])): StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = {
+  def mf(expose: ExposeRep[DynSelectionHeader], innerf: => (DynSelectionHeader => Rep[Vector[Int]]),name: String): StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = {
     val f: (DynSelectionHeader => Rep[Vector[Int]]) = (wuf: DynSelectionHeader) => innerf(wuf)
     println(f)
-    val t: StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = doGlobalLambda(f, true)(expose, exposeRepFromRep[Vector[Int]])
+    val t: StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = doGlobalLambda(f, true,Some(name))(expose, exposeRepFromRep[Vector[Int]])
     t
   }
 
 
   def tmp(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
     val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
-      mf(exposeDynSelectionHeader(stat), sort(stat))(dyn)
+      mf(exposeDynSelectionHeader(stat), sort(stat), "sort")(dyn)
     }
     outer
   }
@@ -124,7 +124,12 @@ class Core extends Skeleton {
     val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
       val mix = SelectionHeader(stat, dyn)
       val size = mix.end - mix.start
-      //_if(SBool(Right(false)), {
+
+
+      val qs = mf(exposeDynSelectionHeader(stat), quicksort(stat), "quicksort")
+      qs(dyn)
+
+      /*
       _if(size < mix.basesize, {
         _if(choose_base(size) == SInt(1), {
           val ms = mf(exposeDynSelectionHeader(stat), mergesort(stat))
@@ -144,6 +149,9 @@ class Core extends Skeleton {
         }
         )
       })
+
+      */
+
       /*},
         _if(choose_base(size) == SInt(1), {
           val is = mf(exposeDynSelectionHeader(stat), inserationsort(stat))
@@ -220,13 +228,13 @@ class Core extends Skeleton {
       val statsless = sh1.getStatSkel()
       val lessexpose = exposeDynSelectionHeader(statsless)
       val dynless = sh1.getDynSelectionHeader()
-      val fless = mf(lessexpose, sort(statsless))
+      val fless = mf(lessexpose, sort(statsless), "sort")
       val sless = fless(dynless)
 
       val sh2 = SelectionHeader(greater, SInt(0), SInt(size(greater)), sh.basesize)
       val statgreater = sh2.getStatSkel()
       val greaterexpose = exposeDynSelectionHeader(statgreater)
-      val fgreater = mf(greaterexpose, sort(statgreater))
+      val fgreater = mf(greaterexpose, sort(statgreater), "sort")
       val dyngreater = sh2.getDynSelectionHeader()
       val sgreater = fgreater(dyngreater)
 
@@ -251,13 +259,13 @@ class Core extends Skeleton {
       val statsless = sh1.getStatSkel()
       val lessexpose = exposeDynSelectionHeader(statsless)
       val dynless = sh1.getDynSelectionHeader()
-      val fless = mf(lessexpose, sort(statsless))
+      val fless = mf(lessexpose, sort(statsless), "sort")
       val sless = fless(dynless)
 
       val sh2 = SelectionHeader(x, high_start, high_end, sh.basesize)
       val statgreater = sh2.getStatSkel()
       val greaterexpose = exposeDynSelectionHeader(statgreater)
-      val fgreater = mf(greaterexpose, sort(statgreater))
+      val fgreater = mf(greaterexpose, sort(statgreater), "sort")
       val dyngreater = sh2.getDynSelectionHeader()
       val sgreater = fgreater(dyngreater)
       merge(sless, sgreater)

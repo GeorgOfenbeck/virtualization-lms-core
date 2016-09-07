@@ -141,7 +141,7 @@ trait CodeMotion {
 
     def isglobal(tP: TP[_]): Boolean = {
       tp.rhs match {
-        case reifiedIR.IR.ExternalLambda(f, x, y, hot, args, returns, true) => true
+        case reifiedIR.IR.ExternalLambda(f, x, y, hot, args, returns, true, name) => true
         case _ => false
       }
     }
@@ -225,7 +225,7 @@ trait CodeMotion {
           val nlastcold = lastcold ++ {
             nodeblocks.map(b =>
               tp.rhs match {
-                case ExternalLambda(f, x, y, hot, args, returns,true) => {
+                case ExternalLambda(f, x, y, hot, args, returns,true, name) => {
                   (b -> nblock2level(b))
                 }
                 case _ => {
@@ -287,7 +287,7 @@ trait CodeMotion {
                 b.res.map(res => "\"" + prefix + sym.id + "\" -> \"" + prefix + res.id + "\"[style=dotted]").mkString("\n")
               }
               val args: String = rhs match {
-                case ir.ExternalLambda(f, x, y, hot, args, returns, global) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
+                case ir.ExternalLambda(f, x, y, hot, args, returns, global, name) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
                 case ir.InternalLambda(f, x, y, hot, a, r) => x.map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
                 case _ => ""
               }
@@ -320,7 +320,7 @@ trait CodeMotion {
                 b.res.filter(r => lmark.contains(r.id)).map(res => "\"" + prefix + sym.id + "\" -> \"" + prefix + res.id + "\"[style=dotted]").mkString("\n")
               }
               val args: String = rhs match {
-                case ir.ExternalLambda(f, x, y, hot, args, returns, global) => x.filter(p => lmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
+                case ir.ExternalLambda(f, x, y, hot, args, returns, global,name) => x.filter(p => lmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
                 case ir.InternalLambda(f, x, y, hot, a, r) => x.filter(p => lmark.contains(p.sym.id)).map(ele => "\"" + prefix + sym.id + "\" -> \"" + prefix + ele.sym.id + "\"[style=dotted]").mkString("\n")
                 case _ => ""
               }
@@ -415,7 +415,7 @@ trait CodeMotion {
             def emitNodeString(tp: ir.TP[_]): String = {
               val nodestring: String = tp.rhs match {
                 case ir.ConstDef(x) => x.toString
-                case ir.ExternalLambda(f, x, y, hot, args, returns, globalf) => "EntryF"
+                case ir.ExternalLambda(f, x, y, hot, args, returns, globalf,name) => "EntryF"
                 case ir.InternalLambda(f, x, y, hot, a, r) => "InternalF"
                 //case ir.RangeMap(s, e, b) => "Range"
                 case ir.myIfThenElse(c, t, e, b) => "IF"

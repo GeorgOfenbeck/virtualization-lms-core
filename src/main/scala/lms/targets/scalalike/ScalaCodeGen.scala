@@ -179,7 +179,7 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
 
   override def emitNode(tp: self.IR.TP[_], acc: Vector[String],
                block_callback: (self.IR.Block,Vector[String]) => Vector[String]): Vector[String] = tp.rhs match {
-    case IR.ExternalLambda(f,x,y,hot,args,returns,global) => {
+    case IR.ExternalLambda(f,x,y,hot,args,returns,global,name) => {
       val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
       val restuple: Vector[String] = y.res.map(r => quote(r))
       val helper = if (x.size > 1) {
@@ -221,8 +221,8 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         res
       }
       else {
-           val t1 = "def " + quote(tp) + ": " +
-          "("+ argtuple +") => (" + returntuple + ") = " +
+           val t1 = "def " + name.map(_ + "_").getOrElse("") + quote(tp) + ": " +
+          "("+ argtuple +") => (" + returntuple + ") = \n" +
            "(helper: ("+ argtuple+")) =>{\n" + helper + "\n"
           val t2: Vector[String] = block_callback(y,Vector(t1))
           val t3 =   "\n "+ tupledeclarehelper(restuple,"") +  "\n" + "}\n"
@@ -232,9 +232,9 @@ trait EmitHeadInternalFunctionAsClass extends ScalaCodegen {
         //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
       }
     }
-    case IR.InternalApply(f,arg) => Vector( {
+    case IR.InternalApply(f,arg,name) => Vector( {
       //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
-      emitValDef(tp, " " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
+      emitValDef(tp, " " + name.map(_ + "_").getOrElse("") + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
     } )
     case IR.ReturnArg(f,sym,posx,tuple,last) => Vector({
       /*tp.tag match {
