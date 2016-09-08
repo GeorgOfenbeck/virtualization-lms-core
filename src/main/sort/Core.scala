@@ -8,6 +8,15 @@ import scala.lms.internal._
 import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
+import scala.spores._
+import scala.pickling._
+import scala.pickling.Defaults._
+import scala.pickling._
+import scala.pickling.json._
+import SporePicklers._
+
+
+
 
 
 class ComplexVector
@@ -106,7 +115,6 @@ class Core extends Skeleton {
 
   def mf(expose: ExposeRep[DynSelectionHeader], innerf: => (DynSelectionHeader => Rep[Vector[Int]]),name: String): StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = {
     val f: (DynSelectionHeader => Rep[Vector[Int]]) = (wuf: DynSelectionHeader) => innerf(wuf)
-    println(f)
     val t: StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = doGlobalLambda(f, true,Some(name))(expose, exposeRepFromRep[Vector[Int]])
     t
   }
@@ -120,7 +128,32 @@ class Core extends Skeleton {
   }
 
 
+
+
+  def check(statx: StatSelectionHeader): Spore[DynSelectionHeader,Rep[Vector[Int]]] = {
+    /*spore {
+      val stat = statx
+      (dyn: DynSelectionHeader) => {
+        val sh = SelectionHeader(stat, dyn)
+        myifThenElse(size(sh.x) > Const(1), {
+          sh.x
+        }, {
+          val s1 = sh.start + SInt(1)
+          (sh.start until sh.end).foldLeft(sh.x) {
+            case (acc, ele) => inserationcore(acc, ele)
+          }
+        })
+      }
+    }*/
+    ???
+  }
+
+
+
+
+
   def sort(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
+
     val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
       val mix = SelectionHeader(stat, dyn)
       val size = mix.end - mix.start
@@ -287,6 +320,8 @@ class Core extends Skeleton {
         }
       })
     }
+    val x = outer.asInstanceOf[Object]
+    println(x.pickle.value)
     outer
   }
 
@@ -338,6 +373,22 @@ class Core extends Skeleton {
     stream2.println("\n}\n")
     stream2.flush()
     stream2.close()
+
+
+/*
+    val s = spore {
+      val sortf = sort(ini)
+      (dyn: DynSelectionHeader) => sortf(dyn)
+    }
+
+    println(s.pickle.value) */
+    val f = sort(ini)
+
+
+
+    println(f.pickle.value)
+    //println(check.pickle.value)
+    inserationsort(ini)
   }
 
 }

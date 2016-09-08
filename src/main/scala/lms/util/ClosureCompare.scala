@@ -4,6 +4,11 @@ package util
 import spray.json._
 import DefaultJsonProtocol._ // if you don't supply your own Protocol (see below)
 import java.io._
+import scala.pickling._
+import scala.pickling.Defaults._
+import scala.pickling._
+import scala.pickling.json._
+
 
 trait ClosureCompare extends Externalizable {
 
@@ -17,7 +22,8 @@ trait ClosureCompare extends Externalizable {
   throw new NotSerializableException("this is just a mock-up!")
  }
 
- def canonicalize(f: Function[_,_]) = {
+ def canonicalize[A,R](f: Function[A,R]) = {
+   //println(f.pickle.value)
   //println(f.toJson.prettyPrint)
   val s = new java.io.ByteArrayOutputStream()
   val o = new java.io.ObjectOutputStream(s)
