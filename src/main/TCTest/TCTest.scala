@@ -55,18 +55,62 @@ class DSL extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEls
   case class Header[R[_]: IRep](dyn: Exp[Int], maybe: R[Int])
   {
 
+
+  }
+
+
+
+
+  class Static(val a: Option[Int], val b: Option[Int])
+  class Dynamic(val a: Option[Rep[Int]], val b: Option[Rep[Int]])
+  class Mix(val a: Either [Rep[Int], Int], val b: Either[Rep[Int], Int])
+  {
+    def getStat(): Static = new Static(a.fold(fa => None, fb => Some(fb)),b.fold(fa => None, fb => Some(fb)))
+
+
+  }
+
+
+  /*
+  class Static(val a: NoRep[Int], val b: NoRep[Int])
+  {
+   Option
+  }
+
+  class Mix[A[_],B[_]](val a: A[Int], val b: B[Int])
+                      (implicit val ar: IRep[A], br: IRep[B])
+  {
+    def getStatic() = {
+
+    }
+  }*/
+
+
+
+  def mix(s: Static, d: Dynamic): Mix = ???
+
+  def genf(s: Static): StagedFunction[Dynamic, Rep[Int]] = {
+    val expdyn: ExposeRep[Dynamic] = ???
+    val exprepint = exposeRepFromRep[Int]
+
+    def getdyn(s: Static) = ???
+
+    val f: (Dynamic => Rep[Int]) = (d: Dynamic) => {
+
+      val m = mix(s,d)
+      val recurse = genf(s)
+      val ret = recurse(d)
+      ret
+    }
+    val sf: StagedFunction[Dynamic, Rep[Int]] = doGlobalLambda(f,false)(expdyn,exprepint)
+    sf
   }
 
 
 
 
 
-
-
-
-
-
-  def bla[R[_]: IRep](static: Int, maybe: R[Int])(implicit irep: IRep[R]): StagedFunction[R[Int],R[Int]]  = {
+/*  def bla[R[_]: IRep](static: Int, maybe: R[Int])(implicit irep: IRep[R]): StagedFunction[R[Int],R[Int]]  = {
 
     val f: DynHeader => Rep[Int] = (in: Rep[Int]) => {
       if (i > 0) {
@@ -76,7 +120,7 @@ class DSL extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEls
       else in
     }
     doGlobalLambda(f,false,Some("f" + i.toString()))
-  }
+  }*/
 
   def returnf(i: Int): StagedFunction[Rep[Int],Rep[Int]] = {
     val f: Rep[Int] => Rep[Int] = (in: Rep[Int]) => {
