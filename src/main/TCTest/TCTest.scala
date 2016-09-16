@@ -87,6 +87,10 @@ class DSL extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEls
 
 
 
+
+
+
+
   def mix(s: Static, d: Dynamic): Mix = ???
 
   def genf(s: Static): StagedFunction[Dynamic, Rep[Int]] = {
