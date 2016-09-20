@@ -40,7 +40,18 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
   protected abstract class NumericRepOps[T:Manifest:Numeric] extends NumericOps[Rep[T]]  {
     def plus  (x : Rep[T], y: Rep[T]) = ??? ///numeric_plus [T](x, y)
     def minus (x : Rep[T], y: Rep[T]) = ??? //numeric_minus[T](x, y)
-    def times (x : Rep[T], y: Rep[T]) = ??? //numeric_times[T](x, y)
+    //def times (x : Rep[Int], y: Rep[Int]) = int_times(x,y) //numeric_times[T](x, y)
+    def times (x : Rep[T], y: Rep[T]) = {
+      lazy val m = implicitly[Manifest[T]]
+      m.toString() match {
+        case "Int" => {
+          val r: Rep[Int] = int_times(x.asInstanceOf[Rep[Int]],y.asInstanceOf[Rep[Int]])
+          r.asInstanceOf[Rep[T]]
+        }
+        case _ => ???
+      }
+
+    } //numeric_times[T](x, y)
   }
   implicit object IntRep extends NumericRepOps[Int]
 
@@ -61,6 +72,13 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def getNoRep[A](x: T[A]): Option[A]
     def fresh[A: TypeRep](): Vector[Rep[_]]
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[T[A]])
+
+    def convert[A[_],X](me: T[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X])
+    def convert[X](me: T[X], that: NoRep[X]): (T[X],T[X])
+    def convert[X](me: T[X], that: Rep[X]): (T[X],T[X])
+
+
+
     //def push[A: TypeRep](x: T[A]): Vector[Rep[_]]
   }
   implicit object isRep extends IRep[Rep] {
@@ -69,6 +87,12 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def getNoRep[A](x: Rep[A]): Option[A] = None
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector(Arg[A])
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Some[Rep[A]]) = (x.tail,Some(x.head.asInstanceOf[Rep[A]]))
+
+    def convert[A[_],X](me: Rep[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X]) = evthat.convert[X](that,me)
+    def convert[X](me: Rep[X], that: NoRep[X]): (Rep[X],Rep[X]) = (me, Const(that))
+    def convert[X](me: Rep[X], that: Rep[X]): (Rep[X],Rep[X]) = (me, that)
+
+
     //def push[A: TypeRep](x: Rep[A]): Vector[Rep[_]] = Vector(x)
   }
   implicit object noRep extends IRep[NoRep] {
@@ -78,9 +102,21 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector.empty
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[NoRep[A]]) = (x,None)
     //def push[A: TypeRep](x: NoRep[A]): Vector[Rep[_]] = Vector.empty
+
+    def convert[A[_],X](me: NoRep[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X]) = evthat.convert[X](that,me)
+    def convert[X](me: NoRep[X], that: NoRep[X]): (NoRep[X],NoRep[X]) = (me, that)
+    def convert[X](me: NoRep[X], that: Rep[X]): (Rep[X],Rep[X]) = (Const(me), that)
   }
 
 
+
+  abstract class Base[RA[_], RB[_]](a: RA[Int], b: RB[Int])
+  trait isDynamic
+  class Dyn[RA[_],RB[_]](a: RA[Int],b: RB[Int]) extends Base[RA,RB](a,b) with isDynamic
+  trait isStatic
+  class Static[RA[_],RB[_]](a: RA[Int],b: RB[Int]) extends Base[RA,RB](a,b) with isStatic
+
+  class Full[RA[_],RB[_]](a: RA[Int],b: RB[Int]) extends Base[RA,RB](a,b) with isStatic with isDynamic
 
 
 
@@ -97,6 +133,10 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def b(): Option[RB[Int]] = if(!evb.isRep()) Some(b) else None
   }
   class Mix[RA[_],RB[_]](val a: RA[Int], val b: RB[Int], val eva: IRep[RA], val evb: IRep[RB]) extends Header[RA,RB](a,b)(eva, evb)
+  {
+    def getStat(): StatHeader[RA,RB] = new StatHeader[RA,RB](a,b,eva,evb)
+    def getDyn(): DynHeader[RA,RB] = new DynHeader[RA,RB](a,b,eva,evb)
+  }
 
   object Mix{
     private def choose[A[_], T](a: Option[A[T]], b: Option[A[T]], ev: IRep[A]): A[T] = {
@@ -137,36 +177,44 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
                         evb: IRep[RB],
                         gnuma: NumericOps[RA[Int]],
                         gnumb: NumericOps[RB[Int]]
-                       ):
-  StagedFunction[DynHeader[RA,RB], Rep[Int]]= {
+                       ): StagedFunction[DynHeader[RA,RB], Rep[Int]]= {
+
     val expdyn: ExposeRep[DynHeader[RA,RB]] = exposeDynHeader(hs)
     val exprepint = exposeRepFromRep[Int]
 
     def stageme(hd: DynHeader[RA,RB]): Rep[Int] = {
-      /*implicit def infixNumericOps[T[_]](x: T[Int])(implicit num: GNumeric[T]): GNumeric[T]#Ops = new num.Ops(x)
-      import gnuma._
-      import gnumb._*/
-
-
       val mix: Mix[RA,RB] = Mix.apply[RA,RB](hs,hd)
       val a = gnuma.times(mix.a,mix.a)
       val b = gnumb.times(mix.b,mix.b)
 
       // split again here!
-
-      val sf = genf()
-
-
+      val newmix = new Mix(a,b, mix.eva, mix.evb)
+      val newstat = newmix.getStat()
+      val newdyn = newmix.getDyn()
+      val sf = genf(newstat)
+      sf(newdyn)
     }
 
-    val sf: StagedFunction[DynHeader[RA,RB], Rep[Int]] = doGlobalLambda(stageme,false)(expdyn,exprepint)
+    val sf: StagedFunction[DynHeader[RA,RB], Rep[Int]] = doGlobalLambda(stageme,true)(expdyn,exprepint)
     sf
 
 
   }
 
+
+
+
+
+  def bla[RA[_],RB[_]](a: RA[Int], b: RB[Int])(implicit ea: IRep[RA], eb: IRep[RB]): (RB[Int], RB[Int]) = {
+    val (na,nb) = ea.convert(a,b)
+    (na,nb)
+  }
+
+
   def start(i: Rep[Int]):Rep[Int] = {
-    val s: StatHeader[Rep,NoRep]  = ???
+    val mix = new Mix(i,i,isRep,isRep)
+    val s = mix.getStat()
+    //val s: StatHeader[Rep,NoRep]  = ???
     val sf = genf(s)
     println(sf)
     i
