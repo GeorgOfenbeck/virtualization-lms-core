@@ -8,20 +8,6 @@ import scala.lms.internal._
 import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
-import scala.spores._
-import scala.pickling._
-import scala.pickling.Defaults._
-import scala.pickling._
-import scala.pickling.json._
-import SporePicklers._
-
-
-
-
-
-class ComplexVector
-
-class Complex
 
 class Core extends Skeleton {
   self =>
@@ -33,70 +19,77 @@ class Core extends Skeleton {
   }
 
 
-  object SelectionHeader {
-    def apply(s: StatSelectionHeader, d: DynSelectionHeader): SelectionHeader = {
-      val na = (s.start, d.start) match {
-        case (None, Some(r)) => SInt(r)
-        case (Some(i), None) => SInt(i)
-        case _ => ???
-      }
-      val nl = (s.end, d.end) match {
-        case (None, Some(r)) => SInt(r)
-        case (Some(i), None) => SInt(i)
-        case _ => ???
-      }
-      val nbs = (s.basesize, d.basesize) match {
-        case (None, Some(r)) => SInt(r)
-        case (Some(i), None) => SInt(i)
-        case _ => ???
-      }
-      SelectionHeader(d.x, na, nl, nbs)
+  trait RepSelector {
+    val rrep: Boolean
+
+    def repselect[A[_], T](a: A[T], ev: IRep[A]): Option[A[T]] =
+      if (rrep) {
+        if (ev.isRep()) Some(a) else None
+      } else if (!ev.isRep()) None else Some(a)
+  }
+
+  trait DynSelector {
+    val rrep: Boolean = true
+  }
+
+  trait StatSelector {
+    val rrep: Boolean = false
+  }
+
+  abstract class Base[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int],
+                                        eva: IRep[A], evb: IRep[B], evc: IRep[C])
+
+  class SortHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int],
+                                     eva: IRep[A], evb: IRep[B], evc: IRep[C])
+    extends Base(start, end, basesize, eva, evb, evc) with RepSelector {
+    def start(): Option[A[Int]] = repselect(start, eva)
+
+    def end(): Option[B[Int]] = repselect(end, evb)
+
+    def basesize(): Option[C[Int]] = repselect(basesize, evc)
+  }
+
+
+  class DynHeader[A[_], B[_], C[_]](val x: Rep[Vector[Int]], start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends SortHeader(start, end, basesize, eva, evb, evc) with DynSelector
+
+  class StatHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends SortHeader(start, end, basesize, eva, evb, evc) with StatSelector
+
+  class MixSortHeader[A[_], B[_], C[_]](val start: A[Int], val end: B[Int], val basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends Base(start, end, basesize, eva, evb, evc)
+
+  object MixSortHeader {
+    private def choose[A[_], T](a: Option[A[T]], b: Option[A[T]], ev: IRep[A]): A[T] = if (ev.isRep()) b.get else a.get
+
+    def apply[RA[_], RB[_], RC[_]](hs: StatHeader[RA, RB, RC], hd: DynHeader[RA, RB, RC]): MixSortHeader[RA, RB, RC] = {
+      val a: RA[Int] = choose(hs.start(), hd.start(), hs.eva)
+      val b: RB[Int] = choose(hs.end(), hd.end(), hs.evb)
+      val c: RC[Int] = choose(hs.basesize(), hd.basesize(), hs.evc)
+      new MixSortHeader[RA, RB, RC](a, b, c, hs.eva, hs.evb, hs.evc)
     }
   }
 
-  case class SelectionHeader(x: Rep[Vector[Int]], start: SInt, end: SInt, basesize: SInt) {
-    def getDynSelectionHeader() = {
-      val ostart: Option[Rep[Int]] = start.i.fold(fa => Some(fa), fb => None)
-      val oend: Option[Rep[Int]] = end.i.fold(fa => Some(fa), fb => None)
-      val obasesize: Option[Rep[Int]] = basesize.i.fold(fa => Some(fa), fb => None)
-      DynSelectionHeader(x, ostart, oend, obasesize)
-    }
 
-    def getStatSkel() = {
-      val ostart: Option[Int] = start.i.fold(fa => None, fb => Some(fb))
-      val oend: Option[Int] = end.i.fold(fa => None, fb => Some(fb))
-      val obasesize: Option[Int] = basesize.i.fold(fa => None, fb => Some(fb))
-      StatSelectionHeader(ostart, oend, obasesize)
-    }
-  }
+  implicit def exposeDynHeader[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): ExposeRep[DynHeader[A, B, C]] =
+    new ExposeRep[DynHeader[A, B, C]]() {
 
-  case class DynSelectionHeader(x: Rep[Vector[Int]], start: Option[Rep[Int]], end: Option[Rep[Int]], basesize: Option[Rep[Int]])
-
-  case class StatSelectionHeader(start: Option[Int], end: Option[Int], basesize: Option[Int])
-
-  implicit def exposeDynSelectionHeader(stat: StatSelectionHeader): ExposeRep[DynSelectionHeader] =
-    new ExposeRep[DynSelectionHeader]() {
-
-      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-        val fs = if (stat.start.isEmpty) Vector(Arg[Int]) else Vector.empty
-        val fe = if (stat.end.isEmpty) Vector(Arg[Int]) else Vector.empty
-        val fbs = if (stat.basesize.isEmpty) Vector(Arg[Int]) else Vector.empty
-        Vector(Arg[Vector[Int]]) ++ fs ++ fe ++ fbs
-      }
-      val vec2t: Vector[Exp[_]] => DynSelectionHeader = (in: Vector[Exp[_]]) => {
+      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => Vector(Arg[Vector[Int]]) ++ stat.eva.fresh() ++ stat.evb.fresh() ++ stat.evc.fresh()
+      val vec2t: Vector[Exp[_]] => DynHeader[A, B, C] = (in: Vector[Exp[_]]) => {
+        def help[T[_], A: TypeRep](in: Vector[Rep[_]], statele: Option[T[A]], ev: IRep[T]): (Vector[Rep[_]], T[A]) = {
+          val (vecafter, ele) = ev.fetch[A](in)
+          val res: T[A] = ele.getOrElse(statele.get)
+          (vecafter, res)
+        }
         val x = in.head.asInstanceOf[Rep[Vector[Int]]]
-
-        val (ostart, outstart) = if (stat.start.isEmpty) (Some(in.tail.head.asInstanceOf[Rep[Int]]), in.tail.tail) else (None, in.tail)
-        val (oend, outend) = if (stat.end.isEmpty) (Some(outstart.head.asInstanceOf[Rep[Int]]), outstart.tail) else (None, outstart)
-        val (obs, outbs) = if (stat.basesize.isEmpty) (Some(outend.head.asInstanceOf[Rep[Int]]), outend.tail) else (None, outend)
-        DynSelectionHeader(x, ostart, oend, obs)
+        val (ostart, outstart) = help(in.tail, stat.start(), stat.eva)
+        val (oend, outend) = help(ostart, stat.end(), stat.evb)
+        val (obs, outbs) = help(oend, stat.basesize(), stat.evc)
+        new DynHeader[A, B, C](x, outstart, outend, outbs,stat.eva,stat.evb, stat.evc )
       }
 
-      val t2vec: DynSelectionHeader => Vector[Exp[_]] = (in: DynSelectionHeader) => {
-        val vstart = in.start.map(p => Vector(p)).getOrElse(Vector.empty)
-        val vend = in.end.map(p => Vector(p)).getOrElse(Vector.empty)
-        val vbs = in.basesize.map(p => Vector(p)).getOrElse(Vector.empty)
-        Vector(in.x) ++ vstart ++ vend ++ vbs
+      val t2vec: DynHeader[A, B, C] => Vector[Exp[_]] = (in: DynHeader[A, B, C]) => {
+        def help[T[_], A](ele: Option[T[A]], ev: IRep[T]): Vector[Exp[_]] = {
+          ele.map(p => ev.getRep(p).map(o => Vector(o)).getOrElse(Vector.empty)).getOrElse(Vector.empty)
+        }
+        Vector(in.x) ++ help(in.start(),in.eva) ++ help(in.end(),in.evb) ++ help(in.basesize(), in.evc)
       }
 
     }
@@ -113,48 +106,9 @@ class Core extends Skeleton {
   }
 
 
-  def mf(expose: ExposeRep[DynSelectionHeader], innerf: => (DynSelectionHeader => Rep[Vector[Int]]),name: String): StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = {
-    val f: (DynSelectionHeader => Rep[Vector[Int]]) = (wuf: DynSelectionHeader) => innerf(wuf)
-    val t: StagedFunction[DynSelectionHeader, Rep[Vector[Int]]] = doGlobalLambda(f, true,Some(name))(expose, exposeRepFromRep[Vector[Int]])
-    t
-  }
-
-
-  def tmp(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
-    val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
-      mf(exposeDynSelectionHeader(stat), sort(stat), "sort")(dyn)
-    }
-    outer
-  }
-
-
-
-
-  def check(statx: StatSelectionHeader): Spore[DynSelectionHeader,Rep[Vector[Int]]] = {
-    /*spore {
-      val stat = statx
-      (dyn: DynSelectionHeader) => {
-        val sh = SelectionHeader(stat, dyn)
-        myifThenElse(size(sh.x) > Const(1), {
-          sh.x
-        }, {
-          val s1 = sh.start + SInt(1)
-          (sh.start until sh.end).foldLeft(sh.x) {
-            case (acc, ele) => inserationcore(acc, ele)
-          }
-        })
-      }
-    }*/
-    ???
-  }
-
-
-
-
-
-  def sort(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
-
-    val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
+  /*
+  def sort[A[_],B[_],C[_]](stat: StatHeader[A,B,C]): StagedFunction[DynHeader[A,B,C],Rep[Vector[Int]]] = {
+    val stageme: (DynHeader[A,B,C] => Rep[Vector[Int]]) = (dyn: DynHeader[A,B,C]) => {
       val mix = SelectionHeader(stat, dyn)
       val size = mix.end - mix.start
 
@@ -351,44 +305,28 @@ class Core extends Skeleton {
     }
     outer
   }
-
+*/
 
   def f(x: Rep[Int]): Rep[Int] = x
 
   def graphvizexport() = {
-    val ini: StatSelectionHeader = StatSelectionHeader(None, None, None)
-    val (code, cm) = emitGraph.emitDepGraphf(sort(ini))(exposeDynSelectionHeader(ini), exposeRepFromRep[Vector[Int]])
+    //val ini: StatSelectionHeader = StatSelectionHeader(None, None, None)
+    //val (code, cm) = emitGraph.emitDepGraphf(sort(ini))(exposeDynSelectionHeader(ini), exposeRepFromRep[Vector[Int]])
     val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DFT_recursion_step.dot"))
-    stream.println(code)
+    //stream.println(code)
     stream.flush()
     stream.close()
   }
 
   def codeexport() = {
-    val ini: StatSelectionHeader = StatSelectionHeader(None, None, None)
+    //val ini: StatSelectionHeader = StatSelectionHeader(None, None, None)
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
     stream2.println("import org.scalacheck._\nimport org.scalacheck.Properties\nimport org.scalacheck.Prop.forAll\nimport org.scalacheck.Gen._\n\nobject Bla extends org.scalacheck.Properties(\"Sort\") {\n\n  val genPosVector = containerOf[List,Int](Gen.posNum[Int])\n  val maxvalue = 2147483647\n  val buckets = 32\n\n  def maxd(cur: Int): Int = if (maxvalue / Math.pow(buckets,cur) > 1) maxd(cur + 1) else cur\n  val maxdiv = maxd(0)\n\n  //val maxdiv =   1000000000\n  property(\"startsWith\") = forAll(genPosVector) { l =>\n    val v = l.toVector\n    val c = new testClass\n    val s = c(v, 0, v.length, 16)\n    //val s2 = test(v,0,v.length)\n    val s3 = sortFunctional(v)\n    val s4 = msortfunctional(v)\n    val s5 = msd_radix_sort_head(v)\n    s3.corresponds(s) {\n      _ == _\n    } && s3.corresponds(s4) {\n      _ == _\n    }&& s3.corresponds(s5) {\n      _ == _\n    }\n\n  }\n\n  def merge(xs: Vector[Int], ys: Vector[Int]): Vector[Int] = {\n    if (xs.isEmpty) ys\n    else if (ys.isEmpty) xs\n    else {\n      (xs, ys) match {\n        case (x +: xs1, y +: ys1) =>\n          if (x > y)\n            x +: merge(xs1, ys)\n          else\n            y +: merge(xs, ys1)\n      }\n    }\n  }\n\n\n\n\n\n\n  def digitsplit(xs: Vector[Int], pos: Int): Vector[Vector[Int]] = {\n    val div:Int  = Math.pow(buckets,maxdiv-1-pos).toInt\n    val tmpstore = new Array[Vector[Int]](buckets)\n    for (i <- 0 until tmpstore.size) tmpstore(i) = Vector.empty\n    val t = xs.foldLeft(tmpstore){\n      (acc,ele) => {\n        val killright = (ele / div).toInt\n        val key = killright % buckets\n        tmpstore(key) = tmpstore(key) :+ ele\n        tmpstore\n      }\n    }\n    t.reverse.toVector\n\n  }\n\n  def msd_radix_sort(xs: Vector[Int], pos: Int): Vector[Int] = {\n    if (pos == maxdiv || xs.size < 2) xs\n    else {\n      val vlist = digitsplit(xs, pos)\n      val plus1 = pos + 1\n      vlist.flatMap(l => msd_radix_sort(l, plus1))\n    }\n  }\n\n\n  def msd_radix_sort_head(xs: Vector[Int]): Vector[Int] = msd_radix_sort(xs,0)\n\n\n  def msortfunctional(xs: Vector[Int]): Vector[Int] = {\n    val n = xs.length / 2\n    if (n == 0) xs\n    else {\n      val (ys, zs) = xs splitAt n\n      merge(msortfunctional(ys), msortfunctional(zs))\n    }\n  }\n\n\n  def sortFunctional(xs: Vector[Int]): Vector[Int] = {\n    if (xs.length <= 1) xs\n    else {\n      val pivot = xs(xs.length / 2)\n      val less = xs.filter(p => pivot > p)\n      val equal = xs.filter(p => pivot == p)\n      val greater = xs.filter(p => pivot < p)\n      sortFunctional(greater) ++ equal ++ sortFunctional(less)\n    }\n  }\n\n\n  def insertioncore(acc: Vector[Int], ele: Int): Vector[Int] = {\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => p > currele)\n    val smaller = sorted.drop(bigger.size)\n    (bigger :+ rest.head) ++ smaller ++ rest.tail\n  }\n\n  def inserationsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n    if (start < end && (end - start) > 1) {\n      (start + 1 until end).foldLeft(v) {\n        (acc, ele) => insertioncore(acc,ele)\n      }\n    } else {\n      v\n    }\n\n\n  }\n\n\n  def selectionsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n\n    (start until end).foldLeft(v) {\n      (acc, ele) => {\n        val swapele = acc(ele)\n        val (value, pos) = (ele until end).foldLeft((swapele, ele)) {\n          (acc2, k) => {\n            val (value, pos) = acc2\n            val currcheck = acc(k)\n            if (swapele < currcheck)\n              (currcheck, k)\n            else\n              (value, pos)\n          }\n        }\n        val bx = acc(pos)\n        val o1 = acc.updated(pos, swapele)\n        val o2 = o1.updated(ele, value)\n        o2\n      }\n    }\n  }\n\n}")
-    val esc = codegen.emitSource(tmp(ini), "testClass", stream2)(exposeDynSelectionHeader(ini), exposeRepFromRep[Vector[Int]])
+    //val esc = codegen.emitSource(tmp(ini), "testClass", stream2)(exposeDynSelectionHeader(ini), exposeRepFromRep[Vector[Int]])
     //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
     stream2.println("\n}\n")
     stream2.flush()
     stream2.close()
-
-
-/*
-    val s = spore {
-      val sortf = sort(ini)
-      (dyn: DynSelectionHeader) => sortf(dyn)
-    }
-
-    println(s.pickle.value) */
-    val f = sort(ini)
-
-
-
-    println(f.pickle.value)
-    //println(check.pickle.value)
-    inserationsort(ini)
   }
 
 }

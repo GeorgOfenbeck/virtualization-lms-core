@@ -16,7 +16,8 @@ trait ExposeRepBase extends Expressions {
 
 trait Functions extends Base with ExposeRepBase {
 
-
+  var recurse_toggle: Boolean = true
+  
   var funTable: Map[Any, StagedFunction[_, _]] = Map.empty
 
   def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
@@ -100,41 +101,54 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
                                     global: Boolean, name: Option[String] = None) extends AbstractLambda(f, x, y, hot, args, returns)
 
 
+
+
+
   case class InternalApply[CA, CR](f: Exp[_ => _], arg: Vector[Exp[_]], name: Option[String] = None) extends Def[Any]
 
   //RF (any?)
 
 
+
+
+
   def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recuse: Boolean, name: Option[String] = None)
                        (implicit args: ExposeRep[A], returns: ExposeRep[R]): AbstractLambda[A, R] = {
-    addBlockTPBuffer()
-    val freshexps = args.freshExps()
-    val tps = freshexps map (exp => id2tp(exp.id))
-    val vecf = (in: Vector[Exp[_]]) => {
-      val container = args.vec2t(in)
-      val tres = f(container)
-      val hres = returns.t2vec(tres)
-      hres
-    }
+    if (recurse_toggle) {
+      addBlockTPBuffer()
+      val freshexps = args.freshExps()
+      val tps = freshexps map (exp => id2tp(exp.id))
+      val vecf = (in: Vector[Exp[_]]) => {
+        val container = args.vec2t(in)
+        val tres = f(container)
+        val hres = returns.t2vec(tres)
+        hres
+      }
 
-    val explist = vecf(freshexps)
-    val summary = summarizeContext()
-    val t = context
-    val block = if (context.isEmpty && mustPure(summary))
-      Block(explist)
+      val explist = vecf(freshexps)
+      val summary = summarizeContext()
+      val t = context
+      val block = if (context.isEmpty && mustPure(summary))
+        Block(explist)
+      else {
+        //RF! pruneContext ? (check what this is supposed to do)
+        val deps = context.map(e => e._1)
+        Block(explist, summary, pruneContext(deps)) // calls toAtom...
+      }
+
+      block2tps = block2tps + (block -> getBlockTPBuffer())
+      if (internal)
+        InternalLambda(vecf, tps, block, hot, args, returns)
+      else
+        ExternalLambda(vecf, tps, block, hot, args, returns, global, name)
+    }
     else {
-      //RF! pruneContext ? (check what this is supposed to do)
-      val deps = context.map(e => e._1)
-      Block(explist, summary, pruneContext(deps)) // calls toAtom...
+                    ???
     }
-
-    block2tps = block2tps + (block -> getBlockTPBuffer())
-    if (internal)
-      InternalLambda(vecf, tps, block, hot, args, returns)
-    else
-      ExternalLambda(vecf, tps, block, hot, args, returns, global, name)
   }
 
+
+  //this is called by the apply of StagedFunction
   def doApplySF[A, R](fun: StagedFunction[A, R], arg: A, args: ExposeRep[A], returns: ExposeRep[R]): R = {
     val newsyms = returns.freshExps()
     val funexp = fun.exp
@@ -179,6 +193,19 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
       }
     }
     if (recurse) {
+      
+      /*recurse_toggle = false
+
+      {
+        val expx: Rep[_ => _] = fresh[_ => _]
+        val sf = StagedFunction(f, expx, args, returns, name)
+        val y: AbstractLambda[A, R] = doLambdaDef(f, internal, hot, global, recurse, name)(args, returns)
+        val tag = helper(y)
+        val tp = createDefinition(expx, y)(tag) //creates tp and stores it
+        recurse_toggle = true
+        sf
+      }*/
+      
       val can = canonicalize(f)
       if (true) {
         val stream = new java.io.PrintWriter(new java.io.FileOutputStream("canon"+funTable.size+".txt"))
@@ -200,13 +227,14 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
 
           val y: AbstractLambda[A, R] = doLambdaDef(f, internal, hot, global, recurse, name)(args, returns)
           val tag = helper(y)
-          val tp = createDefinition(expx, y)(tag)
+          val tp = createDefinition(expx, y)(tag) //creates tp and stores it
           sf
         }
       }
     }
     else {
       val expx: Rep[_ => _] = fresh[_ => _]
+      //case class StagedFunction[A, R](f: A => R, exp: Rep[_ => _], args: ExposeRep[A], returns: ExposeRep[R], name: Option[String] = None)
       val sf = StagedFunction(f, expx, args, returns, name)
       val y: AbstractLambda[A, R] = doLambdaDef(f, internal, hot, global, recurse, name)(args, returns)
       val tag = helper(y)
