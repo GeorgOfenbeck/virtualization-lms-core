@@ -40,7 +40,6 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
   protected abstract class NumericRepOps[T:Manifest:Numeric] extends NumericOps[Rep[T]]  {
     def plus  (x : Rep[T], y: Rep[T]) = ??? ///numeric_plus [T](x, y)
     def minus (x : Rep[T], y: Rep[T]) = ??? //numeric_minus[T](x, y)
-    //def times (x : Rep[Int], y: Rep[Int]) = int_times(x,y) //numeric_times[T](x, y)
     def times (x : Rep[T], y: Rep[T]) = {
       lazy val m = implicitly[Manifest[T]]
       m.toString() match {
@@ -76,11 +75,8 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def convert[A[_],X](me: T[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X])
     def convert[X](me: T[X], that: NoRep[X]): (T[X],T[X])
     def convert[X](me: T[X], that: Rep[X]): (T[X],T[X])
-
-
-
-    //def push[A: TypeRep](x: T[A]): Vector[Rep[_]]
   }
+
   implicit object isRep extends IRep[Rep] {
     val isRep = true
     def getRep[A](x: Rep[A]): Some[Rep[A]] = Some(x)
@@ -101,8 +97,6 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def getNoRep[A](x: NoRep[A]): Some[A] = Some(x)
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector.empty
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[NoRep[A]]) = (x,None)
-    //def push[A: TypeRep](x: NoRep[A]): Vector[Rep[_]] = Vector.empty
-
     def convert[A[_],X](me: NoRep[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X]) = evthat.convert[X](that,me)
     def convert[X](me: NoRep[X], that: NoRep[X]): (NoRep[X],NoRep[X]) = (me, that)
     def convert[X](me: NoRep[X], that: Rep[X]): (Rep[X],Rep[X]) = (Const(me), that)
@@ -115,7 +109,6 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
   class Dyn[RA[_],RB[_]](a: RA[Int],b: RB[Int]) extends Base[RA,RB](a,b) with isDynamic
   trait isStatic
   class Static[RA[_],RB[_]](a: RA[Int],b: RB[Int]) extends Base[RA,RB](a,b) with isStatic
-
   class Full[RA[_],RB[_]](a: RA[Int],b: RB[Int]) extends Base[RA,RB](a,b) with isStatic with isDynamic
 
 
@@ -197,8 +190,6 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
 
     val sf: StagedFunction[DynHeader[RA,RB], Rep[Int]] = doGlobalLambda(stageme,true)(expdyn,exprepint)
     sf
-
-
   }
 
 
