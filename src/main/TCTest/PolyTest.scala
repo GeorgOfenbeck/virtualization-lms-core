@@ -71,10 +71,11 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def getNoRep[A](x: T[A]): Option[A]
     def fresh[A: TypeRep](): Vector[Rep[_]]
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[T[A]])
-
-    def convert[A[_],X: TypeRep](me: T[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X])
+    /*
+    def convert[G[_],A[_],X: TypeRep](me: T[X], that: A[X])(implicit evthat: IRep[A], evres: IRep[G]): (T[X],T[X])
     def convertc[X: TypeRep](me: T[X], that: NoRep[X]): (T[X],T[X])
-    def convertc[X: TypeRep](me: T[X], that: Rep[X]): (T[X],T[X])
+    def convertc[X: TypeRep](me: T[X], that: Rep[X]): (Rep[X],Rep[X])
+    */
   }
 
   implicit object isRep extends IRep[Rep] {
@@ -83,11 +84,14 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def getNoRep[A](x: Rep[A]): Option[A] = None
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector(Arg[A])
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Some[Rep[A]]) = (x.tail,Some(x.head.asInstanceOf[Rep[A]]))
-
-    def convert[A[_],X: TypeRep](me: Rep[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X]) = evthat.convertc[X](that,me)
+    /*
+    def convert[A[_], X: TypeRep](me: Rep[X], that: A[X])(implicit evthat: IRep[A]): (Rep[X],Rep[X]) = {
+      val t = evthat.convertc[X](that,me)
+      t
+    }
     def convertc[X: TypeRep](me: Rep[X], that: NoRep[X]): (Rep[X],Rep[X]) = (me, Const(that))
     def convertc[X: TypeRep](me: Rep[X], that: Rep[X]): (Rep[X],Rep[X]) = (me, that)
-
+    */
 
     //def push[A: TypeRep](x: Rep[A]): Vector[Rep[_]] = Vector(x)
   }
@@ -97,9 +101,11 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
     def getNoRep[A](x: NoRep[A]): Some[A] = Some(x)
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector.empty
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[NoRep[A]]) = (x,None)
+    /*
     def convert[A[_],X: TypeRep](me: NoRep[X], that: A[X])(implicit evthat: IRep[A]): (A[X],A[X]) = evthat.convertc[X](that,me)
     def convertc[X: TypeRep](me: NoRep[X], that: NoRep[X]): (NoRep[X],NoRep[X]) = (me, that)
     def convertc[X: TypeRep](me: NoRep[X], that: Rep[X]): (Rep[X],Rep[X]) = (Const(me), that)
+    */
   }
 
 
@@ -165,6 +171,8 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
 
 
 
+
+
   def genf[RA[_],RB[_]](hs: StatHeader[RA,RB])
                        (implicit eva: IRep[RA],
                         evb: IRep[RB],
@@ -193,12 +201,11 @@ class DSL2 extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenEl
   }
 
 
-
-
-
   def bla[RA[_],RB[_]](a: RA[Int], b: RB[Int])(implicit ea: IRep[RA], eb: IRep[RB]): (RB[Int], RB[Int]) = {
-    val (na,nb) = ea.convert(a,b)
-    (na,nb)
+
+    ???
+
+
   }
 
 
