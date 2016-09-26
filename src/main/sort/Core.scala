@@ -28,16 +28,20 @@ class Core extends Skeleton {
 
   def sort[A[_],B[_],C[_]](stat: StatHeader[A,B,C]): StagedFunction[DynHeader[A,B,C],Rep[Vector[Int]]] = {
 
+    val exposarg: ExposeRep[DynHeader[A,B,C]] = exposeDynHeader(stat)
+    val exposeret = exposeRepFromRep[Vector[Int]]
+
     val stageme: (DynHeader[A, B, C] => Rep[Vector[Int]]) = (dyn: DynHeader[A, B, C]) => {
       val mix = MixSortHeader(stat, dyn)
-      _if(size < mix.basesize, {
 
-      }, {
+      val size = mix.end - mix.start
 
-      }
-      val qs = mf(exposeDynSelectionHeader(stat), quicksort(stat), "quicksort")
-      qs(dyn)
+      ???
     }
+
+    val t: StagedFunction[DynHeader[A,B,C], Rep[Vector[Int]]] = doGlobalLambda(stageme, true)(exposarg,exposeret )
+    t
+
   }
 
 /*

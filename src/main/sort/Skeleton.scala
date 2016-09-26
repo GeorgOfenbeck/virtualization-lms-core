@@ -15,8 +15,10 @@ class Complex
 
 
 trait Skeleton extends Sort_DSL {
+  type SRep[T] = Either[Rep[T], NoRep[T]]
+
   type NoRep[T] = T
-  trait IRep[T[_]] {
+  trait IRep[T[_]] extends Conditionals[T]{
     def isRep(): Boolean
     def getRep[A](x: T[A]): Option[Rep[A]]
     def getNoRep[A](x: T[A]): Option[A]
@@ -24,20 +26,40 @@ trait Skeleton extends Sort_DSL {
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[T[A]])
   }
 
-  implicit object isRep extends IRep[Rep] {
+  implicit object isRep extends IRep[Rep] with RepConditionals{
     val isRep = true
     def getRep[A](x: Rep[A]): Some[Rep[A]] = Some(x)
     def getNoRep[A](x: Rep[A]): Option[A] = None
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector(Arg[A])
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Some[Rep[A]]) = (x.tail,Some(x.head.asInstanceOf[Rep[A]]))
   }
-  implicit object noRep extends IRep[NoRep] {
+  implicit object noRep extends IRep[NoRep] with NoRepConditionals{
     val isRep = false
     def getRep[A](x: NoRep[A]): Option[Rep[A]] = None
     def getNoRep[A](x: NoRep[A]): Some[A] = Some(x)
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector.empty
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[NoRep[A]]) = (x,None)
   }
+
+
+  trait Conditionals[T[_]]{
+    def _if[A](cond: T[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A
+  }
+
+  trait RepConditionals extends Conditionals[Rep] {
+    def _if[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = myifThenElse(cond,thenp,elsep)
+  }
+  trait NoRepConditionals extends Conditionals[NoRep] {
+    def _if[A](cond: NoRep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = if(cond) thenp else elsep
+  }
+
+
+
+
+
+
+
+
 
   trait RepSelector {
     val rrep: Boolean
