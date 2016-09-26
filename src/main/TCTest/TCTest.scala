@@ -13,12 +13,7 @@ import scala.lms.internal._
 import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
-import scala.spores._
-import scala.pickling._
-import scala.pickling.Defaults._
-import scala.pickling._
-import scala.pickling.json._
-import SporePicklers._
+
 
 class DSL extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VectorOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
   self =>

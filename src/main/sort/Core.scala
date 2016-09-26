@@ -39,8 +39,8 @@ class Core extends Skeleton {
   abstract class Base[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int],
                                         eva: IRep[A], evb: IRep[B], evc: IRep[C])
 
-  class SortHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int],
-                                     eva: IRep[A], evb: IRep[B], evc: IRep[C])
+  abstract class SortHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int],
+                                              eva: IRep[A], evb: IRep[B], evc: IRep[C])
     extends Base(start, end, basesize, eva, evb, evc) with RepSelector {
     def start(): Option[A[Int]] = repselect(start, eva)
 
@@ -82,14 +82,14 @@ class Core extends Skeleton {
         val (ostart, outstart) = help(in.tail, stat.start(), stat.eva)
         val (oend, outend) = help(ostart, stat.end(), stat.evb)
         val (obs, outbs) = help(oend, stat.basesize(), stat.evc)
-        new DynHeader[A, B, C](x, outstart, outend, outbs,stat.eva,stat.evb, stat.evc )
+        new DynHeader[A, B, C](x, outstart, outend, outbs, stat.eva, stat.evb, stat.evc)
       }
 
       val t2vec: DynHeader[A, B, C] => Vector[Exp[_]] = (in: DynHeader[A, B, C]) => {
         def help[T[_], A](ele: Option[T[A]], ev: IRep[T]): Vector[Exp[_]] = {
           ele.map(p => ev.getRep(p).map(o => Vector(o)).getOrElse(Vector.empty)).getOrElse(Vector.empty)
         }
-        Vector(in.x) ++ help(in.start(),in.eva) ++ help(in.end(),in.evb) ++ help(in.basesize(), in.evc)
+        Vector(in.x) ++ help(in.start(), in.eva) ++ help(in.end(), in.evb) ++ help(in.basesize(), in.evc)
       }
 
     }
@@ -104,6 +104,9 @@ class Core extends Skeleton {
     }
     val t2vec: ((Exp[A], Exp[B])) => Vector[Exp[_]] = (in: ((Exp[A], Exp[B]))) => Vector(in._1, in._2)
   }
+
+
+
 
 
   /*
