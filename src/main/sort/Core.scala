@@ -33,8 +33,8 @@ class Core extends Skeleton {
 
     val stageme: (DynHeader[A, B, C] => Rep[Vector[Int]]) = (dyn: DynHeader[A, B, C]) => {
       val mix = MixSortHeader(stat, dyn)
-
-      val size = mix.end - mix.start
+      import mix.evb._
+      val size = minus(mix.end,mix.start)
 
       ???
     }

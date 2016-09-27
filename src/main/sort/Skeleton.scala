@@ -16,49 +16,129 @@ class Complex
 
 trait Skeleton extends Sort_DSL {
   type SRep[T] = Either[Rep[T], NoRep[T]]
-
   type NoRep[T] = T
-  trait IRep[T[_]] extends Conditionals[T]{
+
+  trait IRep[T[_]] extends Conditionals[T] with StagedNum[T]
+
+  implicit object isRep extends isRepBase with RepNum
+
+  implicit object isNoRep extends noRepBase with NoRepNum
+
+  implicit def getSRepEv[T](in: SRep[T]) =
+    new mayRep[T] with SRepNum{
+      val x: SRep[T] = in
+    }
+
+  implicit def toSRep[T[_],A](x: T[A])(implicit ev: IRep[T]): SRep[A] = ev.toSRep(x)
+
+  trait RepBase[T[_]] {
     def isRep(): Boolean
+
+    def toRep[A: TypeRep](x: T[A]): Rep[A]
+
     def getRep[A](x: T[A]): Option[Rep[A]]
+
     def getNoRep[A](x: T[A]): Option[A]
+
     def fresh[A: TypeRep](): Vector[Rep[_]]
-    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[T[A]])
+
+    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[Rep[A]])
+
+    def toSRep[A: TypeRep](x: T[A]): SRep[A]
   }
 
-  implicit object isRep extends IRep[Rep] with RepConditionals{
+  trait isRepBase extends RepBase[Rep] {
     val isRep = true
+
+    def toRep[A: TypeRep](x: Rep[A]): Rep[A] = x
+
     def getRep[A](x: Rep[A]): Some[Rep[A]] = Some(x)
+
     def getNoRep[A](x: Rep[A]): Option[A] = None
+
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector(Arg[A])
-    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Some[Rep[A]]) = (x.tail,Some(x.head.asInstanceOf[Rep[A]]))
+
+    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Some[Rep[A]]) = (x.tail, Some(x.head.asInstanceOf[Rep[A]]))
+
+    def toSRep[A: TypeRep](x: Rep[A]): SRep[A] = Left(x)
   }
-  implicit object noRep extends IRep[NoRep] with NoRepConditionals{
+
+  trait noRepBase extends RepBase[NoRep] {
     val isRep = false
+
+    def toRep[A: TypeRep](x: NoRep[A]): Rep[A] = Const(x)
+
     def getRep[A](x: NoRep[A]): Option[Rep[A]] = None
+
     def getNoRep[A](x: NoRep[A]): Some[A] = Some(x)
+
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector.empty
-    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]],Option[NoRep[A]]) = (x,None)
+
+    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[Rep[A]]) = (x, None)
+
+    def toSRep[A: TypeRep](x: NoRep[A]): SRep[A] = Right(x)
+  }
+
+  trait mayRep[T] extends RepBase[SRep] {
+    val x: SRep[T]
+
+    def isRep(): Boolean = x.isLeft
+
+    def toRep[A: TypeRep](x: SRep[A]): Rep[A] = x.fold(fa => fa, fb => Const(fb))
+
+    def getRep[A](x: SRep[A]): Option[Rep[A]] = x.fold(fa => Some(fa), fb => None)
+
+    def getNoRep[A](x: SRep[A]): Option[A] = x.fold(fa => None, fb => Some(fb))
+
+    def fresh[A: TypeRep](): Vector[Rep[_]] = x.fold(fa => Vector(Arg[A]), fb => Vector.empty)
+
+    def fetch[A: TypeRep](in: Vector[Rep[_]]): (Vector[Rep[_]], Option[Rep[A]]) = x.fold(fa => (in.tail, Some(in.head.asInstanceOf[Rep[A]])), fb => (in, None))
+
+    def toSRep[A: TypeRep](x: SRep[A]): SRep[A] = x
   }
 
 
-  trait Conditionals[T[_]]{
+  trait Conditionals[T[_]] {
     def _if[A](cond: T[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A
   }
 
   trait RepConditionals extends Conditionals[Rep] {
-    def _if[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = myifThenElse(cond,thenp,elsep)
+    def _if[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = myifThenElse(cond, thenp, elsep)
   }
+
   trait NoRepConditionals extends Conditionals[NoRep] {
-    def _if[A](cond: NoRep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = if(cond) thenp else elsep
+    def _if[A](cond: NoRep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = if (cond) thenp else elsep
+  }
+
+  trait StagedNum[T[_]] extends RepBase[T] {
+    def plus(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def minus(lhs: T[Int], rhs: T[Int]): T[Int]
+  }
+
+  trait RepNum extends StagedNum[Rep] {
+    def plus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_plus(lhs, rhs)
+
+    def minus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_minus(lhs, rhs)
+  }
+
+  trait NoRepNum extends StagedNum[NoRep] {
+    def plus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs + rhs
+
+    def minus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs - rhs
   }
 
 
+  def srdecomp[T: TypeRep,A](x: SRep[T], y: SRep[T], sf: (Rep[T],Rep[T]) => Rep[A], f: (T,T) => A): SRep[A] = {
+    x.fold(xfa => y.fold(yfa => Left(sf(xfa,yfa)), yfb => Left(sf(xfa,y.toRep(y)))),
+      xfb => y.fold(yfa => Left(sf(x.toRep(x),yfa)), yfb => Right(f(xfb,yfb))))
+  }
 
+  trait SRepNum extends StagedNum[SRep] {
+    def plus(lhs: SRep[Int], rhs: SRep[Int]): SRep[Int] = srdecomp(lhs,rhs,int_plus,(x: Int,y: Int) => x + y)
 
-
-
-
+    def minus(lhs: SRep[Int], rhs: SRep[Int]): SRep[Int] = srdecomp(lhs,rhs,int_minus,(x: Int,y: Int) => x - y)
+  }
 
 
   trait RepSelector {
