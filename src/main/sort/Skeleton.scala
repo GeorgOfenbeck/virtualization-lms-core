@@ -18,18 +18,20 @@ trait Skeleton extends Sort_DSL {
   type SRep[T] = Either[Rep[T], NoRep[T]]
   type NoRep[T] = T
 
-  trait IRep[T[_]] extends Conditionals[T] with StagedNum[T]
+  def mkSRep[T](x: T): SRep[T] = Right(x)
 
-  implicit object isRep extends isRepBase with RepNum
+  trait IRep[T[_]] extends Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T]
 
-  implicit object isNoRep extends noRepBase with NoRepNum
+  implicit object isRep extends isRepBase with RepNum with RepConditionals with RepComparisons with RepRangeFold
+
+  implicit object isNoRep extends noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons with NoRepRangeFold
 
   implicit def getSRepEv[T](in: SRep[T]) =
-    new mayRep[T] with SRepNum{
+    new mayRep[T] with SRepNum with SRepConditionals with SRepComparisons with SRepRangeFold{
       val x: SRep[T] = in
     }
 
-  implicit def toSRep[T[_],A](x: T[A])(implicit ev: IRep[T]): SRep[A] = ev.toSRep(x)
+  implicit def toSRep[T[_],A: TypeRep](x: T[A])(implicit ev: IRep[T]): SRep[A] = ev.toSRep(x)
 
   trait RepBase[T[_]] {
     def isRep(): Boolean
@@ -42,7 +44,7 @@ trait Skeleton extends Sort_DSL {
 
     def fresh[A: TypeRep](): Vector[Rep[_]]
 
-    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[Rep[A]])
+    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[T[A]])
 
     def toSRep[A: TypeRep](x: T[A]): SRep[A]
   }
@@ -74,7 +76,7 @@ trait Skeleton extends Sort_DSL {
 
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector.empty
 
-    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[Rep[A]]) = (x, None)
+    def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[NoRep[A]]) = (x, None)
 
     def toSRep[A: TypeRep](x: NoRep[A]): SRep[A] = Right(x)
   }
@@ -92,7 +94,7 @@ trait Skeleton extends Sort_DSL {
 
     def fresh[A: TypeRep](): Vector[Rep[_]] = x.fold(fa => Vector(Arg[A]), fb => Vector.empty)
 
-    def fetch[A: TypeRep](in: Vector[Rep[_]]): (Vector[Rep[_]], Option[Rep[A]]) = x.fold(fa => (in.tail, Some(in.head.asInstanceOf[Rep[A]])), fb => (in, None))
+    def fetch[A: TypeRep](in: Vector[Rep[_]]): (Vector[Rep[_]], Option[SRep[A]]) = x.fold(fa => (in.tail, Some(Left(in.head.asInstanceOf[Rep[A]]))), fb => (in, None))
 
     def toSRep[A: TypeRep](x: SRep[A]): SRep[A] = x
   }
@@ -110,7 +112,84 @@ trait Skeleton extends Sort_DSL {
     def _if[A](cond: NoRep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = if (cond) thenp else elsep
   }
 
+  trait SRepConditionals extends Conditionals[SRep] {
+    def _if[A](cond: SRep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A =
+      cond.fold( fa=> myifThenElse(fa, thenp, elsep), fb => if (fb) thenp else elsep)
+  }
+
+  trait RangeFold[T[_]] {
+    implicit def mkRangeFoldOps(lhs: T[Int]): Ops = new Ops(lhs)
+    class Ops(lhs: T[Int]){
+      def until(rhs: T[Int]):T[Range] = unt(lhs, rhs)
+    }
+    def unt(from: T[Int], to: T[Int]): T[Range]
+  }
+  trait RepRangeFold extends RangeFold[Rep] {
+    def unt(from: Rep[Int], to: Rep[Int]): Rep[Range] = range_create(from,to)
+  }
+  trait NoRepRangeFold extends RangeFold[NoRep] {
+    def unt(from: NoRep[Int], to: NoRep[Int]): NoRep[Range] = Range(from,to)
+  }
+  trait SRepRangeFold extends RangeFold[SRep] {
+    def unt(from: SRep[Int], to: SRep[Int]): SRep[Range] = srdecomp(from,to,range_create,(x,y) => Range(x,y))
+  }
+  
+
+
+  trait Comparisons[T[_]] {
+    implicit def mkComparisonOps[A: Ordering:Manifest](lhs: T[A]): Ops[A] = new Ops[A](lhs)
+    class Ops[A: Ordering:Manifest](lhs: T[A]){
+      def == (rhs: T[A]):T[Boolean] = equiv(lhs,rhs)
+      def < (rhs: T[A]): T[Boolean] = less(lhs,rhs)
+    }
+    def equiv[A: Ordering:Manifest](lhs: T[A],rhs: T[A]): T[Boolean]
+    def less[A: Ordering:Manifest](lhs: T[A],rhs: T[A]): T[Boolean]
+  }
+  
+  trait RepComparisons extends Comparisons[Rep]{
+    def equiv[T: Ordering:Manifest](lhs: Rep[T],rhs: Rep[T]): Rep[Boolean] = ordering_equiv(lhs,rhs)
+    def less[T: Ordering:Manifest](lhs: Rep[T],rhs: Rep[T]): Rep[Boolean] = ordering_lt(lhs,rhs)
+  }
+  trait NoRepComparisons extends Comparisons[NoRep]{
+    def equiv[T: Ordering:Manifest](lhs: NoRep[T],rhs: NoRep[T]): NoRep[Boolean] = lhs == rhs
+    def less[T: Ordering:Manifest](lhs: NoRep[T],rhs: NoRep[T]): NoRep[Boolean] = implicitly[Ordering[T]].lt(lhs,rhs)
+  }
+  trait SRepComparisons extends Comparisons[SRep]{
+    def equiv[T: Ordering:Manifest](lhs: SRep[T],rhs: SRep[T]): SRep[Boolean] = {
+      val x = lhs
+      val y = rhs
+      x.fold(xfa => y.fold(yfa => Left(ordering_equiv(xfa, yfa)), yfb => Left(ordering_equiv(xfa, y.toRep(y)))),
+        xfb => y.fold(yfa => Left(ordering_equiv(x.toRep(x), yfa)), yfb => Right(xfb == yfb)))
+    }
+    def less[T: Ordering:Manifest](lhs: SRep[T],rhs: SRep[T]): SRep[Boolean] = {
+      val x = lhs
+      val y = rhs
+      x.fold(xfa => y.fold(yfa => Left(ordering_lt(xfa, yfa)), yfb => Left(ordering_lt(xfa, y.toRep(y)))),
+        xfb => y.fold(yfa => Left(ordering_lt(x.toRep(x), yfa)), yfb => Right(implicitly[Ordering[T]].lt(xfb,yfb))))
+    }
+  }
+
   trait StagedNum[T[_]] extends RepBase[T] {
+    implicit def mkNumericOps(lhs: T[Int]): Ops = new Ops(lhs)
+    class Ops(lhs: T[Int]){
+
+      def +(rhs: T[Int]) = plus(lhs, rhs)
+
+      def -(rhs: T[Int]) = minus(lhs, rhs)
+    }
+    def plus[A[_]](lhs: T[Int], rhs: A[Int])(implicit evl: StagedNum[T], evr: StagedNum[A]): SRep[Int] = {
+      val t1 = evl.toSRep(lhs)
+      val t2 = evr.toSRep(rhs)
+      val ev = getSRepEv(t1)
+      ev.plus(t1,t2)
+    }
+    def minus[A[_]](lhs: T[Int], rhs: A[Int])(implicit evl: StagedNum[T], evr: StagedNum[A]): SRep[Int] = {
+      val t1 = evl.toSRep(lhs)
+      val t2 = evr.toSRep(rhs)
+      val ev = getSRepEv(t1)
+      ev.minus(t1,t2)
+    }
+
     def plus(lhs: T[Int], rhs: T[Int]): T[Int]
 
     def minus(lhs: T[Int], rhs: T[Int]): T[Int]
