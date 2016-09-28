@@ -45,7 +45,7 @@ trait RangeOpsExp extends RangeOps with BaseExp with FunctionsExp{
       }
     }
 
-    val lambda = doInternalLambda(body, false, false)(exposeTuple,exposeB)
+    val lambda = doInternalLambda(body, false, None)(exposeTuple,exposeB)
     val newsyms = exposeB.freshExps()
     val looptuple = exposeTuple.freshExps()
     val (loopacc,loopvar) = exposeTuple.vec2t(looptuple)

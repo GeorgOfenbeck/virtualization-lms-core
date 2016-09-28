@@ -1,3 +1,4 @@
+/*
 package SpiralS
 
 import scala.lms._
@@ -216,4 +217,4 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
     }
     ma
   }
-}
+}*/

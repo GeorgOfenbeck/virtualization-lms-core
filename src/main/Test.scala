@@ -1,3 +1,4 @@
+/*
 
 
 package examples
@@ -175,3 +176,4 @@ object TestCompile extends App {
 
 
 
+*/

@@ -1,3 +1,4 @@
+/*
 package apps
 
 
@@ -417,3 +418,4 @@ object GlobalF extends App {
 
 }
 
+*/

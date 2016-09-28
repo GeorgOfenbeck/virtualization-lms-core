@@ -1,3 +1,4 @@
+/*
 package SpiralS
 
 /**
@@ -53,3 +54,4 @@ object VectorMult {
           //println(testIM(fused,Vector(i,j,k)))
         }*/
   }
+*/

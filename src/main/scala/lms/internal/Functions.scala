@@ -20,11 +20,17 @@ trait Functions extends Base with ExposeRepBase {
   
   var funTable: Map[Any, StagedFunction[_, _]] = Map.empty
 
-  def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  //def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
-  def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  //def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
-  def doGlobalLambda[A, R](f: Function1[A, R], recuse: Boolean, name: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+  //def doGlobalLambda[A, R](f: Function1[A, R], recuse: Boolean, name: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+
+  def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+
+  def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
+
+  def doGlobalLambda[A, R](f: Function1[A, R], recuse: Option[String], name: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R]
 
 
   //implicit def fun[A, R](f: Function1[A, R], hot: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = doLambda(f, hot)
@@ -112,9 +118,9 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
 
 
 
-  def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recuse: Boolean, name: Option[String] = None)
+  def doLambdaDef[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recuse: Option[String], name: Option[String] = None)
                        (implicit args: ExposeRep[A], returns: ExposeRep[R]): AbstractLambda[A, R] = {
-    if (recurse_toggle) {
+
       addBlockTPBuffer()
       val freshexps = args.freshExps()
       val tps = freshexps map (exp => id2tp(exp.id))
@@ -141,10 +147,6 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
         InternalLambda(vecf, tps, block, hot, args, returns)
       else
         ExternalLambda(vecf, tps, block, hot, args, returns, global, name)
-    }
-    else {
-                    ???
-    }
   }
 
 
@@ -175,7 +177,7 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
   }
 
 
-  def doAbstractLambda[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recurse: Boolean, name: Option[String] = None)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+  def doAbstractLambda[A, R](f: Function1[A, R], internal: Boolean, hot: Boolean, global: Boolean, recurse: Option[String], name: Option[String] = None)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
     def helper[T](d: Def[T])(implicit tag: TypeRep[T]): TypeRep[T] = {
       tag match {
         case x@TypeExp(mf, dynTags) => {
@@ -192,8 +194,8 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
         }
       }
     }
-    if (recurse) {
-      
+    if (recurse.isDefined) {
+      val can = recurse.get
       /*recurse_toggle = false
 
       {
@@ -205,17 +207,9 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
         recurse_toggle = true
         sf
       }*/
-      
-      val can = canonicalize(f)
-      if (true) {
-        val stream = new java.io.PrintWriter(new java.io.FileOutputStream("canon"+funTable.size+".txt"))
-        stream.println(can)
-        stream.flush()
-        stream.close()
-      }
 
 
-      if (funTable.contains(can)) {
+      if (funTable.contains( can )) {
         val t: StagedFunction[_, _] = funTable(can)
         t.asInstanceOf[StagedFunction[A, R]]
       }
@@ -243,15 +237,15 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
     }
   }
 
-  override def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+  override def doLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
     doAbstractLambda(f, false, hot, false, recuse)
   }
 
-  override def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Boolean)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+  override def doInternalLambda[A, R](f: Function1[A, R], hot: Boolean, recuse: Option[String])(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
     doAbstractLambda(f, true, hot, false, recuse)
   }
 
-  override def doGlobalLambda[A, R](f: Function1[A, R], recuse: Boolean, name: Option[String] = None)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
+  override def doGlobalLambda[A, R](f: Function1[A, R], recuse: Option[String], name: Option[String] = None)(implicit args: ExposeRep[A], returns: ExposeRep[R]): StagedFunction[A, R] = {
     doAbstractLambda(f, false, true, true, recuse, name)
   }
 

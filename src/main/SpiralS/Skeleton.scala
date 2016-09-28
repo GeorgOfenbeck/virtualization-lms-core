@@ -1,3 +1,4 @@
+/*
 package SpiralS
 
 import scala.lms._
@@ -393,3 +394,4 @@ trait Skeleton extends Spiral_DSL {
     val t2vec: Single => Vector[Exp[_]] = (in: Single) => Vector(in.y)
   }
 }
+*/

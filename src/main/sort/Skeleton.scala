@@ -302,7 +302,23 @@ trait Skeleton extends Sort_DSL {
       new StatHeader[A,B,C](start,end,basesize,eva,evb,evc)
   }
 
-  class StatHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends SortHeader(start, end, basesize, eva, evb, evc) with StatSelector
+  class StatHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends SortHeader(start, end, basesize, eva, evb, evc) with StatSelector{
+    def genSig(): String = {
+      val s = start().get match{
+        case x: NoRep[Int] => x.toString
+        case _ => ""
+      }
+      val e = end().get match{
+        case x: NoRep[Int] => x.toString
+        case _ => ""
+      }
+      val b = basesize().get match{
+        case x: NoRep[Int] => x.toString
+        case _ => ""
+      }
+      s ++ e ++ b
+    }
+  }
 
   class MixSortHeader[A[_], B[_], C[_]](val start: A[Int], val end: B[Int], val basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends Base(start, end, basesize, eva, evb, evc)
 
@@ -321,7 +337,7 @@ trait Skeleton extends Sort_DSL {
   implicit def exposeDynHeader[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): ExposeRep[DynHeader[A, B, C]] =
     new ExposeRep[DynHeader[A, B, C]]() {
 
-      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => Vector(Arg[Vector[Int]]) ++ stat.eva.fresh() ++ stat.evb.fresh() ++ stat.evc.fresh()
+      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => Vector(Arg[Vector[Int]]) ++ stat.eva.fresh[Int]() ++ stat.evb.fresh[Int]() ++ stat.evc.fresh[Int]()
       val vec2t: Vector[Exp[_]] => DynHeader[A, B, C] = (in: Vector[Exp[_]]) => {
         def help[T[_], A: TypeRep](in: Vector[Rep[_]], statele: Option[T[A]], ev: IRep[T]): (Vector[Rep[_]], T[A]) = {
           val (vecafter, ele) = ev.fetch[A](in)

@@ -135,7 +135,7 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
   case class Filter[T](v: Rep[Vector[T]], body: Exp[_ => _]) extends Def[Vector[T]]
 
   def filter[T:Manifest](v: Rep[Vector[T]],body: Rep[T] => Rep[Boolean])(implicit tupleexpose: ExposeRep[Rep[T]], singleexpose: ExposeRep[Rep[Boolean]]): Rep[Vector[T]] = {
-    val lambda = doInternalLambda(body, false, false)(tupleexpose, singleexpose)
+    val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     val looptuple = tupleexpose.freshExps()
     //val sumloopnode = SumFold(till, parallel, ini.y, loopvar, loopacc, lambda.exp)
@@ -170,7 +170,7 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
 
   def sumFold[A](till: Rep[Int], parallel: Boolean, ini: Single, body: ISingle => Single)(implicit tupleexpose: ExposeRep[ISingle], singleexpose: ExposeRep[Single]): Single = {
-    val lambda = doInternalLambda(body, false, false)(tupleexpose, singleexpose)
+    val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     val looptuple = tupleexpose.freshExps()
     val loopvar = looptuple.head.asInstanceOf[Exp[Int]]

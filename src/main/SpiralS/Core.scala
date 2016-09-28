@@ -1,3 +1,4 @@
+/*
 package SpiralS
 
 import scala.lms._
@@ -389,3 +390,4 @@ class Core extends Skeleton {
   }
 
 }
+*/
