@@ -255,6 +255,9 @@ trait FunctionsExp extends Functions with BaseExp with ClosureCompare with Effec
     doAbstractLambda(f, false, true, true, recuse, name)
   }
 
+
+
+
   override def syms(e: Any): Vector[Exp[_]] = e match {
     case InternalLambda(f, x, y, hot, args, returns) => {
       Vector.empty
