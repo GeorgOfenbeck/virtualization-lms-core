@@ -218,6 +218,8 @@ trait Skeleton extends Sort_DSL {
       def +(rhs: T[Int]) = plus(lhs, rhs)
 
       def -(rhs: T[Int]) = minus(lhs, rhs)
+
+      def /(rhs: T[Int]) = div(lhs,rhs)
     }
 
     def plus[A[_]](lhs: T[Int], rhs: A[Int])(implicit evl: StagedNum[T], evr: StagedNum[A]): SRep[Int] = {
@@ -234,21 +236,31 @@ trait Skeleton extends Sort_DSL {
       ev.minus(t1, t2)
     }
 
+    def div[A[_]](lhs: T[Int], rhs: A[Int])(implicit evl: StagedNum[T], evr: StagedNum[A]): SRep[Int] = {
+      val t1 = evl.toSRep(lhs)
+      val t2 = evr.toSRep(rhs)
+      val ev = getSRepEv(t1)
+      ev.div(t1, t2)
+    }
+
     def plus(lhs: T[Int], rhs: T[Int]): T[Int]
 
     def minus(lhs: T[Int], rhs: T[Int]): T[Int]
+    def div(lhs: T[Int], rhs: T[Int]): T[Int]
   }
 
   trait RepNum extends StagedNum[Rep] {
     def plus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_plus(lhs, rhs)
 
     def minus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_minus(lhs, rhs)
+    def div(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_divide(lhs, rhs)
   }
 
   trait NoRepNum extends StagedNum[NoRep] {
     def plus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs + rhs
 
     def minus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs - rhs
+    def div(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs / rhs
   }
 
 
@@ -261,6 +273,7 @@ trait Skeleton extends Sort_DSL {
     def plus(lhs: SRep[Int], rhs: SRep[Int]): SRep[Int] = srdecomp(lhs, rhs, int_plus, (x: Int, y: Int) => x + y)
 
     def minus(lhs: SRep[Int], rhs: SRep[Int]): SRep[Int] = srdecomp(lhs, rhs, int_minus, (x: Int, y: Int) => x - y)
+    def div(lhs: SRep[Int], rhs: SRep[Int]): SRep[Int] = srdecomp(lhs, rhs, int_divide, (x: Int, y: Int) => x / y)
   }
 
 
@@ -320,7 +333,12 @@ trait Skeleton extends Sort_DSL {
     }
   }
 
-  class MixSortHeader[A[_], B[_], C[_]](val start: A[Int], val end: B[Int], val basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends Base(start, end, basesize, eva, evb, evc)
+  class MixSortHeader[A[_], B[_], C[_]](val x: Rep[Vector[Int]], val start: A[Int], val end: B[Int], val basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends Base(start, end, basesize, eva, evb, evc) {
+    def getDynHeader(): DynHeader[A,B,C] = new DynHeader[A,B,C](x,start,end,basesize,eva,evb,evc)
+    def getStatHeader(): StatHeader[A,B,C] = new StatHeader[A,B,C](start,end,basesize,eva,evb,evc)
+
+    def split(): (StatHeader[A,B,C], DynHeader[A,B,C]) = (getStatHeader(),getDynHeader())
+  }
 
   object MixSortHeader {
     private def choose[A[_], T](a: Option[A[T]], b: Option[A[T]], ev: IRep[A]): A[T] = if (ev.isRep()) b.get else a.get
@@ -329,8 +347,9 @@ trait Skeleton extends Sort_DSL {
       val a: RA[Int] = choose(hs.start(), hd.start(), hs.eva)
       val b: RB[Int] = choose(hs.end(), hd.end(), hs.evb)
       val c: RC[Int] = choose(hs.basesize(), hd.basesize(), hs.evc)
-      new MixSortHeader[RA, RB, RC](a, b, c, hs.eva, hs.evb, hs.evc)
+      new MixSortHeader[RA, RB, RC](hd.x,a, b, c, hs.eva, hs.evb, hs.evc)
     }
+    def apply[RA[_], RB[_], RC[_]](x: Rep[Vector[Int]], start: RA[Int], end: RB[Int], basesize: RC[Int])(implicit eva: IRep[RA], evb: IRep[RB], evc: IRep[RC]):MixSortHeader[RA,RB,RC] = new MixSortHeader[RA,RB,RC](x,start,end,basesize,eva,evb,evc)
   }
 
 

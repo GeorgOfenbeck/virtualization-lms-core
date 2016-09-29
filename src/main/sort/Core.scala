@@ -78,6 +78,56 @@ class Core extends Skeleton {
     t
   }
 
+  def quicksort[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = {
+    val exposarg: ExposeRep[DynHeader[A, B, C]] = exposeDynHeader(stat)
+    val exposeret = exposeRepFromRep[Vector[Int]]
+
+    val stageme: (DynHeader[A, B, C] => Rep[Vector[Int]]) = (dyn: DynHeader[A, B, C]) => {
+      val sh = MixSortHeader(stat, dyn)
+      import sh._
+      val start = sh.start
+      val end = sh.end
+      val x = dyn.x
+      val fsize = evb.minus(end, start)(evb, eva)
+      val sev = getSRepEv(fsize)
+      val half = sev.div(fsize,mkSRep(2))
+      val hev = getSRepEv(half)
+      val pivot = x(hev.toRep(half))
+      val less = filter[Int](x, p => pivot > p)
+      val equal = filter[Int](x, p => pivot equiv p)
+      val greater = filter[Int](x, p => pivot < p)
+
+
+
+      //val sh1 = SelectionHeader(less, SInt(0), SInt(size(less)), sh.basesize)
+      val lesssize = size(less)
+      val zz: NoRep[Int] = 0
+      val lessmix = MixSortHeader(less,zz,lesssize,sh.basesize)(isNoRep,isRep,sh.evc)
+
+      val (statless,dynless) = lessmix.split()
+      val lessexpose = exposeDynHeader(statless)
+
+      val lessf = sort(statless)
+      lessf(dynless)
+      /*val statsless = StatHeader(mkSRep(0),Const(-1),sh.basesize)
+      val lessexpose = exposeDynHeader(statsless)
+      val dynless = sh1.getDynSelectionHeader()
+      val fless = mf(lessexpose, sort(statsless), "sort")
+      val sless = fless(dynless)
+
+      val sh2 = SelectionHeader(greater, SInt(0), SInt(size(greater)), sh.basesize)
+      val statgreater = sh2.getStatSkel()
+      val greaterexpose = exposeDynSelectionHeader(statgreater)
+      val fgreater = mf(greaterexpose, sort(statgreater), "sort")
+      val dyngreater = sh2.getDynSelectionHeader()
+      val sgreater = fgreater(dyngreater)
+
+      concat(concat(sless, equal), sgreater)*/
+
+    }
+    val t: StagedFunction[DynHeader[A,B,C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("QuickSort" + stat.genSig()),Some("QuickSort"))(exposarg,exposeret )
+    t
+  }
 
   /*
         /*
