@@ -317,16 +317,16 @@ trait Skeleton extends Sort_DSL {
 
   class StatHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends SortHeader(start, end, basesize, eva, evb, evc) with StatSelector{
     def genSig(): String = {
-      val s = start().get match{
-        case x: NoRep[Int] => x.toString
+      val s = start() match{
+        case Some(x : NoRep[Int]) => x.toString
         case _ => ""
       }
-      val e = end().get match{
-        case x: NoRep[Int] => x.toString
+      val e = end() match{
+        case Some(x : NoRep[Int]) => x.toString
         case _ => ""
       }
-      val b = basesize().get match{
-        case x: NoRep[Int] => x.toString
+      val b = basesize() match{
+        case Some(x : NoRep[Int]) => x.toString
         case _ => ""
       }
       s ++ e ++ b

@@ -29,12 +29,14 @@ class Core extends Skeleton {
       import mix._
       val size = evb.minus(end, start)(evb, eva)
       val sev = getSRepEv(size)
-      val cond = sev.less(size, mkSRep(2))
+      val cond = sev.less(size, mkSRep(10))
       val cev = getSRepEv(cond)
-      val ret = cev._if(cond,
-          dyn.x,
+      val ret = cev._if(cond, {
+        val f = inserationsort(stat)
+        f(dyn)
+      },
         {
-          val f = inserationsort(stat)
+          val f = quicksort(stat)
           f(dyn)
         }
       )
@@ -101,14 +103,21 @@ class Core extends Skeleton {
 
       //val sh1 = SelectionHeader(less, SInt(0), SInt(size(less)), sh.basesize)
       val lesssize = size(less)
+      val greatersize = size(greater)
       val zz: NoRep[Int] = 0
       val lessmix = MixSortHeader(less,zz,lesssize,sh.basesize)(isNoRep,isRep,sh.evc)
+      val greatermix = MixSortHeader(greater,zz,greatersize,sh.basesize)(isNoRep,isRep,sh.evc)
 
       val (statless,dynless) = lessmix.split()
-      val lessexpose = exposeDynHeader(statless)
-
       val lessf = sort(statless)
-      lessf(dynless)
+      val xl = lessf(dynless)
+
+      val (statgreater,dyngreater) = greatermix.split()
+      val greaterf = sort(statgreater)
+      val xg = greaterf(dyngreater)
+
+      concat(concat(xl, equal), xg)
+
       /*val statsless = StatHeader(mkSRep(0),Const(-1),sh.basesize)
       val lessexpose = exposeDynHeader(statsless)
       val dynless = sh1.getDynSelectionHeader()
