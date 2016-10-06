@@ -19,11 +19,15 @@ class Core extends Skeleton {
   }
 
 
-  def sort[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = {
+  def choose_sortx(size: SRep[Int]): SRep[Int] = {
+    size.fold(fa => Left(choose_sort(fa)), fb => Right(0))
+  }
 
+
+  def sort[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = {
+    val sstring = stat.genSig()
     val exposarg: ExposeRep[DynHeader[A, B, C]] = exposeDynHeader(stat)
     val exposeret = exposeRepFromRep[Vector[Int]]
-
     val stageme: (DynHeader[A, B, C] => Rep[Vector[Int]]) = (dyn: DynHeader[A, B, C]) => {
       val mix = MixSortHeader(stat, dyn)
       import mix._
@@ -32,22 +36,88 @@ class Core extends Skeleton {
       val cond = sev.less(size, mkSRep(10))
       val cev = getSRepEv(cond)
       val ret = cev._if(cond, {
-        val f = inserationsort(stat)
-        f(dyn)
+        {
+          val alg = choose_sortx(size)
+          val alev = getSRepEv(alg)
+          val cond = sev.equiv(size, mkSRep(0))
+          val cev = getSRepEv(cond)
+          val ret = cev._if(cond, {
+            val f = inserationsort(stat)
+            f(dyn)
+          },{
+            val f = selectionsort(stat)
+            f(dyn)
+          }
+          )
+          ret
+        }
       },
         {
-          val f = quicksort(stat)
-          f(dyn)
+          val alg = choose_sortx(size)
+          val alev = getSRepEv(alg)
+          val cond = sev.equiv(size, mkSRep(0))
+          val cev = getSRepEv(cond)
+          val ret = cev._if(cond, {
+            val f = quicksort(stat)
+            f(dyn)
+          },{
+            val f = mergesort(stat)
+            f(dyn)
+          }
+          )
+         ret
         }
       )
       ret
     }
 
-    val t: StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("Sort" + stat.genSig()),Some("Sort"))(exposarg, exposeret)
+    val t: StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("Sort" + sstring),Some("Sort"))(exposarg, exposeret)
     t
 
   }
 
+  def selectionsort[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = {
+    val exposarg: ExposeRep[DynHeader[A, B, C]] = exposeDynHeader(stat)
+    val exposeret = exposeRepFromRep[Vector[Int]]
+
+    val stageme: (DynHeader[A, B, C] => Rep[Vector[Int]]) = (dyn: DynHeader[A, B, C]) => {
+      val sh = MixSortHeader(stat, dyn)
+      import sh._
+      val x = sh.x
+      implicit val itupexpose = exposeTuple[Int, Int]()
+
+      val start = eva.toSRep(sh.start)
+      val end = evb.toSRep(sh.end)
+      val startev = getSRepEv(start)
+      import startev._
+      val r = (start until end)
+
+      val rev = getSRepEv(r)
+      rev.rangefold(r,dyn.x,exposeret) {
+        case (acc, ele) => inserationcore(acc, ele.toRep(ele))
+      }
+
+
+
+
+      /*(start until end).foldLeft(x) {
+        case (array, index) => {
+          val swapele = array(index)
+          val (value, pos) = ((index) until end).foldLeft((swapele, index.toRep())) {
+            case ((value, pos), index2) => {
+              val b = array(index2)
+              val t: Rep[Boolean] = value < b
+              myifThenElse[(Rep[Int], Rep[Int])](t, (b, index2.toRep()), (value, pos))
+            }
+          }
+          val bx = array(pos)
+          array.update(index, bx).update(pos, swapele)
+        }
+      }*/
+    }
+    val t: StagedFunction[DynHeader[A,B,C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("SelectionSort" + stat.genSig()),Some("SelectionSort"))(exposarg,exposeret )
+    t
+  }
 
 
 
@@ -76,9 +146,69 @@ class Core extends Skeleton {
       })
       ret
     }
-    val t: StagedFunction[DynHeader[A,B,C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("Insertion" + stat.genSig()),Some("Insertion"))(exposarg,exposeret )
+    val t: StagedFunction[DynHeader[A,B,C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("InserationSort" + stat.genSig()),Some("InserationSort"))(exposarg,exposeret )
     t
   }
+
+  def mergesort[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = {
+    val exposarg: ExposeRep[DynHeader[A, B, C]] = exposeDynHeader(stat)
+    val exposeret = exposeRepFromRep[Vector[Int]]
+
+    val stageme: (DynHeader[A, B, C] => Rep[Vector[Int]]) = (dyn: DynHeader[A, B, C]) => {
+      val sh = MixSortHeader(stat, dyn)
+      import sh._
+      val start = sh.start
+      val end = sh.end
+      val x = dyn.x
+      val fsize = evb.minus(end, start)(evb, eva)
+      val sev = getSRepEv(fsize)
+      val half = sev.div(fsize,mkSRep(2))
+      val hev = getSRepEv(half)
+
+      val low_start = sh.start
+      val low_end = half
+      val high_start = hev.plus(half,mkSRep(1))
+      val high_end = sh.end
+
+      val lower = low_end.fold (fa => {
+        val lessmix = MixSortHeader(x, low_start, fa, sh.basesize)(sh.eva, isRep,sh.evc)
+        val (statless,dynless) = lessmix.split()
+        val lessf = sort(statless)
+        val xl = lessf(dynless)
+        xl
+      }
+        ,
+        fb => {
+          val lessmix = MixSortHeader(x, low_start, fb, sh.basesize)(sh.eva, isNoRep,sh.evc)
+          val (statless,dynless) = lessmix.split()
+          val lessf = sort(statless)
+          val xl = lessf(dynless)
+          xl
+        }
+      )
+
+      val higher = high_start.fold (fa => {
+        val lessmix = MixSortHeader(x, fa, high_end, sh.basesize)(isRep, sh.evb,sh.evc)
+        val (statless,dynless) = lessmix.split()
+        val lessf = sort(statless)
+        val xl = lessf(dynless)
+        xl
+      }
+        ,
+        fb => {
+          val lessmix = MixSortHeader(x, fb, high_end, sh.basesize)(isNoRep, sh.evb,sh.evc)
+          val (statless,dynless) = lessmix.split()
+          val lessf = sort(statless)
+          val xl = lessf(dynless)
+          xl
+        }
+      )
+      merge(lower, higher)
+    }
+    val t: StagedFunction[DynHeader[A,B,C], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("MergeSort" + stat.genSig()),Some("MergeSort"))(exposarg,exposeret )
+    t
+  }
+
 
   def quicksort[A[_], B[_], C[_]](stat: StatHeader[A, B, C]): StagedFunction[DynHeader[A, B, C], Rep[Vector[Int]]] = {
     val exposarg: ExposeRep[DynHeader[A, B, C]] = exposeDynHeader(stat)
@@ -253,35 +383,6 @@ class Core extends Skeleton {
       outer
     }
 
-    def mergesort(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
-      val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
-        val sh = SelectionHeader(stat, dyn)
-        val start = sh.start
-        val end = sh.end
-        val x = sh.x
-        val half = (end - start) / 2
-        val low_start = sh.start
-        val low_end = half
-        val high_start = half + 1
-        val high_end = sh.end
-
-        val sh1 = SelectionHeader(x, low_start, low_end, sh.basesize)
-        val statsless = sh1.getStatSkel()
-        val lessexpose = exposeDynSelectionHeader(statsless)
-        val dynless = sh1.getDynSelectionHeader()
-        val fless = mf(lessexpose, sort(statsless), "sort")
-        val sless = fless(dynless)
-
-        val sh2 = SelectionHeader(x, high_start, high_end, sh.basesize)
-        val statgreater = sh2.getStatSkel()
-        val greaterexpose = exposeDynSelectionHeader(statgreater)
-        val fgreater = mf(greaterexpose, sort(statgreater), "sort")
-        val dyngreater = sh2.getDynSelectionHeader()
-        val sgreater = fgreater(dyngreater)
-        merge(sless, sgreater)
-      }
-      outer
-    }
 
 
     //def inserationsort(sh: SelectionHeader): Rep[Vector[Int]] = {
@@ -303,31 +404,7 @@ class Core extends Skeleton {
     }
 
 
-    def selectionsort(stat: StatSelectionHeader): (DynSelectionHeader => Rep[Vector[Int]]) = {
-      val outer: (DynSelectionHeader => Rep[Vector[Int]]) = (dyn: DynSelectionHeader) => {
-        val sh = SelectionHeader(stat, dyn)
-        val start = sh.start
-        val end = sh.end
-        val x = sh.x
-        implicit val itupexpose = exposeTuple[Int, Int]()
 
-        (start until end).foldLeft(x) {
-          case (array, index) => {
-            val swapele = array(index)
-            val (value, pos) = ((index) until end).foldLeft((swapele, index.toRep())) {
-              case ((value, pos), index2) => {
-                val b = array(index2)
-                val t: Rep[Boolean] = value < b
-                myifThenElse[(Rep[Int], Rep[Int])](t, (b, index2.toRep()), (value, pos))
-              }
-            }
-            val bx = array(pos)
-            array.update(index, bx).update(pos, swapele)
-          }
-        }
-      }
-      outer
-    }
   */
 
   def tmp[A[_],B[_],C[_]](stat: StatHeader[A,B,C]): (DynHeader[A,B,C] => Rep[Vector[Int]]) = {

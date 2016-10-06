@@ -283,7 +283,7 @@ trait Skeleton extends Sort_DSL {
     def repselect[A[_], T](a: A[T], ev: IRep[A]): Option[A[T]] =
       if (rrep) {
         if (ev.isRep()) Some(a) else None
-      } else if (!ev.isRep()) None else Some(a)
+      } else if (ev.isRep()) None else Some(a)
   }
 
   trait DynSelector {
@@ -317,7 +317,8 @@ trait Skeleton extends Sort_DSL {
 
   class StatHeader[A[_], B[_], C[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C]) extends SortHeader(start, end, basesize, eva, evb, evc) with StatSelector{
     def genSig(): String = {
-      val s = start() match{
+      val bla = start()
+      val s = bla match{
         case Some(x : NoRep[Int]) => x.toString
         case _ => ""
       }
