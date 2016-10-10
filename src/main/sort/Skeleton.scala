@@ -51,9 +51,9 @@ trait Skeleton extends Sort_DSL {
 
   trait IRep[T[_]] extends RepBase[T] with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T]
 
-  implicit object isRep extends IRep[Rep] with isRepBase with RepNum with RepConditionals with RepComparisons with RepRangeFold
+  implicit object cRep extends IRep[Rep] with isRepBase with RepNum with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff
 
-  implicit object isNoRep extends IRep[NoRep] with noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons with NoRepRangeFold
+  implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons with NoRepRangeFold with NoRepChooseStuff
 
 
   trait RepBase[T[_]] {
@@ -247,12 +247,12 @@ trait Skeleton extends Sort_DSL {
 
   abstract class Base[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int],
                                                eva: IRep[A], evb: IRep[B], evc: IRep[C], evab: IRep[AB],
-                                               lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB])
+                                               lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB])
 
   abstract class SortHeader[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int],
                                                      eva: IRep[A], evb: IRep[B], evc: IRep[C], evab: IRep[AB],
-                                                     lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB])
-    extends Base(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3) with RepSelector {
+                                                     lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB])
+    extends Base(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) with RepSelector {
     def start(): Option[A[Int]] = repselect(start, eva)
 
     def end(): Option[B[Int]] = repselect(end, evb)
@@ -261,14 +261,14 @@ trait Skeleton extends Sort_DSL {
   }
 
 
-  class DynHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3) with DynSelector
+  class DynHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) with DynSelector
 
   object StatHeader {
-    def apply[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int])(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB]): StatHeader[A, B, C, AB] =
-      new StatHeader[A, B, C, AB](start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3)
+    def apply[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int])(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB]): StatHeader[A, B, C, AB] =
+      new StatHeader[A, B, C, AB](start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
   }
 
-  class StatHeader[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB],val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3) with StatSelector {
+  class StatHeader[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB],val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB], val lub4: Lub[AB, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) with StatSelector {
     def genSig(): String = {
       val bla = start()
       val s = bla match {
@@ -287,10 +287,10 @@ trait Skeleton extends Sort_DSL {
     }
   }
 
-  class MixSortHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], val start: A[Int], val end: B[Int], val basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB], val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB]
-  ) extends Base(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3) {
-    def getDynHeader(): DynHeader[A, B, C, AB] = new DynHeader[A, B, C, AB](x, start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3)
-    def getStatHeader(): StatHeader[A, B, C, AB] = new StatHeader[A, B, C, AB](start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3)
+  class MixSortHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], val start: A[Int], val end: B[Int], val basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB], val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB], val lub4: Lub[AB, AB, AB]
+  ) extends Base(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) {
+    def getDynHeader(): DynHeader[A, B, C, AB] = new DynHeader[A, B, C, AB](x, start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
+    def getStatHeader(): StatHeader[A, B, C, AB] = new StatHeader[A, B, C, AB](start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
 
     def split(): (StatHeader[A, B, C, AB], DynHeader[A, B, C, AB]) = (getStatHeader(), getDynHeader())
   }
@@ -302,10 +302,10 @@ trait Skeleton extends Sort_DSL {
       val a: RA[Int] = choose(hs.start(), hd.start(), hs.eva)
       val b: RB[Int] = choose(hs.end(), hd.end(), hs.evb)
       val c: RC[Int] = choose(hs.basesize(), hd.basesize(), hs.evc)
-      new MixSortHeader[RA, RB, RC, RAB](hd.x, a, b, c, hs.eva, hs.evb, hs.evc, hs.evab, hs.lub1, hs.lub2, hs.lub3)
+      new MixSortHeader[RA, RB, RC, RAB](hd.x, a, b, c, hs.eva, hs.evb, hs.evc, hs.evab, hs.lub1, hs.lub2, hs.lub3, hs.lub4)
     }
 
-    def apply[RA[_], RB[_], RC[_], RAB[_]](x: Rep[Vector[Int]], start: RA[Int], end: RB[Int], basesize: RC[Int])(implicit eva: IRep[RA], evb: IRep[RB], evc: IRep[RC], evab: IRep[RAB], lub1: Lub[RA, RB, RAB], lub2: Lub[RAB, RB, RAB], lub3: Lub[RA, RAB, RAB]): MixSortHeader[RA, RB, RC, RAB] = new MixSortHeader[RA, RB, RC, RAB](x, start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3)
+    def apply[RA[_], RB[_], RC[_], RAB[_]](x: Rep[Vector[Int]], start: RA[Int], end: RB[Int], basesize: RC[Int])(implicit eva: IRep[RA], evb: IRep[RB], evc: IRep[RC], evab: IRep[RAB], lub1: Lub[RA, RB, RAB], lub2: Lub[RAB, RB, RAB], lub3: Lub[RA, RAB, RAB], lub4: Lub[RAB,RAB,RAB]): MixSortHeader[RA, RB, RC, RAB] = new MixSortHeader[RA, RB, RC, RAB](x, start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
   }
 
 
@@ -323,7 +323,7 @@ trait Skeleton extends Sort_DSL {
         val (ostart, outstart) = help(in.tail, stat.start(), stat.eva)
         val (oend, outend) = help(ostart, stat.end(), stat.evb)
         val (obs, outbs) = help(oend, stat.basesize(), stat.evc)
-        new DynHeader[A, B, C, AB](x, outstart, outend, outbs, stat.eva, stat.evb, stat.evc, stat.evab, stat.lub1, stat.lub2, stat.lub3)
+        new DynHeader[A, B, C, AB](x, outstart, outend, outbs, stat.eva, stat.evb, stat.evc, stat.evab, stat.lub1, stat.lub2, stat.lub3, stat.lub4)
       }
 
       val t2vec: DynHeader[A, B, C, AB] => Vector[Exp[_]] = (in: DynHeader[A, B, C, AB]) => {

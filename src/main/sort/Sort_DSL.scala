@@ -90,18 +90,6 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   def vecupdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]): Exp[ComplexVector] = VecUpdate(vec, i, y)
 
-  case class Plus(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
-
-  def plus(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Plus(lhs, rhs)
-
-  case class Minus(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
-
-  def minus(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Minus(lhs, rhs)
-
-  case class Times(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
-
-  def times(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Times(lhs, rhs)
-
   case class Concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
 
   def concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Concat(lhs,rhs)
@@ -241,9 +229,6 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
       case IVecFirstorZero(v) => Vector(emitValDef(tp, quote(v) + ".headOption.getOrElse(0)"))
       case IVecUpRank(v) => Vector(emitValDef(tp, "Vector("+ quote(v) + ".head, 0) ++ " + quote(v) + ".tail"))
       case Int_Eq(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
-      case Plus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
-      case Minus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
-      case Times(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
       //case Divide(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))
       case Twiddle_Apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int])  => Vector(emitValDef(tp, " Twiddle(" + quote(vec) + "," + quote(n) + "," + quote(d) + "," + quote(k) + ")"))
       case Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))

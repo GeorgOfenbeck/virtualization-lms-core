@@ -73,23 +73,11 @@ class Core extends Skeleton {
     val stageme: (DynHeader[A,B,C,AB] => Rep[Vector[Int]]) = (dyn: DynHeader[A,B,C,AB]) => {
       val sh = MixSortHeader(stat, dyn)
       import sh._
-      val x = sh.x
+      import lub1._
       implicit val itupexpose = exposeTuple[Int, Int]()
-
-      val start = eva.toSRep(sh.start)
-      val end = evb.toSRep(sh.end)
-      val startev = getSRepEv(start)
-      import startev._
-      val r = (start until end)
-
-      val rev = getSRepEv(r)
-      rev.rangefold(r,dyn.x,exposeret) {
-        case (acc, ele) => inserationcore(acc, ele.toRep(ele))
+      evab.rangefold(evab.unt(start,end),dyn.x,exposeret) {
+        case (acc, ele) => inserationcore(acc, evab.toRep(ele))
       }
-
-
-
-
       /*(start until end).foldLeft(x) {
         case (array, index) => {
           val swapele = array(index)
@@ -117,21 +105,14 @@ class Core extends Skeleton {
     val stageme: (DynHeader[A,B,C,AB] => Rep[Vector[Int]]) = (dyn: DynHeader[A,B,C,AB]) => {
       val mix = MixSortHeader(stat, dyn)
       import mix._
-      val size = evb.minus(end, start)(evb, eva)
-      val sev = getSRepEv(size)
-      val cond = sev.equiv(size, mkSRep(1))
-      val cev = getSRepEv(cond)
-      val ret: Rep[Vector[Int]] = cev._if(cond, dyn.x, {
-        val one = mkSRep(1)
-        val oneev = getSRepEv(one)
-        val s1 = oneev.plus(mix.eva.toSRep(mix.start), one)
-        val start = eva.toSRep(mix.start)
-        val startev = getSRepEv(start)
-        import startev._
-        val r = (start until evb.toSRep(mix.end))
-        val rev = getSRepEv(r)
-        rev.rangefold(r,dyn.x,exposeret) {
-          case (acc, ele) => inserationcore(acc, ele.toRep(ele))
+      import lub1._
+      import evab._
+      val size = minus(end, start)
+      val ret: Rep[Vector[Int]] = evab._if(equiv(size, const(1)), dyn.x, {
+        val one = const(1)
+        val s1 = plus(start, one)
+        rangefold(unt(s1, end),dyn.x,exposeret) {
+          case (acc, ele) => inserationcore(acc, toRep(ele))
         }
       })
       ret
@@ -147,53 +128,26 @@ class Core extends Skeleton {
     val stageme: (DynHeader[A,B,C,AB] => Rep[Vector[Int]]) = (dyn: DynHeader[A,B,C,AB]) => {
       val sh = MixSortHeader(stat, dyn)
       import sh._
-      val start = sh.start
-      val end = sh.end
-      val x = dyn.x
-      val fsize = evb.minus(end, start)(evb, eva)
-      val sev = getSRepEv(fsize)
-      val half = sev.div(fsize,mkSRep(2))
-      val hev = getSRepEv(half)
+      import evab._
+      import lub1._
+      val fsize = minus(end, start)
+      val half = div(fsize,const(2))
 
       val low_start = sh.start
       val low_end = half
-      val high_start = hev.plus(half,mkSRep(1))
+      val high_start = plus(half,const(1))
       val high_end = sh.end
 
-      val lower = low_end.fold (fa => {
-        val lessmix = MixSortHeader(x, low_start, fa, sh.basesize)(sh.eva, isRep,sh.evc)
-        val (statless,dynless) = lessmix.split()
-        val lessf = sort(statless)
-        val xl = lessf(dynless)
-        xl
-      }
-        ,
-        fb => {
-          val lessmix = MixSortHeader(x, low_start, fb, sh.basesize)(sh.eva, isNoRep,sh.evc)
-          val (statless,dynless) = lessmix.split()
-          val lessf = sort(statless)
-          val xl = lessf(dynless)
-          xl
-        }
-      )
+      val lessmix = MixSortHeader.apply[A,AB,C,AB](x,low_start,low_end,basesize)(sh.eva,sh.evab,sh.evc,sh.evab,lub3,lub4,lub3,lub4)
+      val (statless,dynless) = lessmix.split()
+      val lessf = sort(statless)
+      val xl = lessf(dynless)
+      val highmix = MixSortHeader.apply[AB,B,C,AB](x, high_start, high_end, basesize)(sh.evab,sh.evb,sh.evc,sh.evab,lub2,lub2,lub4,lub4)
+      val (stathigh,dynhigh) = highmix.split()
+      val highf = sort(stathigh)
+      val xh = highf(dynhigh)
 
-      val higher = high_start.fold (fa => {
-        val lessmix = MixSortHeader(x, fa, high_end, sh.basesize)(isRep, sh.evb,sh.evc)
-        val (statless,dynless) = lessmix.split()
-        val lessf = sort(statless)
-        val xl = lessf(dynless)
-        xl
-      }
-        ,
-        fb => {
-          val lessmix = MixSortHeader(x, fb, high_end, sh.basesize)(isNoRep, sh.evb,sh.evc)
-          val (statless,dynless) = lessmix.split()
-          val lessf = sort(statless)
-          val xl = lessf(dynless)
-          xl
-        }
-      )
-      merge(lower, higher)
+      merge(xl, xh)
     }
     val t: StagedFunction[DynHeader[A,B,C,AB], Rep[Vector[Int]]] = doGlobalLambda(stageme, Some("MergeSort" + stat.genSig()),Some("MergeSort"))(exposarg,exposeret )
     t
@@ -207,14 +161,12 @@ class Core extends Skeleton {
     val stageme: (DynHeader[A,B,C,AB] => Rep[Vector[Int]]) = (dyn: DynHeader[A,B,C,AB]) => {
       val sh = MixSortHeader(stat, dyn)
       import sh._
-      val start = sh.start
-      val end = sh.end
-      val x = dyn.x
-      val fsize = evb.minus(end, start)(evb, eva)
-      val sev = getSRepEv(fsize)
-      val half = sev.div(fsize,mkSRep(2))
-      val hev = getSRepEv(half)
-      val pivot = x(hev.toRep(half))
+      import lub1._
+      import evab._
+
+      val fsize = minus(end, start)
+      val half = div(fsize,const(2))
+      val pivot = x(toRep(half))
       val less = filter[Int](x, p => pivot > p)
       val equal = filter[Int](x, p => pivot equiv p)
       val greater = filter[Int](x, p => pivot < p)
@@ -222,9 +174,8 @@ class Core extends Skeleton {
       val lesssize = size(less)
       val greatersize = size(greater)
       val zz: NoRep[Int] = 0
-      val lessmix = MixSortHeader(less,zz,lesssize,sh.basesize)(isNoRep,isRep,sh.evc)
-      val greatermix = MixSortHeader(greater,zz,greatersize,sh.basesize)(isNoRep,isRep,sh.evc)
-
+      val lessmix = MixSortHeader[NoRep,Rep,C,Rep](less,zz,lesssize,basesize)(cNoRep,cRep,evc,cRep,NoRepRep,RepRep,NoRepRep,RepRep)
+      val greatermix = MixSortHeader[NoRep,Rep,C,Rep](greater,zz,greatersize,basesize)(cNoRep,cRep,evc,cRep,NoRepRep,RepRep,NoRepRep,RepRep)
       val (statless,dynless) = lessmix.split()
       val lessf = sort(statless)
       val xl = lessf(dynless)
@@ -263,11 +214,11 @@ class Core extends Skeleton {
   }
 
   def codeexport() = {
-    val ev: IRep[Rep] = isRep
-    val ini: StatHeader[Rep,Rep,Rep] = StatHeader.apply[Rep,Rep,Rep](Const(1),Const(1),Const(1))
+    val ev: IRep[Rep] = cRep
+    //val ini: StatHeader[Rep,Rep,Rep] = StatHeader.apply[Rep,Rep,Rep](Const(1),Const(1),Const(1))
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
     stream2.println("import org.scalacheck._\nimport org.scalacheck.Properties\nimport org.scalacheck.Prop.forAll\nimport org.scalacheck.Gen._\n\nobject Bla extends org.scalacheck.Properties(\"Sort\") {\n\n  val genPosVector = containerOf[List,Int](Gen.posNum[Int])\n  val maxvalue = 2147483647\n  val buckets = 32\n\n  def maxd(cur: Int): Int = if (maxvalue / Math.pow(buckets,cur) > 1) maxd(cur + 1) else cur\n  val maxdiv = maxd(0)\n\n  //val maxdiv =   1000000000\n  property(\"startsWith\") = forAll(genPosVector) { l =>\n    val v = l.toVector\n    val c = new testClass\n    val s = c(v, 0, v.length, 16)\n    //val s2 = test(v,0,v.length)\n    val s3 = sortFunctional(v)\n    val s4 = msortfunctional(v)\n    val s5 = msd_radix_sort_head(v)\n    s3.corresponds(s) {\n      _ == _\n    } && s3.corresponds(s4) {\n      _ == _\n    }&& s3.corresponds(s5) {\n      _ == _\n    }\n\n  }\n\n  def merge(xs: Vector[Int], ys: Vector[Int]): Vector[Int] = {\n    if (xs.isEmpty) ys\n    else if (ys.isEmpty) xs\n    else {\n      (xs, ys) match {\n        case (x +: xs1, y +: ys1) =>\n          if (x > y)\n            x +: merge(xs1, ys)\n          else\n            y +: merge(xs, ys1)\n      }\n    }\n  }\n\n\n\n\n\n\n  def digitsplit(xs: Vector[Int], pos: Int): Vector[Vector[Int]] = {\n    val div:Int  = Math.pow(buckets,maxdiv-1-pos).toInt\n    val tmpstore = new Array[Vector[Int]](buckets)\n    for (i <- 0 until tmpstore.size) tmpstore(i) = Vector.empty\n    val t = xs.foldLeft(tmpstore){\n      (acc,ele) => {\n        val killright = (ele / div).toInt\n        val key = killright % buckets\n        tmpstore(key) = tmpstore(key) :+ ele\n        tmpstore\n      }\n    }\n    t.reverse.toVector\n\n  }\n\n  def msd_radix_sort(xs: Vector[Int], pos: Int): Vector[Int] = {\n    if (pos == maxdiv || xs.size < 2) xs\n    else {\n      val vlist = digitsplit(xs, pos)\n      val plus1 = pos + 1\n      vlist.flatMap(l => msd_radix_sort(l, plus1))\n    }\n  }\n\n\n  def msd_radix_sort_head(xs: Vector[Int]): Vector[Int] = msd_radix_sort(xs,0)\n\n\n  def msortfunctional(xs: Vector[Int]): Vector[Int] = {\n    val n = xs.length / 2\n    if (n == 0) xs\n    else {\n      val (ys, zs) = xs splitAt n\n      merge(msortfunctional(ys), msortfunctional(zs))\n    }\n  }\n\n\n  def sortFunctional(xs: Vector[Int]): Vector[Int] = {\n    if (xs.length <= 1) xs\n    else {\n      val pivot = xs(xs.length / 2)\n      val less = xs.filter(p => pivot > p)\n      val equal = xs.filter(p => pivot == p)\n      val greater = xs.filter(p => pivot < p)\n      sortFunctional(greater) ++ equal ++ sortFunctional(less)\n    }\n  }\n\n\n  def insertioncore(acc: Vector[Int], ele: Int): Vector[Int] = {\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => p > currele)\n    val smaller = sorted.drop(bigger.size)\n    (bigger :+ rest.head) ++ smaller ++ rest.tail\n  }\n\n  def inserationsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n    if (start < end && (end - start) > 1) {\n      (start + 1 until end).foldLeft(v) {\n        (acc, ele) => insertioncore(acc,ele)\n      }\n    } else {\n      v\n    }\n\n\n  }\n\n\n  def selectionsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n\n    (start until end).foldLeft(v) {\n      (acc, ele) => {\n        val swapele = acc(ele)\n        val (value, pos) = (ele until end).foldLeft((swapele, ele)) {\n          (acc2, k) => {\n            val (value, pos) = acc2\n            val currcheck = acc(k)\n            if (swapele < currcheck)\n              (currcheck, k)\n            else\n              (value, pos)\n          }\n        }\n        val bx = acc(pos)\n        val o1 = acc.updated(pos, swapele)\n        val o2 = o1.updated(ele, value)\n        o2\n      }\n    }\n  }\n\n}")
-    val esc = codegen.emitSource(tmp(ini), "testClass", stream2)(exposeDynHeader(ini), exposeRepFromRep[Vector[Int]])
+    //val esc = codegen.emitSource(tmp(ini), "testClass", stream2)(exposeDynHeader(ini), exposeRepFromRep[Vector[Int]])
     //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
     stream2.println("\n}\n")
     stream2.flush()
