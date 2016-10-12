@@ -205,8 +205,9 @@ class Core extends Skeleton {
 
 
   def graphvizexport() = {
+    val ini: StatHeader[NoRep,NoRep,NoRep,NoRep] = StatHeader(None, None, None)
     //val ini: StatSelectionHeader = StatSelectionHeader(None, None, None)
-    //val (code, cm) = emitGraph.emitDepGraphf(sort(ini))(exposeDynSelectionHeader(ini), exposeRepFromRep[Vector[Int]])
+    val (code, cm) = emitGraph.emitDepGraphf(tmp(ini))(exposeDynHeader(ini), exposeRepFromRep[Vector[Int]])
     val stream = new java.io.PrintWriter(new java.io.FileOutputStream("DFT_recursion_step.dot"))
     //stream.println(code)
     stream.flush()
