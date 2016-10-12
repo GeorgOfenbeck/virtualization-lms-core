@@ -107,6 +107,11 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   def choose_sort(size: Exp[Int]): Exp[Int] = ChooseSort(size)
 
+  case class ChooseInline(size: Exp[Int]) extends Def[Boolean]
+
+  def choose_inlinex(size: Exp[Int]): Exp[Boolean] = ChooseInline(size)
+
+
   case class ChooseBase(size: Exp[Int]) extends Def[Int]
 
   def choose_base(size: Exp[Int]): Exp[Int] = ChooseBase(size)
@@ -204,6 +209,7 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
       case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
       case ChooseBase(size) => Vector(emitValDef(tp, " 0"))
       case ChooseSort(size) => Vector(emitValDef(tp, " 1"))
+      case ChooseInline(size) => Vector(emitValDef(tp, quote(size) + "< 100"))
       case Merge(lhs, rhs) => Vector(emitValDef(tp, "Bla.merge(" + quote(lhs) + " , " + quote(rhs) + ")"))
       case Size(lhs) => Vector(emitValDef(tp, quote(lhs) + ".size"))
       case OrderingGTEQ(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " >= " + quote(rhs)))
