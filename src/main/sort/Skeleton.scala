@@ -263,15 +263,17 @@ trait Skeleton extends Sort_DSL {
     def basesize(): Option[C[Int]] = repselect(basesize, evc)
   }
 
+  case class InlineInfo(inline: Boolean, maxfunctions: Int)
+
 
   class DynHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], start: A[Int], end: B[Int], basesize: C[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) with DynSelector
 
   object StatHeader {
-    def apply[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int], inline: Boolean)(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB]): StatHeader[A, B, C, AB] =
+    def apply[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int], inline: InlineInfo)(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evab: IRep[AB], lub1: Lub[A, B, AB], lub2: Lub[AB, B, AB], lub3: Lub[A, AB, AB], lub4: Lub[AB, AB, AB]): StatHeader[A, B, C, AB] =
       new StatHeader[A, B, C, AB](start, end, basesize, inline, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
   }
 
-  class StatHeader[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int], val inline: Boolean, val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB],val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB], val lub4: Lub[AB, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) with StatSelector {
+  class StatHeader[A[_], B[_], C[_], AB[_]](start: A[Int], end: B[Int], basesize: C[Int], val inline: InlineInfo, val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB],val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB], val lub4: Lub[AB, AB, AB]) extends SortHeader(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) with StatSelector {
     def genSig(): String = {
       val s = start() match {
         case Some(x: NoRep[Int]) => x.toString
@@ -289,7 +291,7 @@ trait Skeleton extends Sort_DSL {
     }
   }
 
-  case class MixSortHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], val start: A[Int], val end: B[Int], val basesize: C[Int], val inline: Boolean, val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB], val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB], val lub4: Lub[AB, AB, AB]
+  case class MixSortHeader[A[_], B[_], C[_], AB[_]](val x: Rep[Vector[Int]], val start: A[Int], val end: B[Int], val basesize: C[Int], val inline: InlineInfo, val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evab: IRep[AB], val lub1: Lub[A, B, AB], val lub2: Lub[AB, B, AB], val lub3: Lub[A, AB, AB], val lub4: Lub[AB, AB, AB]
   ) extends Base(start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4) {
     def getDynHeader(): DynHeader[A, B, C, AB] = new DynHeader[A, B, C, AB](x, start, end, basesize, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
     def getStatHeader(): StatHeader[A, B, C, AB] = new StatHeader[A, B, C, AB](start, end, basesize, inline, eva, evb, evc, evab, lub1, lub2, lub3, lub4)
