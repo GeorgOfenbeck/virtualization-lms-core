@@ -10,7 +10,9 @@ import scala.lms.targets.scalalike._
 trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VectorOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
 
 
+  case class Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) extends Def[Int]
 
+  def int_quick_compare(a: Exp[Int], b: Exp[Int]): Exp[Int] = Int_Quick_Compare(a,b)
 
   case class ISingle(s: Single, i: Rep[Int])
 
@@ -206,6 +208,7 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
       case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
       case ChooseBase(size) => Vector(emitValDef(tp, " 0"))
       case ChooseSort(size) => Vector(emitValDef(tp, " 1"))
