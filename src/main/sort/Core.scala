@@ -332,3 +332,43 @@ class Core extends Skeleton {
 }
 
 
+/*
+/**
+  * Created by rayda on 17-Oct-16.
+  */
+import org.scalacheck._
+import org.scalacheck.Properties
+import org.scalacheck.Prop.forAll
+import org.scalacheck.Gen._
+
+object Benchmark extends App{
+
+
+  for (size <- 10 until 10000) {
+    for (warmup <- 0 until 5) {
+      val gen = containerOfN[List, Int](size, Gen.posNum[Int])
+      val l = gen.sample.get
+      val v = l.toVector
+      val c = new testClass
+
+      //val s2 = test(v,0,v.length)
+      //val t1 = System.currentTimeMillis()
+      //val s3 = Bla.sortFunctional(v)
+      val t2 = System.nanoTime()
+      val s4 = Bla.msortfunctional(v)
+      //val s4 = Bla.baseline(v)
+      val t3 = System.nanoTime()
+      val s5 = c(v, 0, v.length, 16)
+      //val s5 = Bla.baseline(v)
+      val t4 = System.nanoTime()
+
+      val time_poly = t4 - t3
+      val time_leg = t3 - t2
+      println(time_leg - time_poly)
+    }
+
+
+  }
+}
+
+ */
