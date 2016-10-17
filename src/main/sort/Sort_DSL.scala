@@ -208,10 +208,11 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
-      case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
+      //case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
+      case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(b) + " - " + quote(a) ))
       case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
-      case ChooseBase(size) => Vector(emitValDef(tp, " 0"))
-      case ChooseSort(size) => Vector(emitValDef(tp, " 1"))
+      case ChooseBase(size) => Vector(emitValDef(tp, " Bla.chooseBase(" + quote(size) + ")"))
+      case ChooseSort(size) => Vector(emitValDef(tp, " Bla.chooseSort(" + quote(size) + ")"))
       case ChooseInline(size) => Vector(emitValDef(tp, quote(size) + "< 100"))
       case Merge(lhs, rhs) => Vector(emitValDef(tp, "Bla.merge(" + quote(lhs) + " , " + quote(rhs) + ")"))
       case Size(lhs) => Vector(emitValDef(tp, quote(lhs) + ".size"))
@@ -219,6 +220,7 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
       case OrderingGT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " > " + quote(rhs)))
       case OrderingEquiv(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
       case OrderingLT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " < " + quote(rhs)))
+      case VectorSlice(vec: Exp[Vector[_]], s:Exp[Int], e:Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + ".slice(" + quote(s) + "," + quote(e) + ")"))
       case VectorUpdate(vec, i: Exp[Int], y) => Vector(emitValDef(tp, "" + quote(vec) + ".updated(" + quote(i) + "," + quote(y) + ")"))
       case VectorApply(vec,i) => Vector(emitValDef(tp, quote(vec) + "(" + quote(i) + ")"))
       case Concat(lhs,rhs) => Vector(emitValDef(tp,src"$lhs ++ $rhs"))

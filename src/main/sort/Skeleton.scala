@@ -196,6 +196,8 @@ trait Skeleton extends Sort_DSL {
     def minus(lhs: T[Int], rhs: T[Int]): T[Int]
 
     def div(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def mod(lhs: T[Int], rhs: T[Int]): T[Int]
   }
 
   trait RepNum extends StagedNum[Rep] {
@@ -204,6 +206,8 @@ trait Skeleton extends Sort_DSL {
     def minus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_minus(lhs, rhs)
 
     def div(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_divide(lhs, rhs)
+
+    def mod(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_mod(lhs, rhs)
   }
 
   trait NoRepNum extends StagedNum[NoRep] {
@@ -212,6 +216,8 @@ trait Skeleton extends Sort_DSL {
     def minus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs - rhs
 
     def div(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs / rhs
+
+    def mod(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs % rhs
   }
 
 
@@ -226,7 +232,7 @@ trait Skeleton extends Sort_DSL {
   }
 
   trait NoRepChooseStuff extends ChooseStuff[NoRep] {
-    def choose_algorithm(x: NoRep[Int]): NoRep[Int] = 1
+    def choose_algorithm(x: NoRep[Int]): NoRep[Int] = 0
     def choose_inline(x: NoRep[Int]): NoRep[Boolean] = x < 100
   }
 
