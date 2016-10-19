@@ -14,9 +14,13 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   case class Complex_Compare(a: Exp[MyComplex], b: Exp[MyComplex]) extends Def[Int]
 
+  case class Double_Compare(a: Exp[Double], b: Exp[Double]) extends Def[Int]
+
   def int_quick_compare(a: Exp[Int], b: Exp[Int]): Exp[Int] = Int_Quick_Compare(a,b)
 
   def complex_compare(a: Exp[MyComplex], b: Exp[MyComplex]): Exp[Int] = Complex_Compare(a,b)
+
+  def double_compare(a: Exp[Double], b: Exp[Double]): Exp[Int] = Double_Compare(a,b)
 
   case class ISingle(s: Single, i: Rep[Int])
 
@@ -226,8 +230,10 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
       //case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
-      case Complex_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(b) + ".cmp(" + quote(a) + ")"))
+      case Complex_Compare(a, b) => Vector(emitValDef(tp, quote(b) + ".cmp(" + quote(a) + ")"))
+      case Double_Compare(a, b) => Vector(emitValDef(tp, "if (" + quote(a) + " < " +quote(b) + ") -1 else if (" + quote(a) + " > " +quote(b) + ") 1 else 0" ))
       case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(b) + " - " + quote(a) ))
+      case QuickSortCore(v,s,e) => Vector(emitValDef(tp, "Bla.ref_quicksort(" + quote(v) + " , " + quote(s) + " , " + quote(e) + ")"))
       case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
       case ChooseBase(size) => Vector(emitValDef(tp, " Bla.chooseBase(" + quote(size) + ")"))
       case ChooseSort(size) => Vector(emitValDef(tp, " Bla.chooseSort(" + quote(size) + ")"))
