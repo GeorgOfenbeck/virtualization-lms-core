@@ -113,8 +113,16 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
   //def inserationcore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]): Exp[Vector[T]] = InserationCore(v,e)
   def inserationcore[T: Manifest](v: Exp[Array[T]], e: Exp[Int]): Exp[Array[T]] = InserationCore(v,e)
 
-  case class QuickSortCore[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int]) extends Def[Array[T]]
-  def quicksortcore[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int]): Exp[Array[T]] = QuickSortCore(v,start,end)
+  case class InserationCoreI[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int]) extends Def[Array[T]]
+  //def inserationcore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]): Exp[Vector[T]] = InserationCore(v,e)
+  def inserationcore_imp[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int]): Exp[Array[T]] = InserationCoreI(v,start, end)
+
+
+  case class QuickSortCore[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int], pivot: Exp[Int]) extends Def[Array[T]]
+  def quicksortcore[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int], pivot: Exp[Int]): Exp[Array[T]] = QuickSortCore(v,start,end, pivot)
+
+  case class QuickSorthack[T](x: Exp[Array[T]]) extends Def[Int]
+  def quicksorthack[T](start: Exp[Array[T]]): Exp[Int] = QuickSorthack(start)
 
 
   //case class SumLoop[T: TypeRep](till: Exp[Int], body: Exp[ComplexVector]) extends Def[ComplexVector]
@@ -230,10 +238,12 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
       //case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
+      case QuickSorthack(x) => Vector(emitValDef(tp, "Bla.uglyglobalj" ))
       case Complex_Compare(a, b) => Vector(emitValDef(tp, quote(b) + ".cmp(" + quote(a) + ")"))
       case Double_Compare(a, b) => Vector(emitValDef(tp, "if (" + quote(a) + " < " +quote(b) + ") -1 else if (" + quote(a) + " > " +quote(b) + ") 1 else 0" ))
       case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(b) + " - " + quote(a) ))
-      case QuickSortCore(v,s,e) => Vector(emitValDef(tp, "Bla.ref_quicksort(" + quote(v) + " , " + quote(s) + " , " + quote(e) + ")"))
+      case QuickSortCore(v,s,e,p) => Vector(emitValDef(tp, "Bla.ref_quicksort(" + quote(v) + " , " + quote(s) + " , " + quote(e) + " , " + quote(p) + ")"))
+      case InserationCoreI(v, s, e) => Vector(emitValDef(tp, "Bla.ref_insertioncore(" + quote(v) + " , " + quote(s) + " , " + quote(e) + ")"))
       case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
       case ChooseBase(size) => Vector(emitValDef(tp, " Bla.chooseBase(" + quote(size) + ")"))
       case ChooseSort(size) => Vector(emitValDef(tp, " Bla.chooseSort(" + quote(size) + ")"))
