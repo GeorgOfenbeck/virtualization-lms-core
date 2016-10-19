@@ -7,12 +7,16 @@ import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
 
-trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VectorOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
+trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
 
 
   case class Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) extends Def[Int]
 
+  case class Complex_Compare(a: Exp[MyComplex], b: Exp[MyComplex]) extends Def[Int]
+
   def int_quick_compare(a: Exp[Int], b: Exp[Int]): Exp[Int] = Int_Quick_Compare(a,b)
+
+  def complex_compare(a: Exp[MyComplex], b: Exp[MyComplex]): Exp[Int] = Complex_Compare(a,b)
 
   case class ISingle(s: Single, i: Rep[Int])
 
@@ -92,13 +96,21 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   def vecupdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]): Exp[ComplexVector] = VecUpdate(vec, i, y)
 
-  case class Concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
+  //case class Concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
 
-  def concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Concat(lhs,rhs)
+  //def concat[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Concat(lhs,rhs)
 
-  case class InserationCore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]) extends Def[Vector[T]]
+  case class Concat[T:Manifest](lhs: Exp[Array[T]], rhs: Exp[Array[T]]) extends Def[Array[T]]
 
-  def inserationcore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]): Exp[Vector[T]] = InserationCore(v,e)
+  def concat[T:Manifest](lhs: Exp[Array[T]], rhs: Exp[Array[T]]): Exp[Array[T]] = Concat(lhs,rhs)
+
+  //case class InserationCore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]) extends Def[Vector[T]]
+  case class InserationCore[T: Manifest](v: Exp[Array[T]], e: Exp[Int]) extends Def[Array[T]]
+  //def inserationcore[T: Manifest](v: Exp[Vector[T]], e: Exp[Int]): Exp[Vector[T]] = InserationCore(v,e)
+  def inserationcore[T: Manifest](v: Exp[Array[T]], e: Exp[Int]): Exp[Array[T]] = InserationCore(v,e)
+
+  case class QuickSortCore[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int]) extends Def[Array[T]]
+  def quicksortcore[T: Manifest](v: Exp[Array[T]], start: Exp[Int], end: Exp[Int]): Exp[Array[T]] = QuickSortCore(v,start,end)
 
 
   //case class SumLoop[T: TypeRep](till: Exp[Int], body: Exp[ComplexVector]) extends Def[ComplexVector]
@@ -119,17 +131,22 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
   def choose_base(size: Exp[Int]): Exp[Int] = ChooseBase(size)
 
 
-  case class Merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]
+  //case class Merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]) extends Def[Vector[T]]  
+  //def merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Merge(lhs,rhs)
+  case class Merge[T:Manifest](lhs: Exp[Array[T]], rhs: Exp[Array[T]]) extends Def[Array[T]]
+  def merge[T:Manifest](lhs: Exp[Array[T]], rhs: Exp[Array[T]]): Exp[Array[T]] = Merge(lhs,rhs)
+  
+  //case class Size[T](v: Rep[Vector[T]]) extends Def[Int]
+  case class Size[T](v: Rep[Array[T]]) extends Def[Int]
 
-  def merge[T:Manifest](lhs: Exp[Vector[T]], rhs: Exp[Vector[T]]): Exp[Vector[T]] = Merge(lhs,rhs)
+  def size[T](v: Rep[Array[T]]): Rep[Int] = Size(v)
+  //def size[T](v: Rep[Vector[T]]): Rep[Int] = Size(v)
 
-  case class Size[T](v: Rep[Vector[T]]) extends Def[Int]
+  //case class Filter[T](v: Rep[Vector[T]], body: Exp[_ => _]) extends Def[Vector[T]]
+  case class Filter[T](v: Rep[Array[T]], body: Exp[_ => _]) extends Def[Array[T]]
 
-  def size[T](v: Rep[Vector[T]]): Rep[Int] = Size(v)
-
-  case class Filter[T](v: Rep[Vector[T]], body: Exp[_ => _]) extends Def[Vector[T]]
-
-  def filter[T:Manifest](v: Rep[Vector[T]],body: Rep[T] => Rep[Boolean])(implicit tupleexpose: ExposeRep[Rep[T]], singleexpose: ExposeRep[Rep[Boolean]]): Rep[Vector[T]] = {
+  def filter[T:Manifest](v: Rep[Array[T]],body: Rep[T] => Rep[Boolean])(implicit tupleexpose: ExposeRep[Rep[T]], singleexpose: ExposeRep[Rep[Boolean]]): Rep[Array[T]] = {
+  //def filter[T:Manifest](v: Rep[Vector[T]],body: Rep[T] => Rep[Boolean])(implicit tupleexpose: ExposeRep[Rep[T]], singleexpose: ExposeRep[Rep[Boolean]]): Rep[Vector[T]] = {
     val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     val looptuple = tupleexpose.freshExps()
@@ -209,6 +226,7 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
       //case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
+      case Complex_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(b) + ".cmp(" + quote(a) + ")"))
       case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(b) + " - " + quote(a) ))
       case InserationCore(v, e) => Vector(emitValDef(tp, "Bla.insertioncore(" + quote(v) + " , " + quote(e) + ")"))
       case ChooseBase(size) => Vector(emitValDef(tp, " Bla.chooseBase(" + quote(size) + ")"))
@@ -220,8 +238,10 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
       case OrderingGT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " > " + quote(rhs)))
       case OrderingEquiv(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
       case OrderingLT(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " < " + quote(rhs)))
-      case VectorSlice(vec: Exp[Vector[_]], s:Exp[Int], e:Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + ".slice(" + quote(s) + "," + quote(e) + ")"))
-      case VectorUpdate(vec, i: Exp[Int], y) => Vector(emitValDef(tp, "" + quote(vec) + ".updated(" + quote(i) + "," + quote(y) + ")"))
+      case VectorSlice(vec, s:Exp[Int], e:Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + ".slice(" + quote(s) + "," + quote(e) + ")"))
+      //case VectorUpdate(vec, i: Exp[Int], y) => Vector(emitValDef(tp, "" + quote(vec) + ".updated(" + quote(i) + "," + quote(y) + ")"))
+
+      case VectorUpdate(vec, i: Exp[Int], y) => Vector(emitValDef(tp, "{\n" + quote(vec) + "(" + quote(i) + ") = " + quote(y) + "\n" + quote(vec) + "}"))
       case VectorApply(vec,i) => Vector(emitValDef(tp, quote(vec) + "(" + quote(i) + ")"))
       case Concat(lhs,rhs) => Vector(emitValDef(tp,src"$lhs ++ $rhs"))
       case Until(start, end) => Vector(emitValDef(tp,src"$start until $end"))
