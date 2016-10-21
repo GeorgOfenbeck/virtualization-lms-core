@@ -58,14 +58,16 @@ class Core extends Skeleton {
       import evab._
       val size = minus(end, start)
       val ret = if (inline.maxfunctions < 1) {
-        _if(equiv(choose_algorithm(size), const(0)), {
+        val f = inserationsort_imp(stat)
+        f(dyn)
+        /*_if(equiv(choose_algorithm(size), const(0)), {
           val f = inserationsort(stat)
           f(dyn)
         }, {
           val f = selectionsort(stat)
           f(dyn)
         }
-        )
+        )*/
       } else {
 
 
@@ -134,28 +136,33 @@ class Core extends Skeleton {
       import evab._
       val size = minus(end, start)
 
-      /*val fret: Rep[Array[G]] = if (!inline.inline) {
-        val r: Rep[Array[G]] = _if(choose_inline(size), {
-          val newline = stat.inline.copy(maxfunctions = stat.inline.maxfunctions - 1)
-          val newmix: MixSortHeader[G, A, B, C, AB] = mix.copy(inline = newline)
-          val copystat: StatHeader[G, A, B, C, AB] = newmix.getStatHeader()
-          val rf = dispatcher(copystat)
-          rf(dyn)
-        }, {
+
+      if (inline.consider_inline) {
+        val fret: Rep[Array[G]] = if (!inline.inline) {
+          val r: Rep[Array[G]] = _if(choose_inline(size), {
+            val newline = stat.inline.copy(maxfunctions = stat.inline.maxfunctions - 1)
+            val newmix: MixSortHeader[G, A, B, C, AB] = mix.copy(inline = newline)
+            val copystat: StatHeader[G, A, B, C, AB] = newmix.getStatHeader()
+            val rf = dispatcher(copystat)
+            rf(dyn)
+          }, {
+            val rf = dispatcher(stat)
+            rf(dyn)
+          })
+          r
+        }
+        else {
           val rf = dispatcher(stat)
           rf(dyn)
-        })
-        r
+        }
+        fret
+      } else {
+        val fret: Rep[Array[G]] = {
+          val rf = dispatcher(stat)
+          rf(dyn)
+        }
+        fret
       }
-      else {
-        val rf = dispatcher(stat)
-        rf(dyn)
-      }*/
-      val fret: Rep[Array[G]] = {
-        val rf = dispatcher(stat)
-        rf(dyn)
-      }
-      fret
     }
     if (stat.inline.inline) {
       MaybeSFunction(stageme)
@@ -389,12 +396,32 @@ class Core extends Skeleton {
   }
 
 
-  def tmp[G, A[_], B[_], C[_], AB[_]](stat: StatHeader[G, A, B, C, AB]): (DynHeader[G, A, B, C, AB] => Rep[Array[G]]) = {
-    val outer: (DynHeader[G, A, B, C, AB] => Rep[Array[G]]) = (dyn: DynHeader[G, A, B, C, AB]) => {
-      val f = sort(stat)
-      f(dyn)
+  def tmp[G, A[_], B[_], C[_], AB[_]](stat: StatHeader[G, A, B, C, AB]): (DynHeaderPlus[G, A, B, C, AB] => Rep[Array[G]]) = {
+    val outer: (DynHeaderPlus[G, A, B, C, AB] => Rep[Array[G]]) = (dyn: DynHeaderPlus[G, A, B, C, AB]) => {
+      implicit val exposeret = exposeRepFromRep[Array[G]](stat.vtyp)
+      val mix = MixSortHeader(stat, dyn)
+      import mix._
+      val newline = stat.inline.copy(consider_inline = true)
+      val newmix: MixSortHeader[G, A, B, C, AB] = mix.copy(inline = newline)
+      val copystat: StatHeader[G, A, B, C, AB] = newmix.getStatHeader()
+      val fin = sort(copystat)
+      myifThenElse[Rep[Array[G]]](dyn.cinline,
+        {
+          fin(dyn)
+        }, {
+        val f = sort(stat)
+        f(dyn)
+      }
+      )
+
     }
     outer
+  }
+
+
+
+  def bla(x: BigInt, y: BigInt) = {
+    x.*(y)
   }
 
 
@@ -418,10 +445,10 @@ class Core extends Skeleton {
     //def lcomp(g: (Rep[MyComplex],Rep[MyComplex])): Rep[Int] = complex_compare(g._1,g._2)
     def lcomp(g: (Rep[Double],Rep[Double])): Rep[Int] = double_compare(g._1,g._2)
     //val ini: StatHeader[Double, NoRep, NoRep, Rep, NoRep] = StatHeader[Double, NoRep, NoRep, Rep, NoRep](0, 500, Const(-1), lcomp, InlineInfo(false, 3, true))
-    val ini: StatHeader[Double, Rep, Rep, Rep, Rep] = StatHeader[Double, Rep, Rep, Rep, Rep](Const(-1), Const(-1), Const(-1), lcomp, InlineInfo(false, 3, true))
+    val ini: StatHeader[Double, Rep, Rep, Rep, Rep] = StatHeader[Double, Rep, Rep, Rep, Rep](Const(-1), Const(-1), Const(-1), lcomp, InlineInfo(false, 3, true, false))
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
     stream2.println(codestring)
-    val esc = codegen.emitSource(tmp(ini), "testClass", stream2)(exposeDynHeader(ini), exposeRepFromRep[Array[Double]])
+    val esc = codegen.emitSource(tmp(ini), "testClass", stream2)(exposeDynHeaderPlus(ini), exposeRepFromRep[Array[Double]])
     //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
     stream2.println("\n}\n")
     stream2.flush()
@@ -429,7 +456,7 @@ class Core extends Skeleton {
   }
 
 
-  val codestring = "import org.scalacheck._\nimport org.scalacheck.Properties\nimport org.scalacheck.Prop.forAll\nimport org.scalacheck.Gen._\nimport sort.MyComplex\n\nobject Bla extends org.scalacheck.Properties(\"Sort\") {\n  val min: Double = -100000.0\n  val max: Double = min * -1.0\n  val size = 10000\n  val genPosVector = containerOfN[List, Double](size,Gen.posNum[Double])\n  //val genPosVector = containerOfN[List, Double](size, Gen.chooseNum(min,max))\n  //val gen = containerOfN[List, Double](size, Gen.chooseNum(min,max))\n  val maxvalue = 2147483647\n  val buckets = 32\n\n\n  var uglyglobalj: Int = 0\n\n  def maxd(cur: Int): Int = if (maxvalue / Math.pow(buckets, cur) > 1) maxd(cur + 1) else cur\n\n  val maxdiv = maxd(0)\n\n  //val maxdiv =   1000000000\n  property(\"startsWith\") = forAll(genPosVector) { l =>\n    val v1 = l.toArray\n    val v2 = l.toArray\n    val v3 = l.toArray\n    val v4 = l.toArray\n\n    val c = new testClass\n    val s = c(v1, 0, v1.length, 16)\n    //val s = if (v.size > 0) ref_poly(v,0,v.length) else v\n    //val s = if (v.size > 0) ref_quicksort_poly(v,0,v.length) else v\n    //val s2 = test(v,0,v.length)\n    val s4 = Bla.ref_poly_wdispatch(v2,0,v2.length)\n    val s3 = sortFunctional(v3.toVector).toArray\n    val s5 = if (v4.size > 0) Bla.ref_quicksort_r(v4,0,v4.length) else v4\n    //val s4 = msortfunctional(v.toVector)\n    //val s5 = msd_radix_sort_head(v.toVector)\n    s3.corresponds(s) {\n      _ == _\n    } && s3.corresponds(s4) {\n      _ == _\n    }  && s3.corresponds(s5) {\n      _ == _\n    }\n\n  }\n\n  def chooseBase(size: Int): Int = 0\n\n  def chooseSort(size: Int): Int = 0\n\n  def baseline(input: Vector[Int]): Vector[Int] = input.sortWith(_ < _)\n\n  def baseline_complex(input: Array[MyComplex]): Array[MyComplex] = {\n    def sortcomp(x: MyComplex, y: MyComplex): Boolean = x.cmp(y) < 0\n    input.sortWith((x, y) => sortcomp(x, y))\n  }\n\n  def baseline(input: Array[Int]): Array[Int] = input.sortWith(_ < _)\n\n  def merge(xs: Vector[Int], ys: Vector[Int]): Vector[Int] = {\n    if (xs.isEmpty) ys\n    else if (ys.isEmpty) xs\n    else {\n      (xs, ys) match {\n        case (x +: xs1, y +: ys1) =>\n          if (x > y)\n            x +: merge(xs1, ys)\n          else\n            y +: merge(xs, ys1)\n      }\n    }\n  }\n\n\n  def merge(xs: Array[Double], ys: Array[Double]): Array[Double] = ???\n\n  def merge(xs: Array[sort.MyComplex], ys: Array[sort.MyComplex]): Array[sort.MyComplex] = ???\n\n  def merge(xs: Array[Int], ys: Array[Int]): Array[Int] = {\n    if (xs.isEmpty) ys\n    else if (ys.isEmpty) xs\n    else {\n      val size = xs.size + ys.size\n\n      val retarray = new Array[Int](size)\n\n\n      var i = 0\n      var j = 0\n      var k = 0\n\n      while (i < xs.length && j < ys.length) {\n        if (xs(i) < ys(i)) {\n          retarray(k) = xs(i)\n          k = k + 1\n          i = i + i\n        }\n        else {\n          retarray(k) = ys(i)\n          k = k + 1\n          j = j + i\n        }\n      }\n\n      while (i < xs.length) {\n        retarray(k) = xs(i)\n        k = k + 1\n        i = i + i\n      }\n\n      while (j < ys.length) {\n        retarray(k) = ys(j)\n        k = k + 1\n        j = j + i\n      }\n      /*\n      (xs, ys) match {\n        case (x +: xs1, y +: ys1) =>\n          if (x > y)\n            x +: merge(xs1, ys)\n          else\n            y +: merge(xs, ys1)\n      }\n      */\n      retarray\n    }\n  }\n\n\n  def digitsplit(xs: Vector[Int], pos: Int): Vector[Vector[Int]] = {\n    val div: Int = Math.pow(buckets, maxdiv - 1 - pos).toInt\n    val tmpstore = new Array[Vector[Int]](buckets)\n    for (i <- 0 until tmpstore.size) tmpstore(i) = Vector.empty\n    val t = xs.foldLeft(tmpstore) {\n      (acc, ele) => {\n        val killright = (ele / div).toInt\n        val key = killright % buckets\n        tmpstore(key) = tmpstore(key) :+ ele\n        tmpstore\n      }\n    }\n    t.reverse.toVector\n\n  }\n\n  def msd_radix_sort(xs: Vector[Int], pos: Int): Vector[Int] = {\n    if (pos == maxdiv || xs.size < 2) xs\n    else {\n      val vlist = digitsplit(xs, pos)\n      val plus1 = pos + 1\n      vlist.flatMap(l => msd_radix_sort(l, plus1))\n    }\n  }\n\n\n  def msd_radix_sort_head(xs: Vector[Int]): Vector[Int] = msd_radix_sort(xs, 0)\n\n\n  def msortfunctional(xs: Vector[Int]): Vector[Int] = {\n    val n = xs.length / 2\n    if (n == 0) xs\n    else {\n      val (ys, zs) = xs splitAt n\n      merge(msortfunctional(ys), msortfunctional(zs))\n    }\n  }\n\n\n  def sortFunctional(xs: Vector[Double]): Vector[Double] = {\n    if (xs.length <= 1) xs\n    else {\n      val pivot = xs(xs.length / 2)\n      val less = xs.filter(p => pivot > p)\n      val equal = xs.filter(p => pivot == p)\n      val greater = xs.filter(p => pivot < p)\n      //sortFunctional(greater) ++ equal ++ sortFunctional(less)\n      sortFunctional(less) ++ equal ++ sortFunctional(greater)\n    }\n  }\n\n  def ref_dispatch: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      if (end - start < 16)\n        ref_insertioncore(xs, start, end)\n      else\n        ref_quicksort_poly(xs, start, end)\n    }\n\n  def ref_poly_wdispatch: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      ref_dispatch(xs, start, end)\n    }\n\n\n  def ref_poly: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      if (end - start < 2)\n        ref_insertioncore(xs, start, end)\n      else\n        ref_quicksort_poly(xs, start, end)\n    }\n\n  def ref_quicksort_poly: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      def swap(i: Int, j: Int) {\n        val t = xs(i);\n        xs(i) = xs(j);\n        xs(j) = t\n      }\n      def sort1(l: Int, r: Int) {\n        val pivot = xs((l + r) / 2)\n        var i = l;\n        var j = r\n        while (i <= j) {\n          while (xs(i) < pivot) i += 1\n          while (xs(j) > pivot) j -= 1\n          if (i <= j) {\n            swap(i, j)\n            i += 1\n            j -= 1\n          }\n        }\n        if (l < j) ref_poly(xs, l, j + 1)\n        if (j < r) ref_poly(xs, i, r + 1)\n      }\n      sort1(start, end - 1)\n      xs\n    }\n\n\n  //this is the one we use within the genereated code\n  def ref_quicksort(xs: Array[Double], start: Int, end: Int, pivotidx: Int): Array[Double] = {\n    def swap(i: Int, j: Int) {\n      val t = xs(i);\n      xs(i) = xs(j);\n      xs(j) = t\n    }\n    def sort1(l: Int, r: Int, pivotele: Int) {\n      val pivot = xs(pivotele)\n      var i = l;\n      var j = r\n      while (i <= j) {\n        while (xs(i) < pivot) i += 1\n        while (xs(j) > pivot) j -= 1\n        if (i <= j) {\n          swap(i, j)\n          i += 1\n          j -= 1\n        }\n      }\n      uglyglobalj = j\n\n    }\n    sort1(start, end - 1, pivotidx)\n    xs\n  }\n\n  def ref_quicksort_r(xs: Array[Double], start: Int, end: Int): Array[Double] = {\n    def swap(i: Int, j: Int) {\n      val t = xs(i);\n      xs(i) = xs(j);\n      xs(j) = t\n    }\n    def sort1(l: Int, r: Int) {\n      val pivot = xs((l + r) / 2)\n      var i = l;\n      var j = r\n      while (i <= j) {\n        while (xs(i) < pivot) i += 1\n        while (xs(j) > pivot) j -= 1\n        if (i <= j) {\n          swap(i, j)\n          i += 1\n          j -= 1\n        }\n      }\n      if (l < j) sort1(l, j)\n      if (j < r) sort1(i, r)\n    }\n    sort1(start, end - 1)\n    xs\n  }\n\n\n  def ref_insertioncore(a: Array[Double], start: Int, end: Int): Array[Double] = {\n    for (i <- start + 1 until end) {\n      // A[ i ] is added in the sorted sequence A[0, .. i-1]\n      // save A[i] to make a hole at index iHole\n      val item = a(i)\n      var iHole = i\n      // keep moving the hole to next smaller index until A[iHole - 1] is <= item\n      while (iHole > start && a(iHole - 1) > item) {\n        // move hole to next smaller index\n        a(iHole) = a(iHole - 1)\n        iHole = iHole - 1\n      }\n      // put item in the hole\n      a(iHole) = item\n    }\n    a\n  }\n\n  def insertioncore[T: Ordering](acc: Array[T], ele: Int): Array[T] = {\n    /*val orderingev = implicitly[Ordering[T]]\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => orderingev.gt(p,currele))\n    val smaller = sorted.drop(bigger.size)\n\n    (bigger :+ rest.head) ++ smaller ++ rest.tail*/\n    acc\n  }\n\n  /*def insertioncore(acc: Array[sort.MyComplex], ele: Int): Array[sort.MyComplex] = {\n    //def insertioncore(acc: Vector[Int], ele: Int): Vector[Int] = {\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => p.cmp(currele) > 0)\n    val smaller = sorted.drop(bigger.size)\n    (bigger :+ rest.head) ++ smaller ++ rest.tail\n  }\n\n\n  def insertioncore(acc: Array[Int], ele: Int): Array[Int] = {\n    //def insertioncore(acc: Vector[Int], ele: Int): Vector[Int] = {\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => p > currele)\n    val smaller = sorted.drop(bigger.size)\n    (bigger :+ rest.head) ++ smaller ++ rest.tail\n  }*/\n\n  def inserationsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n    if (start < end && (end - start) > 1) {\n      (start + 1 until end).foldLeft(v) {\n        (acc, ele) => insertioncore(acc.toArray, ele).toVector\n      }\n    } else {\n      v\n    }\n\n\n  }\n\n\n  def selectionsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n\n    (start until end).foldLeft(v) {\n      (acc, ele) => {\n        val swapele = acc(ele)\n        val (value, pos) = (ele until end).foldLeft((swapele, ele)) {\n          (acc2, k) => {\n            val (value, pos) = acc2\n            val currcheck = acc(k)\n            if (swapele < currcheck)\n              (currcheck, k)\n            else\n              (value, pos)\n          }\n        }\n        val bx = acc(pos)\n        val o1 = acc.updated(pos, swapele)\n        val o2 = o1.updated(ele, value)\n        o2\n      }\n    }\n  }\n}"
+  val codestring = "import org.scalacheck._\nimport org.scalacheck.Properties\nimport org.scalacheck.Prop.forAll\nimport org.scalacheck.Gen._\nimport sort.MyComplex\n\nobject Bla extends org.scalacheck.Properties(\"Sort\") {\n  val min: Double = -100000.0\n  val max: Double = min * -1.0\n  val size = 10000\n  val genPosVector = containerOfN[List, Double](size, Gen.posNum[Double])\n  //val genPosVector = containerOfN[List, Double](size, Gen.chooseNum(min,max))\n  //val gen = containerOfN[List, Double](size, Gen.chooseNum(min,max))\n  val maxvalue = 2147483647\n  val buckets = 32\n\n\n  var uglyglobalj: Int = 0\n\n  def maxd(cur: Int): Int = if (maxvalue / Math.pow(buckets, cur) > 1) maxd(cur + 1) else cur\n\n  val maxdiv = maxd(0)\n\n  //val maxdiv =   1000000000\n  property(\"startsWith\") = forAll(genPosVector) { l =>\n    val v1 = l.toArray\n    val v11 = l.toArray\n    val v2 = l.toArray\n    val v3 = l.toArray\n    val v4 = l.toArray\n\n    val c = new testClass\n    val s = c(false, v1, 0, v1.length, 16)\n    val s1 = c(true, v11, 0, v11.length, 16)\n    //val s = if (v.size > 0) ref_poly(v,0,v.length) else v\n    //val s = if (v.size > 0) ref_quicksort_poly(v,0,v.length) else v\n    //val s2 = test(v,0,v.length)\n    val s4 = Bla.ref_poly_wdispatch(v2, 0, v2.length)\n    val s3 = sortFunctional(v3.toVector).toArray\n    val s5 = if (v4.size > 0) Bla.ref_quicksort_r(v4, 0, v4.length) else v4\n    //val s4 = msortfunctional(v.toVector)\n    //val s5 = msd_radix_sort_head(v.toVector)\n    s3.corresponds(s) {\n      _ == _\n    } && s3.corresponds(s4) {\n      _ == _\n    } && s3.corresponds(s5) {\n      _ == _\n    } && s1.corresponds(s) {\n      _ == _\n    }\n\n  }\n\n  def chooseBase(size: Int): Int = 0\n\n  def chooseSort(size: Int): Int = 0\n\n  def baseline(input: Vector[Int]): Vector[Int] = input.sortWith(_ < _)\n\n  def baseline_complex(input: Array[MyComplex]): Array[MyComplex] = {\n    def sortcomp(x: MyComplex, y: MyComplex): Boolean = x.cmp(y) < 0\n    input.sortWith((x, y) => sortcomp(x, y))\n  }\n\n  def baseline(input: Array[Int]): Array[Int] = input.sortWith(_ < _)\n\n  def merge(xs: Vector[Int], ys: Vector[Int]): Vector[Int] = {\n    if (xs.isEmpty) ys\n    else if (ys.isEmpty) xs\n    else {\n      (xs, ys) match {\n        case (x +: xs1, y +: ys1) =>\n          if (x > y)\n            x +: merge(xs1, ys)\n          else\n            y +: merge(xs, ys1)\n      }\n    }\n  }\n\n\n  def merge(xs: Array[Double], ys: Array[Double]): Array[Double] = ???\n\n  def merge(xs: Array[sort.MyComplex], ys: Array[sort.MyComplex]): Array[sort.MyComplex] = ???\n\n  def merge(xs: Array[Int], ys: Array[Int]): Array[Int] = {\n    if (xs.isEmpty) ys\n    else if (ys.isEmpty) xs\n    else {\n      val size = xs.size + ys.size\n\n      val retarray = new Array[Int](size)\n\n\n      var i = 0\n      var j = 0\n      var k = 0\n\n      while (i < xs.length && j < ys.length) {\n        if (xs(i) < ys(i)) {\n          retarray(k) = xs(i)\n          k = k + 1\n          i = i + i\n        }\n        else {\n          retarray(k) = ys(i)\n          k = k + 1\n          j = j + i\n        }\n      }\n\n      while (i < xs.length) {\n        retarray(k) = xs(i)\n        k = k + 1\n        i = i + i\n      }\n\n      while (j < ys.length) {\n        retarray(k) = ys(j)\n        k = k + 1\n        j = j + i\n      }\n      /*\n      (xs, ys) match {\n        case (x +: xs1, y +: ys1) =>\n          if (x > y)\n            x +: merge(xs1, ys)\n          else\n            y +: merge(xs, ys1)\n      }\n      */\n      retarray\n    }\n  }\n\n\n  def digitsplit(xs: Vector[Int], pos: Int): Vector[Vector[Int]] = {\n    val div: Int = Math.pow(buckets, maxdiv - 1 - pos).toInt\n    val tmpstore = new Array[Vector[Int]](buckets)\n    for (i <- 0 until tmpstore.size) tmpstore(i) = Vector.empty\n    val t = xs.foldLeft(tmpstore) {\n      (acc, ele) => {\n        val killright = (ele / div).toInt\n        val key = killright % buckets\n        tmpstore(key) = tmpstore(key) :+ ele\n        tmpstore\n      }\n    }\n    t.reverse.toVector\n\n  }\n\n  def msd_radix_sort(xs: Vector[Int], pos: Int): Vector[Int] = {\n    if (pos == maxdiv || xs.size < 2) xs\n    else {\n      val vlist = digitsplit(xs, pos)\n      val plus1 = pos + 1\n      vlist.flatMap(l => msd_radix_sort(l, plus1))\n    }\n  }\n\n\n  def msd_radix_sort_head(xs: Vector[Int]): Vector[Int] = msd_radix_sort(xs, 0)\n\n\n  def msortfunctional(xs: Vector[Int]): Vector[Int] = {\n    val n = xs.length / 2\n    if (n == 0) xs\n    else {\n      val (ys, zs) = xs splitAt n\n      merge(msortfunctional(ys), msortfunctional(zs))\n    }\n  }\n\n\n  def sortFunctional(xs: Vector[Double]): Vector[Double] = {\n    if (xs.length <= 1) xs\n    else {\n      val pivot = xs(xs.length / 2)\n      val less = xs.filter(p => pivot > p)\n      val equal = xs.filter(p => pivot == p)\n      val greater = xs.filter(p => pivot < p)\n      //sortFunctional(greater) ++ equal ++ sortFunctional(less)\n      sortFunctional(less) ++ equal ++ sortFunctional(greater)\n    }\n  }\n\n  def ref_dispatch: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      if (end - start < 16)\n        ref_insertioncore(xs, start, end)\n      else\n        ref_quicksort_poly(xs, start, end)\n    }\n\n  def ref_poly_wdispatch: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      ref_dispatch(xs, start, end)\n    }\n\n\n  def ref_poly: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      if (end - start < 2)\n        ref_insertioncore(xs, start, end)\n      else\n        ref_quicksort_poly(xs, start, end)\n    }\n\n  def ref_quicksort_poly: ((Array[Double], Int, Int)) => ((Array[Double])) =\n    (helper: ((Array[Double], Int, Int))) => {\n      val xs: Array[Double] = helper._1\n      val start: Int = helper._2\n      val end: Int = helper._3\n      def swap(i: Int, j: Int) {\n        val t = xs(i);\n        xs(i) = xs(j);\n        xs(j) = t\n      }\n      def sort1(l: Int, r: Int) {\n        val pivot = xs((l + r) / 2)\n        var i = l;\n        var j = r\n        while (i <= j) {\n          while (xs(i) < pivot) i += 1\n          while (xs(j) > pivot) j -= 1\n          if (i <= j) {\n            swap(i, j)\n            i += 1\n            j -= 1\n          }\n        }\n        if (l < j) ref_poly(xs, l, j + 1)\n        if (j < r) ref_poly(xs, i, r + 1)\n      }\n      sort1(start, end - 1)\n      xs\n    }\n\n\n  //this is the one we use within the genereated code\n  def ref_quicksort(xs: Array[Double], start: Int, end: Int, pivotidx: Int): Array[Double] = {\n    def swap(i: Int, j: Int) {\n      val t = xs(i);\n      xs(i) = xs(j);\n      xs(j) = t\n    }\n    def sort1(l: Int, r: Int, pivotele: Int) {\n      val pivot = xs(pivotele)\n      var i = l;\n      var j = r\n      while (i <= j) {\n        while (xs(i) < pivot) i += 1\n        while (xs(j) > pivot) j -= 1\n        if (i <= j) {\n          swap(i, j)\n          i += 1\n          j -= 1\n        }\n      }\n      uglyglobalj = j\n\n    }\n    sort1(start, end - 1, pivotidx)\n    xs\n  }\n\n  def ref_quicksort_r(xs: Array[Double], start: Int, end: Int): Array[Double] = {\n    def swap(i: Int, j: Int) {\n      val t = xs(i);\n      xs(i) = xs(j);\n      xs(j) = t\n    }\n    def sort1(l: Int, r: Int) {\n      val pivot = xs((l + r) / 2)\n      var i = l;\n      var j = r\n      while (i <= j) {\n        while (xs(i) < pivot) i += 1\n        while (xs(j) > pivot) j -= 1\n        if (i <= j) {\n          swap(i, j)\n          i += 1\n          j -= 1\n        }\n      }\n      if (l < j) sort1(l, j)\n      if (j < r) sort1(i, r)\n    }\n    sort1(start, end - 1)\n    xs\n  }\n\n\n  def ref_insertioncore(a: Array[Double], start: Int, end: Int): Array[Double] = {\n    for (i <- start + 1 until end) {\n      // A[ i ] is added in the sorted sequence A[0, .. i-1]\n      // save A[i] to make a hole at index iHole\n      val item = a(i)\n      var iHole = i\n      // keep moving the hole to next smaller index until A[iHole - 1] is <= item\n      while (iHole > start && a(iHole - 1) > item) {\n        // move hole to next smaller index\n        a(iHole) = a(iHole - 1)\n        iHole = iHole - 1\n      }\n      // put item in the hole\n      a(iHole) = item\n    }\n    a\n  }\n\n  def insertioncore[T: Ordering](acc: Array[T], ele: Int): Array[T] = {\n    /*val orderingev = implicitly[Ordering[T]]\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => orderingev.gt(p,currele))\n    val smaller = sorted.drop(bigger.size)\n\n    (bigger :+ rest.head) ++ smaller ++ rest.tail*/\n    acc\n  }\n\n  /*def insertioncore(acc: Array[sort.MyComplex], ele: Int): Array[sort.MyComplex] = {\n    //def insertioncore(acc: Vector[Int], ele: Int): Vector[Int] = {\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => p.cmp(currele) > 0)\n    val smaller = sorted.drop(bigger.size)\n    (bigger :+ rest.head) ++ smaller ++ rest.tail\n  }\n\n\n  def insertioncore(acc: Array[Int], ele: Int): Array[Int] = {\n    //def insertioncore(acc: Vector[Int], ele: Int): Vector[Int] = {\n    val currele = acc(ele)\n    val (sorted, rest) = acc.splitAt(ele)\n    val bigger = sorted.takeWhile(p => p > currele)\n    val smaller = sorted.drop(bigger.size)\n    (bigger :+ rest.head) ++ smaller ++ rest.tail\n  }*/\n\n  def inserationsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n    if (start < end && (end - start) > 1) {\n      (start + 1 until end).foldLeft(v) {\n        (acc, ele) => insertioncore(acc.toArray, ele).toVector\n      }\n    } else {\n      v\n    }\n\n\n  }\n\n\n  def selectionsort(v: Vector[Int], start: Int, end: Int): Vector[Int] = {\n\n    (start until end).foldLeft(v) {\n      (acc, ele) => {\n        val swapele = acc(ele)\n        val (value, pos) = (ele until end).foldLeft((swapele, ele)) {\n          (acc2, k) => {\n            val (value, pos) = acc2\n            val currcheck = acc(k)\n            if (swapele < currcheck)\n              (currcheck, k)\n            else\n              (value, pos)\n          }\n        }\n        val bx = acc(pos)\n        val o1 = acc.updated(pos, swapele)\n        val o2 = o1.updated(ele, value)\n        o2\n      }\n    }\n  }\n}"
 }
 
 
