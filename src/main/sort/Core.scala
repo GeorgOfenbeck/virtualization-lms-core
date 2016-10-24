@@ -11,7 +11,7 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-class Core extends Skeleton {
+class Core extends SortHeader {
   self =>
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
