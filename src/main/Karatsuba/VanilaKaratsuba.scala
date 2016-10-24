@@ -1,8 +1,12 @@
 package Karatsuba
 
+import java.math.BigInteger
+
 
 case class MyBigInt(val mag: Array[Int], val signum: Int) {
   self =>
+
+
 
   /**
     * Returns a BigInteger whose value is {@code (this << n)}.
@@ -27,7 +31,6 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
       return shiftRightImpl(-n);
     }
   }
-
 
   /**
     * Returns a BigInteger whose value is {@code (this >> n)}. The shift
@@ -703,8 +706,19 @@ object VanilaKaratsuba extends App {
   val mbi = convert(bs.bigInteger)
   val mbi1 = convert(bs1.bigInteger)
   val r = bs * bs
+
+  val rcon = convert(r.bigInteger)
   val m = mbi.multiply(mbi1)
 
+
+
+
+  for (i <- 0 until rcon.mag.size)
+    if(rcon.mag(i) != m.mag(i)) println("difference")
+
+
+
+
   println(r)
-  println(m)
+
 }
