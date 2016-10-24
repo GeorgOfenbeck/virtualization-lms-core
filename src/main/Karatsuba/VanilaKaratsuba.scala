@@ -2,6 +2,113 @@ package Karatsuba
 
 
 case class MyBigInt(val mag: Array[Int], val signum: Int) {
+  self =>
+
+  /**
+    * Returns a BigInteger whose value is {@code (this << n)}.
+    * The shift distance, {@code n}, may be negative, in which case
+    * this method performs a right shift.
+    * (Computes <tt>floor(this * 2<sup>n</sup>)</tt>.)
+    *
+    * @param  n shift distance, in bits.
+    * @return {@code this << n}
+    * @see #shiftRight
+    */
+  def shiftLeft(n: Int): MyBigInt =  {
+    if (signum == 0)
+      return MyBigInt.ZERO;
+    if (n > 0) {
+      return MyBigInt(MyBigInt.shiftLeft(mag, n), signum);
+    } else if (n == 0) {
+      return this;
+    } else {
+      // Possible int overflow in (-n) is not a trouble,
+      // because shiftRightImpl considers its argument unsigned
+      return shiftRightImpl(-n);
+    }
+  }
+
+
+  /**
+    * Returns a BigInteger whose value is {@code (this >> n)}. The shift
+    * distance, {@code n}, is considered unsigned.
+    * (Computes <tt>floor(this * 2<sup>-n</sup>)</tt>.)
+    *
+    * @param  n unsigned shift distance, in bits.
+    * @return {@code this >> n}
+    */
+  def shiftRightImpl(n: Int): MyBigInt = {
+    import MyBigInt._
+    val nInts = n >>> 5;
+    val nBits = n & 0x1f;
+    val magLen = mag.length;
+    var newMag: Array[Int] = null;
+
+    // Special case: entire contents shifted off the end
+    if (nInts >= magLen)
+      return if(signum >= 0) ZERO else negConst(1)
+
+    if (nBits == 0) {
+      val newMagLen = magLen - nInts;
+      newMag = java.util.Arrays.copyOf(mag, newMagLen);
+    } else {
+      var i = 0;
+      var highBits: Int = mag(0) >>> nBits;
+      if (highBits != 0) {
+        newMag = new Array[Int](magLen - nInts)
+        newMag(i) = highBits;
+        i = i + 1
+      } else {
+        newMag = new Array[Int](magLen - nInts -1)
+      }
+
+      var nBits2 = 32 - nBits;
+      var j=0;
+      while (j < magLen - nInts - 1) {
+        newMag(i) = (mag(j) << nBits2) | (mag(j) >>> nBits);
+        i = i+ 1
+        j = j+ 1
+      }
+    }
+
+    if (signum < 0) {
+      // Find out whether any one-bits were shifted off the end.
+      var onesLost = false;
+      var i=magLen-1
+      var j=magLen-nInts;
+      while  ( i >= j && !onesLost)
+      {
+        onesLost = (mag(i) != 0);
+        i = i - 1
+      }
+      if (!onesLost && nBits != 0)
+        onesLost = (mag(magLen - nInts - 1) << (32 - nBits)) != 0
+
+      if (onesLost)
+        newMag = javaIncrement(newMag);
+    }
+
+    return new MyBigInt(newMag, signum);
+  }
+
+  def javaIncrement(jval: Array[Int]): Array[Int] =  {
+    var lastSum = 0;
+    var i=jval.length-1
+    while(i >= 0 && lastSum == 0)
+     i = i -1
+    jval(i) = jval(i) + 1
+    lastSum = jval(i)
+
+    if (lastSum == 0) {
+      val njval = new Array[Int](jval.length+1)
+      njval(0) = 1;
+      njval
+    } else jval
+
+  }
+
+
+
   /**
     * Throws an {@code ArithmeticException} if the {@code BigInteger} would be
     * out of the supported range.
@@ -13,6 +120,231 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
       //reportOverflow();
     }
   }
+
+  /**
+    * Returns a BigInteger whose value is {@code (-this)}.
+    *
+    * @return { @code -this}
+    */
+  def negate(): MyBigInt = {
+    return new MyBigInt(this.mag, -this.signum);
+  }
+
+  /**
+    * Returns a BigInteger whose value is the absolute value of this
+    * BigInteger.
+    *
+    * @return { @code abs(this)}
+    */
+  def abs(): MyBigInt = {
+    return if (signum >= 0) this else this.negate()
+  }
+
+
+  /**
+    * Returns a new BigInteger representing n lower ints of the number.
+    * This is used by Karatsuba multiplication and Karatsuba squaring.
+    */
+  def getLower(n: Int): MyBigInt = {
+    val len = mag.length;
+
+    if (len <= n) {
+      return abs();
+    }
+
+    val lowerInts: Array[Int] = new Array[Int](n);
+    System.arraycopy(mag, len - n, lowerInts, 0, n);
+
+    return MyBigInt(MyBigInt.trustedStripLeadingZeroInts(lowerInts), 1);
+  }
+
+  /**
+    * Returns a new BigInteger representing mag.length-n upper
+    * ints of the number.  This is used by Karatsuba multiplication and
+    * Karatsuba squaring.
+    */
+  def getUpper(n: Int): MyBigInt = {
+    val len: Int = mag.length;
+
+    if (len <= n) {
+      return MyBigInt.ZERO;
+    }
+
+    val upperLen = len - n;
+    val upperInts: Array[Int] = new Array[Int](upperLen)
+    System.arraycopy(mag, 0, upperInts, 0, upperLen);
+
+    return MyBigInt(MyBigInt.trustedStripLeadingZeroInts(upperInts), 1);
+  }
+
+  def multiply(that: MyBigInt): MyBigInt = MyBigInt.multiply(this, that)
+
+  /**
+    * Adds the contents of the int arrays x and y. This method allocates
+    * a new int array to hold the answer and returns a reference to that
+    * array.
+    */
+  def add(xp: Array[Int], yp: Array[Int]): Array[Int] = {
+    import MyBigInt._
+    // If x is shorter, swap the two arrays
+    val (x, y) = if (xp.length < yp.length) (yp, xp) else (xp, yp)
+
+    var xIndex = x.length;
+    var yIndex = y.length;
+    var result: Array[Int] = new Array[Int](xIndex);
+    var sum: Long = 0;
+    if (yIndex == 1) {
+      sum = (x(xIndex) & LONG_MASK) + (y(0) & LONG_MASK);
+      xIndex = xIndex - 1
+      result(xIndex) = sum.toInt
+    } else {
+      // Add common parts of both numbers
+      while (yIndex > 0) {
+        xIndex = xIndex - 1
+        yIndex - yIndex - 1
+        sum = (x(xIndex) & LONG_MASK) +
+          (y(yIndex) & LONG_MASK) + (sum >>> 32);
+        result(xIndex) = sum.toInt;
+      }
+    }
+    // Copy remainder of longer number while carry propagation is required
+    var carry: Boolean = (sum >>> 32) != 0
+    while (xIndex > 0 && carry) {
+      xIndex = xIndex - 1
+      carry = ((result(xIndex) = x(xIndex) + 1) == 0)
+    }
+
+    // Copy remainder of longer number
+    while (xIndex > 0)
+      result(xIndex) = x(xIndex)
+
+    // Grow result if necessary
+    if (carry) {
+      val bigger: Array[Int] = new Array[Int](result.length + 1)
+      System.arraycopy(result, 0, bigger, 1, result.length);
+      bigger(0) = 0x01;
+      return bigger;
+    }
+    return result;
+  }
+
+  /**
+    * Subtracts the contents of the second int arrays (little) from the
+    * first (big).  The first int array (big) must represent a larger number
+    * than the second.  This method allocates the space necessary to hold the
+    * answer.
+    */
+  def subtract(big: Array[Int], little: Array[Int]): Array[Int] = {
+    import MyBigInt._
+    var bigIndex = big.length;
+    var result: Array[Int] = new Array[Int](bigIndex)
+    var littleIndex = little.length;
+    var difference: Long = 0;
+
+    // Subtract common parts of both numbers
+    while (littleIndex > 0) {
+      bigIndex = bigIndex - 1
+      littleIndex = littleIndex - 1
+      difference = (big(bigIndex) & LONG_MASK) -
+        (little(littleIndex) & LONG_MASK) +
+        (difference >> 32);
+      result(bigIndex) = difference.toInt
+    }
+
+    // Subtract remainder of longer number while borrow propagates
+    var borrow: Boolean = (difference >> 32) != 0
+    while (bigIndex > 0 && borrow) {
+      bigIndex = bigIndex - 1
+      borrow = ((result(bigIndex) = big(bigIndex) - 1) == -1);
+    }
+
+    // Copy remainder of longer number
+    while (bigIndex > 0) {
+      result(bigIndex) = big(bigIndex)
+    }
+
+    return result;
+  }
+
+
+  /**
+    * Returns a BigInteger whose value is {@code (this + val)}.
+    *
+    * @param  val value to be added to this BigInteger.
+    * @return { @code this + val}
+    */
+  def add(jval: MyBigInt): MyBigInt = {
+    import MyBigInt._
+    if (jval.signum == 0)
+      return this;
+    if (signum == 0)
+      return jval;
+    if (jval.signum == signum)
+      return MyBigInt(add(mag, jval.mag), signum);
+
+    val cmp = compareMagnitude(jval);
+    if (cmp == 0)
+      return ZERO;
+    var resultMag: Array[Int] = if (cmp > 0) subtract(mag, jval.mag) else subtract(jval.mag, mag)
+    resultMag = trustedStripLeadingZeroInts(resultMag);
+
+    return new MyBigInt(resultMag, if (cmp == signum) 1 else -1)
+  }
+
+  /**
+    * Returns a BigInteger whose value is {@code (this - val)}.
+    *
+    * @param  val value to be subtracted from this BigInteger.
+    * @return {@code this - val}
+    */
+  def subtract(jval: MyBigInt): MyBigInt ={
+    if (jval.signum == 0)
+    return this;
+    if (signum == 0)
+      return jval.negate();
+    if (jval.signum != signum)
+    return MyBigInt(add(mag, jval.mag), signum);
+
+    var cmp = compareMagnitude(jval);
+    if (cmp == 0)
+      return MyBigInt.ZERO;
+    var resultMag = if (cmp > 0) subtract(mag, jval.mag) else subtract(jval.mag, mag)
+    resultMag = MyBigInt.trustedStripLeadingZeroInts(resultMag);
+    return new MyBigInt(resultMag, if(cmp == signum)1 else -1)
+  }
+  
+
+  /**
+    * Compares the magnitude array of this BigInteger with the specified
+    * BigInteger's. This is the version of compareTo ignoring sign.
+    *
+    * @param val BigInteger whose magnitude array to be compared.
+    * @return -1, 0 or 1 as this magnitude array is less than, equal to or
+    *         greater than the magnitude aray for the specified BigInteger's.
+    */
+  def compareMagnitude(jval: MyBigInt): Int = {
+    import MyBigInt._
+    val m1 = mag;
+    val len1 = m1.length;
+    val m2 = jval.mag;
+    val len2 = m2.length;
+    if (len1 < len2)
+      return -1;
+    if (len1 > len2)
+      return 1;
+    var i = 0;
+    var a = -1
+    var b = 1
+    while (i < len1 && a != b) {
+      a = m1(i)
+      b = m2(i)
+      i = i + 1
+    }
+    if (a != b)
+      if ((a & LONG_MASK) < (b & LONG_MASK)) -1 else 1
+    else return 0;
+  }
+
 }
 
 object MyBigInt {
@@ -27,6 +359,11 @@ object MyBigInt {
   val ZERO: MyBigInt = MyBigInt(new Array[Int](0), 0);
   val LONG_MASK: Long = 0xffffffffL;
   val MAX_MAG_LENGTH = Integer.MAX_VALUE / Integer.SIZE + 1;
+  /**
+    * Initialize static constant array when class is loaded.
+    */
+  val MAX_CONSTANT: Int = 16
+  val negConst: Array[MyBigInt] = new Array[MyBigInt](MAX_CONSTANT+1)
   val KARATSUBA_THRESHOLD = 80
   // (1 << 26)
 
@@ -143,21 +480,190 @@ object MyBigInt {
     }
     MyBigInt(mag, signum)
   }
-}
+
+  /**
+    * Returns a magnitude array whose value is {@code (mag << n)}.
+    * The shift distance, {@code n}, is considered unnsigned.
+    * (Computes <tt>this * 2<sup>n</sup></tt>.)
+    *
+    * @param mag magnitude, the most-significant int ({ @code mag[0]}) must be non-zero.
+    * @param  n unsigned shift distance, in bits.
+    * @return { @code mag << n}
+    */
+  def shiftLeft(mag: Array[Int], n: Int): Array[Int] = {
+    val nInts: Int = n >>> 5;
+    val nBits: Int = n & 0x1f;
+    val magLen: Int = mag.length;
+    var newMag: Array[Int] = null;
+
+    if (nBits == 0) {
+      newMag = new Array[Int](magLen + nInts);
+      System.arraycopy(mag, 0, newMag, 0, magLen);
+    } else {
+      var i = 0;
+      var nBits2: Int = 32 - nBits;
+      var highBits: Int = mag(0) >>> nBits2;
+      if (highBits != 0) {
+        newMag = new Array[Int](magLen + nInts + 1)
+        newMag(i) = highBits;
+        i = i + 1
+      } else {
+        newMag = new Array[Int](magLen + nInts)
+      }
+      var j = 0
+      while (j < magLen - 1) {
+        newMag(i) = mag(j) << nBits | mag(j) >>> nBits2;
+        i = i + 1
+        j = j + 1
+      }
+      newMag(i) = mag(j) << nBits;
+    }
+    return newMag;
+  }
 
 
-object VanilaKaratsuba extends App {
+  def multiplyByInt(x: Array[Int], y: Int, sign: Int): MyBigInt = {
+    if (Integer.bitCount(y) == 1) {
+      val t = MyBigInt(shiftLeft(x, Integer.numberOfTrailingZeros(y)), sign);
+      return t
+    }
+    val xlen: Int = x.length;
+    var rmag: Array[Int] = new Array[Int](xlen + 1)
+    var carry: Long = 0;
+    var yl: Long = y & LONG_MASK;
+    var rstart: Int = rmag.length - 1;
+    var i: Int = xlen - 1
+    while (i >= 0) {
+      val product: Long = (x(i) & LONG_MASK) * yl + carry;
+      rmag(rstart) = product.toInt
+      rstart = rstart - 1
+      carry = product >>> 32;
+      i = i - 1
+    }
+    if (carry == 0L) {
+      rmag = java.util.Arrays.copyOfRange(rmag, 1, rmag.length);
+    } else {
+      rmag(rstart) = carry.toInt
+    }
+    return MyBigInt(rmag, sign);
+  }
 
+
+  /**
+    * Multiplies int arrays x and y to the specified lengths and places
+    * the result into z. There will be no leading zeros in the resultant array.
+    */
+  def multiplyToLen(x: Array[Int], xlen: Int, y: Array[Int], ylen: Int, zp: Array[Int]): Array[Int] = {
+
+    val xstart: Int = xlen - 1;
+    val ystart: Int = ylen - 1;
+    var z: Array[Int] = zp
+
+    if (zp == null || zp.length < (xlen + ylen))
+      z = new Array[Int](xlen + ylen)
+
+    var carry: Long = 0;
+    var j = ystart
+    var k = ystart + 1 + xstart
+    while (j >= 0) {
+      val product: Long = (y(j) & LONG_MASK) *
+        (x(xstart) & LONG_MASK) + carry;
+      z(k) = product.toInt
+      carry = product >>> 32;
+      j = j - 1
+      k = k - 1
+    }
+    z(xstart) = carry.toInt
+
+    var i: Int = xstart - 1
+    while (i >= 0) {
+      carry = 0;
+      var j = ystart
+      var k = ystart + 1 + i;
+      while (j >= 0) {
+        val product: Long = (y(j) & LONG_MASK) *
+          (x(i) & LONG_MASK) +
+          (z(k) & LONG_MASK) + carry;
+        z(k) = product.toInt
+        carry = product >>> 32;
+        j = j - 1
+        k = k - 1
+      }
+      z(i) = carry.toInt
+      i = i - 1
+    }
+    return z;
+  }
+
+  /**
+    * Returns the input array stripped of any leading zero bytes.
+    * Since the source is trusted the copying may be skipped.
+    */
+  def trustedStripLeadingZeroInts(jval: Array[Int]): Array[Int] = {
+    val vlen: Int = jval.length;
+    var keep: Int = 0
+
+    // Find first nonzero byte
+    while (keep < vlen && jval(keep) == 0)
+      keep = keep + 1
+
+    return if (keep == 0) jval else java.util.Arrays.copyOfRange(jval, keep, vlen);
+  }
+
+  /**
+    * Multiplies two BigIntegers using the Karatsuba multiplication
+    * algorithm.  This is a recursive divide-and-conquer algorithm which is
+    * more efficient for large numbers than what is commonly called the
+    * "grade-school" algorithm used in multiplyToLen.  If the numbers to be
+    * multiplied have length n, the "grade-school" algorithm has an
+    * asymptotic complexity of O(n^2).  In contrast, the Karatsuba algorithm
+    * has complexity of O(n^(log2(3))), or O(n^1.585).  It achieves this
+    * increased performance by doing 3 multiplies instead of 4 when
+    * evaluating the product.  As it has some overhead, should be used when
+    * both numbers are larger than a certain threshold (found
+    * experimentally).
+    *
+    * See:  http://en.wikipedia.org/wiki/Karatsuba_algorithm
+    */
+  def multiplyKaratsuba(x: MyBigInt, y: MyBigInt): MyBigInt = {
+    val xlen = x.mag.length;
+    val ylen = y.mag.length;
+
+    // The number of ints in each half of the number.
+    val half: Int = (Math.max(xlen, ylen) + 1) / 2;
+
+    // xl and yl are the lower halves of x and y respectively,
+    // xh and yh are the upper halves.
+    val xl: MyBigInt = x.getLower(half);
+    val xh: MyBigInt = x.getUpper(half);
+    val yl: MyBigInt = y.getLower(half);
+    val yh: MyBigInt = y.getUpper(half);
+
+    val p1: MyBigInt = xh.multiply(yh);
+    // p1 = xh*yh
+    val p2: MyBigInt = xl.multiply(yl); // p2 = xl*yl
+
+    // p3=(xh+xl)*(yh+yl)
+    val p3: MyBigInt = xh.add(xl).multiply(yh.add(yl));
+
+    // result = p1 * 2^(32*2*half) + (p3 - p1 - p2) * 2^(32*half) + p2
+    val result: MyBigInt = p1.shiftLeft(32 * half).add(p3.subtract(p1).subtract(p2)).shiftLeft(32 * half).add(p2);
+
+    if (x.signum != y.signum) {
+      return result.negate();
+    } else {
+      return result;
+    }
+  }
 
   def multiply(me: MyBigInt, that: MyBigInt): MyBigInt = {
     import me._
-    import MyBigInt._
     if (that.signum == 0 || signum == 0)
       return ZERO;
 
     val xlen: Int = me.mag.length;
 
-    if (that == this && xlen > MULTIPLY_SQUARE_THRESHOLD) {
+    if (that == me && xlen > MULTIPLY_SQUARE_THRESHOLD) {
       return ??? //square();
     }
 
@@ -166,70 +672,39 @@ object VanilaKaratsuba extends App {
     if ((xlen < KARATSUBA_THRESHOLD) || (ylen < KARATSUBA_THRESHOLD)) {
       val resultSign = if (signum == that.signum) 1 else -1;
       if (that.mag.length == 1) {
-        return ??? //multiplyByInt(mag, that.mag[ 0], resultSign);
+        return multiplyByInt(mag, that.mag(0), resultSign);
       }
       if (mag.length == 1) {
-        return ??? //multiplyByInt(that.mag, mag[ 0], resultSign);
+        return multiplyByInt(that.mag, mag(0), resultSign);
       }
-      result = multiplyToLen(mag, xlen, that.mag, ylen, null);
+      var result: Array[Int] = multiplyToLen(mag, xlen, that.mag, ylen, null);
       result = trustedStripLeadingZeroInts(result);
-      return new BigInteger(result, resultSign);
+      return new MyBigInt(result, resultSign);
     } else {
-      if ((xlen < TOOM_COOK_THRESHOLD) && (ylen < TOOM_COOK_THRESHOLD)) {
-        return multiplyKaratsuba(this, that);
-      } else {
-        return multiplyToomCook3(this, that);
-      }
+      return multiplyKaratsuba(me, that);
     }
   }
 }
 
-def convert (before: java.math.BigInteger): MyBigInt = {
-  MyBigInt (before.toByteArray)
-}
 
-  def multiply (me: java.math.BigInteger, that: java.math.BigInteger): java.math.BigInteger = {
-  MyBigInt (me.toByteArray)
+object VanilaKaratsuba extends App {
 
-  import me._
-  import java.math.BigInteger._
 
-  if (that.signum == 0 || signum == 0)
-  return java.math.BigInteger.ZERO;
+  def convert(before: java.math.BigInteger): MyBigInt = {
+    MyBigInt(before.toByteArray)
+  }
 
-  me
-  /*
-      val bi = BigInt.apply(me)
-      bi.toByteArray
+  val l: Long = Long.MaxValue
+  val bi: BigInt = BigInt(l)
 
-      me.signum()
+  val bs = bi * bi
+  val bs1 = bs-1
 
-      val xlen: Int = me.mag.length;
+  val mbi = convert(bs.bigInteger)
+  val mbi1 = convert(bs1.bigInteger)
+  val r = bs * bs
+  val m = mbi.multiply(mbi1)
 
-      if (that == this && xlen > MULTIPLY_SQUARE_THRESHOLD) {
-        return square();
-      }
-
-      int ylen = that.mag.length;
-
-      if ((xlen < KARATSUBA_THRESHOLD) || (ylen < KARATSUBA_THRESHOLD)) {
-        int resultSign = signum == that.signum ? 1: - 1;
-        if (that.mag.length == 1) {
-          return multiplyByInt(mag, that.mag[ 0], resultSign);
-        }
-        if (mag.length == 1) {
-          return multiplyByInt(that.mag, mag[ 0], resultSign);
-        }
-        int[] result = multiplyToLen(mag, xlen,
-          that.mag, ylen, null);
-        result = trustedStripLeadingZeroInts(result);
-        return new BigInteger(result, resultSign);
-      } else {
-        if ((xlen < TOOM_COOK_THRESHOLD) && (ylen < TOOM_COOK_THRESHOLD)) {
-          return multiplyKaratsuba(this, that);
-        } else {
-          return multiplyToomCook3(this, that);
-        }
-      }*/
-}
+  println(r)
+  println(m)
 }
