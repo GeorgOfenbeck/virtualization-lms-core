@@ -6,7 +6,138 @@ import java.math.BigInteger
 case class MyBigInt(val mag: Array[Int], val signum: Int) {
   self =>
 
+  private var tfirstNonzeroIntNum = 0
+  private var tbitLength = 0
 
+  /**
+    * Package private method to return bit length for an integer.
+    */
+  def bitLengthForInt(n: Int): Int = {
+    return 32 - java.lang.Integer.numberOfLeadingZeros(n);
+  }
+
+  /**
+    * Returns the number of bits in the minimal two's-complement
+    * representation of this BigInteger, <i>excluding</i> a sign bit.
+    * For positive BigIntegers, this is equivalent to the number of bits in
+    * the ordinary binary representation.  (Computes
+    * {@code (ceil(log2(this < 0 ? -this : this+1)))}.)
+    *
+    * @return number of bits in the minimal two's-complement
+    *         representation of this BigInteger, <i>excluding</i> a sign bit.
+    */
+  def bitLength(): Int = {
+    var n = tbitLength - 1;
+    if (n == -1) {
+      // bitLength not initialized yet
+      var m = mag;
+      var len = m.length;
+      if (len == 0) {
+        n = 0; // offset by one to initialize
+      } else {
+        // Calculate the bit length of the magnitude
+        var magBitLength = ((len - 1) << 5) + bitLengthForInt(mag(0));
+        if (signum < 0) {
+          // Check if magnitude is a power of two
+          var pow2 = (Integer.bitCount(mag(0)) == 1);
+          var i = 1
+          while (i < len && pow2) {
+            pow2 = (mag(i) == 0);
+            i = i + 1
+          }
+
+          n = if (pow2) magBitLength - 1 else magBitLength
+        } else {
+          n = magBitLength;
+        }
+      }
+      tbitLength = n + 1;
+    }
+    return n;
+  }
+
+
+  /**
+    * Returns the index of the int that contains the first nonzero int in the
+    * little-endian binary representation of the magnitude (int 0 is the
+    * least significant). If the magnitude is zero, return value is undefined.
+    */
+  def firstNonzeroIntNum(): Int = {
+    var fn = tfirstNonzeroIntNum - 2;
+    if (fn == -2) {
+      // firstNonzeroIntNum not initialized yet
+      fn = 0;
+
+      // Search for the first nonzero int
+      var mlen = mag.length;
+      var i = mlen - 1
+
+      while (i >= 0 && mag(i) == 0) i = i - 1
+      fn = mlen - i - 1;
+      tfirstNonzeroIntNum = fn + 2; // offset by two to initialize
+    }
+    return fn;
+  }
+
+
+  /* Returns an int of sign bits */
+  def signInt(): Int = {
+    return if (signum < 0) -1 else 0
+  }
+
+  /**
+    * Returns the specified int of the little-endian two's complement
+    * representation (int 0 is the least significant).  The int number can
+    * be arbitrarily high (values are logically preceded by infinitely many
+    * sign ints).
+    */
+  def getInt(n: Int): Int = {
+    if (n < 0)
+      return 0;
+    if (n >= mag.length)
+      return signInt();
+
+    val magInt = mag(mag.length - n - 1);
+
+    return if (signum >= 0) magInt else if (n <= firstNonzeroIntNum()) -magInt else ~magInt
+  }
+
+  /**
+    * Returns a byte array containing the two's-complement
+    * representation of this BigInteger.  The byte array will be in
+    * <i>big-endian</i> byte-order: the most significant byte is in
+    * the zeroth element.  The array will contain the minimum number
+    * of bytes required to represent this BigInteger, including at
+    * least one sign bit, which is {@code (ceil((this.bitLength() +
+     * 1)/8))}.  (This representation is compatible with the
+    * {@link #BigInteger(byte[]) (byte[])} constructor.)
+    *
+    * @return a byte array containing the two's-complement representation of
+    *         this BigInteger.
+    * @see #BigInteger(byte[])
+    */
+  def toByteArray(): Array[Byte] = {
+    val byteLen: Int = bitLength() / 8 + 1;
+    val byteArray = new Array[Byte](byteLen);
+
+    var i = byteLen - 1
+    var bytesCopied = 4
+    var nextInt = 0
+    var intIndex = 0
+    while (i >= 0) {
+      if (bytesCopied == 4) {
+        nextInt = getInt(intIndex)
+        intIndex = intIndex + 1
+        bytesCopied = 1;
+      } else {
+        nextInt >>>= 8;
+        bytesCopied = bytesCopied + 1;
+      }
+      byteArray(i) = nextInt.toByte;
+      i = i - 1
+    }
+    return byteArray;
+  }
 
   /**
     * Returns a BigInteger whose value is {@code (this << n)}.
@@ -15,10 +146,10 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     * (Computes <tt>floor(this * 2<sup>n</sup>)</tt>.)
     *
     * @param  n shift distance, in bits.
-    * @return {@code this << n}
+    * @return { @code this << n}
     * @see #shiftRight
     */
-  def shiftLeft(n: Int): MyBigInt =  {
+  def shiftLeft(n: Int): MyBigInt = {
     if (signum == 0)
       return MyBigInt.ZERO;
     if (n > 0) {
@@ -38,7 +169,7 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     * (Computes <tt>floor(this * 2<sup>-n</sup>)</tt>.)
     *
     * @param  n unsigned shift distance, in bits.
-    * @return {@code this >> n}
+    * @return { @code this >> n}
     */
   def shiftRightImpl(n: Int): MyBigInt = {
     import MyBigInt._
@@ -49,7 +180,7 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
 
     // Special case: entire contents shifted off the end
     if (nInts >= magLen)
-      return if(signum >= 0) ZERO else negConst(1)
+      return if (signum >= 0) ZERO else negConst(1)
 
     if (nBits == 0) {
       val newMagLen = magLen - nInts;
@@ -62,25 +193,24 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
         newMag(i) = highBits;
         i = i + 1
       } else {
-        newMag = new Array[Int](magLen - nInts -1)
+        newMag = new Array[Int](magLen - nInts - 1)
       }
 
       var nBits2 = 32 - nBits;
-      var j=0;
+      var j = 0;
       while (j < magLen - nInts - 1) {
         newMag(i) = (mag(j) << nBits2) | (mag(j) >>> nBits);
-        i = i+ 1
-        j = j+ 1
+        i = i + 1
+        j = j + 1
       }
     }
 
     if (signum < 0) {
       // Find out whether any one-bits were shifted off the end.
       var onesLost = false;
-      var i=magLen-1
-      var j=magLen-nInts;
-      while  ( i >= j && !onesLost)
-      {
+      var i = magLen - 1
+      var j = magLen - nInts;
+      while (i >= j && !onesLost) {
         onesLost = (mag(i) != 0);
         i = i - 1
       }
@@ -94,22 +224,21 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     return new MyBigInt(newMag, signum);
   }
 
-  def javaIncrement(jval: Array[Int]): Array[Int] =  {
+  def javaIncrement(jval: Array[Int]): Array[Int] = {
     var lastSum = 0;
-    var i=jval.length-1
-    while(i >= 0 && lastSum == 0)
-     i = i -1
+    var i = jval.length - 1
+    while (i >= 0 && lastSum == 0)
+      i = i - 1
     jval(i) = jval(i) + 1
     lastSum = jval(i)
 
     if (lastSum == 0) {
-      val njval = new Array[Int](jval.length+1)
+      val njval = new Array[Int](jval.length + 1)
       njval(0) = 1;
       njval
     } else jval
 
   }
-
 
 
   /**
@@ -298,24 +427,24 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     * Returns a BigInteger whose value is {@code (this - val)}.
     *
     * @param  val value to be subtracted from this BigInteger.
-    * @return {@code this - val}
+    * @return { @code this - val}
     */
-  def subtract(jval: MyBigInt): MyBigInt ={
+  def subtract(jval: MyBigInt): MyBigInt = {
     if (jval.signum == 0)
-    return this;
+      return this;
     if (signum == 0)
       return jval.negate();
     if (jval.signum != signum)
-    return MyBigInt(add(mag, jval.mag), signum);
+      return MyBigInt(add(mag, jval.mag), signum);
 
     var cmp = compareMagnitude(jval);
     if (cmp == 0)
       return MyBigInt.ZERO;
     var resultMag = if (cmp > 0) subtract(mag, jval.mag) else subtract(jval.mag, mag)
     resultMag = MyBigInt.trustedStripLeadingZeroInts(resultMag);
-    return new MyBigInt(resultMag, if(cmp == signum)1 else -1)
+    return new MyBigInt(resultMag, if (cmp == signum) 1 else -1)
   }
-  
+
 
   /**
     * Compares the magnitude array of this BigInteger with the specified
@@ -366,7 +495,7 @@ object MyBigInt {
     * Initialize static constant array when class is loaded.
     */
   val MAX_CONSTANT: Int = 16
-  val negConst: Array[MyBigInt] = new Array[MyBigInt](MAX_CONSTANT+1)
+  val negConst: Array[MyBigInt] = new Array[MyBigInt](MAX_CONSTANT + 1)
   val KARATSUBA_THRESHOLD = 80
   // (1 << 26)
 
@@ -395,8 +524,8 @@ object MyBigInt {
       val bytesToTransfer = Math.min(3, bytesRemaining);
       var j = 8;
       while (j <= (bytesToTransfer << 3)) {
-        j = j + 8
         result(i) |= ((a(b) & 0xff) << j);
+        j = j + 8
         b = b - 1
       }
       i = i - 1
@@ -490,7 +619,7 @@ object MyBigInt {
     * (Computes <tt>this * 2<sup>n</sup></tt>.)
     *
     * @param mag magnitude, the most-significant int ({ @code mag[0]}) must be non-zero.
-    * @param  n unsigned shift distance, in bits.
+    * @param  n  unsigned shift distance, in bits.
     * @return { @code mag << n}
     */
   def shiftLeft(mag: Array[Int], n: Int): Array[Int] = {
@@ -689,36 +818,102 @@ object MyBigInt {
   }
 }
 
+import org.scalacheck._
+import org.scalacheck.Properties
+import org.scalacheck.Prop.forAll
+import org.scalacheck.Gen._
 
-object VanilaKaratsuba extends App {
+object VanilaKaratsuba extends org.scalacheck.Properties("Karatsuba") {
 
 
   def convert(before: java.math.BigInteger): MyBigInt = {
     MyBigInt(before.toByteArray)
   }
 
-  val l: Long = Long.MaxValue
-  val bi: BigInt = BigInt(l)
 
-  val bs = bi * bi
-  val bs1 = bs-1
+  def chooseBigInt: Gen[BigInt] =
+    sized((s: Int) => choose(-s, s)) map (x => BigInt(x))
 
-  val mbi = convert(bs.bigInteger)
-  val mbi1 = convert(bs1.bigInteger)
-  val r = bs * bs
-
-  val rcon = convert(r.bigInteger)
-  val m = mbi.multiply(mbi1)
+  def chooseReallyBigInt: Gen[BigInt] = for {
+    bi <- chooseBigInt
+    n <- choose(32,128)
+  } yield bi << n
 
 
+  property("ByteRep Same") = forAll(chooseReallyBigInt) { l =>
+
+    val ba = l.toByteArray
+    val mbi = convert(l.bigInteger)
+    val mbiba = mbi.toByteArray()
+    ba.corresponds(mbiba) {
+      _ == _
+    }
+  }
 
 
-  for (i <- 0 until rcon.mag.size)
-    if(rcon.mag(i) != m.mag(i)) println("difference")
+  property("ByteRep Same") = forAll(chooseBigInt) { l =>
+    val plus3 = l + 3
+    val check = l * plus3
+
+    val mbi = convert(l.bigInteger)
+    val mbi2 = convert(plus3.bigInteger)
+
+    val mres = mbi.multiply(mbi2)
+
+    mres.toByteArray().corresponds(check.toByteArray) {
+      _ == _
+    }
+  }
+
+  property("ByteRep Same large") = forAll(chooseReallyBigInt) { l =>
+    val plus3 = l + 3
+    val check = l * plus3
+
+    val mbi = convert(l.bigInteger)
+    val mbi2 = convert(plus3.bigInteger)
+
+    val mres = mbi.multiply(mbi2)
+
+    mres.toByteArray().corresponds(check.toByteArray) {
+      _ == _
+    }
+  }
+
+
+/*    val l: Long = Long.MaxValue
+    val bi: BigInt = BigInt(l)
+
+
+    val oba = bi.bigInteger.toByteArray
+    val bifo = new java.math.BigInteger(oba)
+    val mi: MyBigInt = convert(bi.bigInteger)
+
+    val ba1 = mi.toByteArray()
+    val ba2 = bi.bigInteger.toByteArray()
+
+    for (i <- 0 until ba1.length)
+      if (ba1(i) != ba2(i)) println("diff")
+
+    val bs = bi * bi
+    val bs1 = bs / bs
+
+    val mbi = convert(bs.bigInteger)
+    val mbi1 = convert(bs1.bigInteger)
+
+    val r = bs * bs1
+
+    val rcon = convert(r.bigInteger)
+    val m = mbi.multiply(mbi1)
 
 
 
 
-  println(r)
+    for (i <- 0 until rcon.mag.size)
+      if (rcon.mag(i) != m.mag(i)) println("difference")
+
+
+
+
+    println(r)*/
 
 }

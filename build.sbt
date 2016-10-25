@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "com.twitter" %% "chill-akka" % "0.8.0"
 
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.2" % "test" // cross CrossVersion.full"
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.2" // cross CrossVersion.full"
 
 libraryDependencies += "org.scala-lang.modules" %% "spores-core" % "0.2.4"
 
