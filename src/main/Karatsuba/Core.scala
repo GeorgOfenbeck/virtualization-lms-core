@@ -22,6 +22,21 @@ class Core extends sort.Skeleton {
 
 
 
+
+  def multiply(me: MyBigInt, that: MyBigInt): MyBigInt = {
+    val t = _if()
+
+    me
+  }
+
+  def multiplyByInt(x: Array[Int], y: Int, sign: Int): MyBigInt = ???
+
+  def multiplyToLen(x: Array[Int], xlen: Int,y : Array[Int], ylen: Int): Array[Int] = ???
+
+  def multiplyKaratsuba(x: MyBigInt, y: MyBigInt): MyBigInt = ???
+
+
+
   def codeexport() = {
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
     stream2.println("")

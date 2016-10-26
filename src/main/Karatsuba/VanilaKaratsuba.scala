@@ -178,6 +178,7 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     val magLen = mag.length;
     var newMag: Array[Int] = null;
 
+
     // Special case: entire contents shifted off the end
     if (nInts >= magLen)
       return if (signum >= 0) ZERO else negConst(1)
