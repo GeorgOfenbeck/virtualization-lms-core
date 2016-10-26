@@ -51,11 +51,11 @@ trait Skeleton extends Sort_DSL {
     def fromB[T: TypeRep](x: Rep[T]) = x
   }
 
-  trait IRep[T[_]] extends RepBase[T] with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T]
+  trait IRep[T[_]] extends RepBase[T] with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T]
 
-  implicit object cRep extends IRep[Rep] with isRepBase with RepNum with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff
+  implicit object cRep extends IRep[Rep] with isRepBase with RepNum with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff with RepBooleanOps
 
-  implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons with NoRepRangeFold with NoRepChooseStuff
+  implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons with NoRepRangeFold with NoRepChooseStuff with NoRepBooleanOps
 
 
   trait RepBase[T[_]] {
@@ -154,6 +154,26 @@ trait Skeleton extends Sort_DSL {
     }
   }
 
+
+  trait BooleanOps[T[_]] {
+    implicit def mkBooleanOps(lhs: T[Boolean]): Ops = new Ops(lhs)
+
+    class Ops(lhs: T[Boolean]) {
+      def ||(rhs: T[Boolean]): T[Boolean] = or(lhs, rhs)
+    }
+
+    def or(lhs: T[Boolean], rhs: T[Boolean]): T[Boolean]    
+  }
+
+  trait RepBooleanOps extends BooleanOps[Rep] {
+    def or(lhs: Rep[Boolean], rhs: Rep[Boolean]): Rep[Boolean] = boolean_or(lhs,rhs)    
+  }
+
+  trait NoRepBooleanOps extends BooleanOps[NoRep] {
+    def or(lhs: NoRep[Boolean], rhs: NoRep[Boolean]): NoRep[Boolean] = lhs || rhs
+  }  
+  
+
   trait Comparisons[T[_]] {
     implicit def mkComparisonOps[A: Ordering : Manifest](lhs: T[A]): Ops[A] = new Ops[A](lhs)
 
@@ -167,6 +187,9 @@ trait Skeleton extends Sort_DSL {
 
     def less[A: Ordering : Manifest](lhs: T[A], rhs: T[A]): T[Boolean]
   }
+  
+  
+  
 
   trait RepComparisons extends Comparisons[Rep] {
     def equiv[T: Ordering : Manifest](lhs: Rep[T], rhs: Rep[T]): Rep[Boolean] = ordering_equiv(lhs, rhs)
@@ -191,6 +214,8 @@ trait Skeleton extends Sort_DSL {
       def -(rhs: T[Int]) = minus(lhs, rhs)
 
       def /(rhs: T[Int]) = div(lhs, rhs)
+
+      def infix_max(rhs: T[Int]) = max(lhs, rhs)
     }
 
     def plus(lhs: T[Int], rhs: T[Int]): T[Int]
@@ -200,6 +225,8 @@ trait Skeleton extends Sort_DSL {
     def div(lhs: T[Int], rhs: T[Int]): T[Int]
 
     def mod(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def max(lhs: T[Int], rhs: T[Int]): T[Int]
   }
 
   trait RepNum extends StagedNum[Rep] {
@@ -210,6 +237,8 @@ trait Skeleton extends Sort_DSL {
     def div(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_divide(lhs, rhs)
 
     def mod(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_mod(lhs, rhs)
+
+    def max(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_max(lhs, rhs)
   }
 
   trait NoRepNum extends StagedNum[NoRep] {
@@ -220,6 +249,8 @@ trait Skeleton extends Sort_DSL {
     def div(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs / rhs
 
     def mod(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs % rhs
+
+    def max(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = Math.max(lhs,rhs)
   }
 
 

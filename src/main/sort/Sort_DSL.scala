@@ -6,9 +6,59 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
+import Karatsuba._
+
 
 trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
 
+  case class TrustedStrip(a: Exp[Array[Int]], b: Exp[Int] ) extends Def[MyBigInt]
+
+  def trustedStrip(a: Exp[Array[Int]], b: Exp[Int] ): Exp[MyBigInt] = TrustedStrip(a,b)
+
+  case class Karatsuba_rest(a: Exp[MyBigInt], b: Exp[MyBigInt], c: Exp[MyBigInt], half: Exp[Int], asignum: Exp[Int], bsignum: Exp[Int]) extends Def[MyBigInt]
+
+  def karatsuba_rest(a: Exp[MyBigInt], b: Exp[MyBigInt], c: Exp[MyBigInt], half: Exp[Int], asignum: Exp[Int], bsignum: Exp[Int]): Exp[MyBigInt] = Karatsuba_rest(a,b,c,half, asignum,bsignum)
+
+  case class Add(a: Exp[MyBigInt], b: Exp[MyBigInt]) extends Def[MyBigInt]
+
+  def add(a: Exp[MyBigInt], b: Exp[MyBigInt]): Exp[MyBigInt] = Add(a,b)
+
+  case class GetUpper(a: Exp[MyBigInt], n: Exp[Int]) extends Def[MyBigInt]
+
+  def getUpper(a: Exp[MyBigInt], n: Exp[Int]): Exp[MyBigInt] = GetUpper(a,n)
+
+  case class GetLower(a: Exp[MyBigInt], n: Exp[Int]) extends Def[MyBigInt]
+
+  def getLower(a: Exp[MyBigInt], n: Exp[Int]): Exp[MyBigInt] = GetLower(a,n)
+
+  case class Int_max(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
+
+  def int_max(lhs: Exp[Int], rhs: Exp[Int]): Exp[Int] = Int_max(lhs,rhs)
+
+  case class MultiplyToLen(a: Exp[Array[Int]], alen: Exp[Int], b: Exp[Array[Int]], blen: Exp[Int]) extends Def[Array[Int]]
+
+  def multiplyToLen(a: Exp[Array[Int]], alen: Exp[Int], b: Exp[Array[Int]], blen: Exp[Int]): Exp[Array[Int]] = MultiplyToLen(a,alen,b,blen)
+
+  case class MultiplyByInt(a: Exp[Array[Int]], b: Exp[Array[Int]], sign: Exp[Int]) extends Def[MyBigInt]
+
+  def multiplyByInt(a: Exp[Array[Int]], b: Exp[Array[Int]], sign: Exp[Int]): Exp[MyBigInt] = MultiplyByInt(a,b,sign)
+
+  case class ZeroBigInt() extends Def[MyBigInt]
+
+  def zeroBigInt(): Exp[MyBigInt] = ZeroBigInt()
+
+  case class Length(a: Exp[Array[Int]]) extends Def[Int]
+
+  def length(a: Exp[Array[Int]]): Exp[Int] = Length(a)
+
+  case class Signum(n: Exp[MyBigInt]) extends Def[Int]
+
+  def signum(n: Exp[MyBigInt]): Exp[Int] = Signum(n)
+
+
+  case class BigIntMag(n: Exp[MyBigInt]) extends Def[Array[Int]]
+
+  def mag(n: Exp[MyBigInt]): Exp[Array[Int]] = BigIntMag(n)
 
   case class Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) extends Def[Int]
 
@@ -237,7 +287,19 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case TrustedStrip(a,b) => Vector(emitValDef(tp,  "new MyBigInt(MyBigInt.trustedStripLeadingZeroInts(" + quote(a) + ")," +  quote(b) + ")"))
+      case Int_max(a,b) => Vector(emitValDef(tp,  "Math.max(" + quote(a) + "," +  quote(b) + ")"))
+      case Karatsuba_rest(a: Exp[MyBigInt], b: Exp[MyBigInt], c: Exp[MyBigInt], half: Exp[Int], asignum, bsignum) => Vector(emitValDef(tp, "{\n val p1 = " + quote(a) + "\n val p2 = " +quote(b) + "\n val p3 = " +quote(c) + "\n val half = " + quote(half) + "\n val asignum = " + quote(asignum) + "\n val bsignum = " + quote(bsignum) + "\n    val result: MyBigInt = p1.shiftLeft(32 * half).add(p3.subtract(p1).subtract(p2)).shiftLeft(32 * half).add(p2);\n\n    if (asignum != bsignum) {\n      result.negate();\n    } else {\n     result;\n    }}"))
+      case Add(a: Exp[MyBigInt], b: Exp[MyBigInt]) => Vector(emitValDef(tp, quote(a) + ".add(" +  quote(b) + ")"))
       //case Int_Quick_Compare(a: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(a) + " - " + quote(b) ))
+      case GetUpper(a: Exp[MyBigInt], n: Exp[Int]) => Vector(emitValDef(tp, quote(a) + ".getUpper(" +  quote(n) + ")"))
+      case GetLower(a: Exp[MyBigInt], n: Exp[Int]) => Vector(emitValDef(tp, quote(a) + ".getLower(" +  quote(n) + ")"))
+      case MultiplyToLen(a: Exp[Array[Int]], alen: Exp[Int], b: Exp[Array[Int]], blen: Exp[Int]) => Vector(emitValDef(tp, "MyBigInt.multiplyToLen(" + quote(a) + ","  +quote(alen) + "," +quote(b) + "," +quote(blen) + ",null)"))
+      case MultiplyByInt(a: Exp[Array[Int]], b: Exp[Array[Int]], sign: Exp[Int]) => Vector(emitValDef(tp, "MyBigInt.multiplyByInt(" + quote(a) + ","  +quote(b) + "(0)," +quote(sign) + ")"))
+      case Length(b) => Vector(emitValDef(tp, quote(b) + ".length"))
+      case Signum(b) => Vector(emitValDef(tp, quote(b) + ".signum"))
+      case BigIntMag(b) => Vector(emitValDef(tp, quote(b) + ".mag"))
+      case ZeroBigInt() => Vector(emitValDef(tp, "MyBigInt.ZERO" ))
       case QuickSorthack(x) => Vector(emitValDef(tp, "Bla.uglyglobalj" ))
       case Complex_Compare(a, b) => Vector(emitValDef(tp, quote(b) + ".cmp(" + quote(a) + ")"))
       case Double_Compare(a, b) => Vector(emitValDef(tp, "if (" + quote(a) + " < " +quote(b) + ") -1 else if (" + quote(a) + " > " +quote(b) + ") 1 else 0" ))
