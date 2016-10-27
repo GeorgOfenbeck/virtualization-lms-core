@@ -12,6 +12,8 @@ import scala.lms.targets.scalalike._
 trait KaratsubaHeader extends sort.Skeleton{
 
 
+  case class InlineInfo(inline: Boolean, maxfunctions: Int, compareinline: Boolean, consider_inline: Boolean)
+
 
   abstract class Base[A[_],B[_],AB[_],C[_],D[_],CD[_]](alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int], eva: IRep[A], evb: IRep[B], evc: IRep[C], evd: IRep[D], evab: IRep[AB], evcd: IRep[CD], ab1: Lub[A, B, AB], ab2: Lub[AB, B, AB], ab3: Lub[A, AB, AB], ab4: Lub[AB, AB, AB], cd1: Lub[C, D, CD], cd2: Lub[CD, D, CD], cd3: Lub[C, CD, CD], cd4: Lub[CD, CD, CD])
   abstract class KaratsubaHeader[A[_],B[_],AB[_],C[_],D[_],CD[_]](alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int], eva: IRep[A], evb: IRep[B], evc: IRep[C], evd: IRep[D], evab: IRep[AB], evcd: IRep[CD], ab1: Lub[A, B, AB], ab2: Lub[AB, B, AB], ab3: Lub[A, AB, AB], ab4: Lub[AB, AB, AB], cd1: Lub[C, D, CD], cd2: Lub[CD, D, CD], cd3: Lub[C, CD, CD], cd4: Lub[CD, CD, CD]) extends Base(alength,blength,asignum,bsignum,eva,evb,evc,evd, evab, evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4) with RepSelector {
@@ -28,10 +30,10 @@ trait KaratsubaHeader extends sort.Skeleton{
 
 
   object StatKaratsubaHeader{
-    def apply[A[_],B[_],AB[_],C[_],D[_],CD[_]](alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int])(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evd: IRep[D], evab: IRep[AB], evcd: IRep[CD], ab1: Lub[A, B, AB], ab2: Lub[AB, B, AB], ab3: Lub[A, AB, AB], ab4: Lub[AB, AB, AB], cd1: Lub[C, D, CD], cd2: Lub[CD, D, CD], cd3: Lub[C, CD, CD], cd4: Lub[CD, CD, CD]): StatKaratsubaHeader[A,B,AB,C,D,CD] = new StatKaratsubaHeader[A,B,AB,C,D,CD](alength,blength,asignum,bsignum,eva,evb,evc,evd, evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
+    def apply[A[_],B[_],AB[_],C[_],D[_],CD[_]](alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int], inlineinfo: InlineInfo)(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evd: IRep[D], evab: IRep[AB], evcd: IRep[CD], ab1: Lub[A, B, AB], ab2: Lub[AB, B, AB], ab3: Lub[A, AB, AB], ab4: Lub[AB, AB, AB], cd1: Lub[C, D, CD], cd2: Lub[CD, D, CD], cd3: Lub[C, CD, CD], cd4: Lub[CD, CD, CD]): StatKaratsubaHeader[A,B,AB,C,D,CD] = new StatKaratsubaHeader[A,B,AB,C,D,CD](alength,blength,asignum,bsignum,inlineinfo,eva,evb,evc,evd, evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
   }
 
-  class StatKaratsubaHeader[A[_],B[_],AB[_],C[_],D[_],CD[_]](alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evd: IRep[D], val evab: IRep[AB], val evcd: IRep[CD], val ab1: Lub[A, B, AB], val ab2: Lub[AB, B, AB], val ab3: Lub[A, AB, AB], val ab4: Lub[AB, AB, AB], val cd1: Lub[C, D, CD], val cd2: Lub[CD, D, CD], val cd3: Lub[C, CD, CD], val cd4: Lub[CD, CD, CD]) extends KaratsubaHeader(alength,blength,asignum,bsignum,eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4) with StatSelector {
+  class StatKaratsubaHeader[A[_],B[_],AB[_],C[_],D[_],CD[_]](alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int], val inlineinfo: InlineInfo, val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evd: IRep[D], val evab: IRep[AB], val evcd: IRep[CD], val ab1: Lub[A, B, AB], val ab2: Lub[AB, B, AB], val ab3: Lub[A, AB, AB], val ab4: Lub[AB, AB, AB], val cd1: Lub[C, D, CD], val cd2: Lub[CD, D, CD], val cd3: Lub[C, CD, CD], val cd4: Lub[CD, CD, CD]) extends KaratsubaHeader(alength,blength,asignum,bsignum,eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4) with StatSelector {
     def genSig(): String = {
       val al = alength() match {
         case Some(x: NoRep[Int]) => x.toString
@@ -51,21 +53,21 @@ trait KaratsubaHeader extends sort.Skeleton{
       }
 
 
-      "alength_" ++ al ++ "blength_" ++ bl ++ "asignum" ++ as ++ "bsignum" ++ bs
+      "alength_" ++ al ++ "blength_" ++ bl ++ "asignum" ++ as ++ "bsignum" ++ bs ++ inlineinfo.toString
     }
   }
 
-  case class MixKaratsubaHeader[A[_],B[_],AB[_],C[_],D[_],CD[_]](val a: Rep[MyBigInt], val b: Rep[MyBigInt], val alength: A[Int], val blength: B[Int], val asignum: C[Int], val bsignum: D[Int], val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evd: IRep[D], val evab: IRep[AB], val evcd: IRep[CD], val ab1: Lub[A, B, AB], val ab2: Lub[AB, B, AB], val ab3: Lub[A, AB, AB], val ab4: Lub[AB, AB, AB], val cd1: Lub[C, D, CD], val cd2: Lub[CD, D, CD], val cd3: Lub[C, CD, CD], val cd4: Lub[CD, CD, CD]) extends Base(alength,blength,asignum,bsignum,eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
+  case class MixKaratsubaHeader[A[_],B[_],AB[_],C[_],D[_],CD[_]](val a: Rep[MyBigInt], val b: Rep[MyBigInt], val alength: A[Int], val blength: B[Int], val asignum: C[Int], val bsignum: D[Int], val inlineInfo: InlineInfo, val eva: IRep[A], val evb: IRep[B], val evc: IRep[C], val evd: IRep[D], val evab: IRep[AB], val evcd: IRep[CD], val ab1: Lub[A, B, AB], val ab2: Lub[AB, B, AB], val ab3: Lub[A, AB, AB], val ab4: Lub[AB, AB, AB], val cd1: Lub[C, D, CD], val cd2: Lub[CD, D, CD], val cd3: Lub[C, CD, CD], val cd4: Lub[CD, CD, CD]) extends Base(alength,blength,asignum,bsignum,eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
   {
     def getDynHeader(): DynKaratsubaHeader[A,B,AB,C,D,CD] = new DynKaratsubaHeader[A,B,AB,C,D,CD](a,b,alength,blength,asignum,bsignum,eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
-    def getStatHeader(): StatKaratsubaHeader[A,B,AB,C,D,CD] = new StatKaratsubaHeader[A,B,AB,C,D,CD](alength,blength,asignum,bsignum,eva,evb,evc,evd, evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
+    def getStatHeader(): StatKaratsubaHeader[A,B,AB,C,D,CD] = new StatKaratsubaHeader[A,B,AB,C,D,CD](alength,blength,asignum,bsignum, inlineInfo,eva,evb,evc,evd, evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
 
     def split(): (StatKaratsubaHeader[A,B,AB,C,D,CD], DynKaratsubaHeader[A,B,AB,C,D,CD]) = (getStatHeader(), getDynHeader())
   }
 
 
   object helpme{
-    def apply[A[_],B[_],AB[_],C[_],D[_],CD[_]](a: Rep[MyBigInt], b: Rep[MyBigInt],alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int])(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evd: IRep[D], evab: IRep[AB], evcd: IRep[CD], ab1: Lub[A, B, AB], ab2: Lub[AB, B, AB], ab3: Lub[A, AB, AB], ab4: Lub[AB, AB, AB], cd1: Lub[C, D, CD], cd2: Lub[CD, D, CD], cd3: Lub[C, CD, CD], cd4: Lub[CD, CD, CD]): MixKaratsubaHeader[A,B,AB,C,D,CD] = MixKaratsubaHeader[A,B,AB,C,D,CD](a,b,alength,blength,asignum,bsignum,eva,evb,evc,evd, evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
+    def apply[A[_],B[_],AB[_],C[_],D[_],CD[_]](a: Rep[MyBigInt], b: Rep[MyBigInt],alength: A[Int], blength: B[Int], asignum: C[Int], bsignum: D[Int], inlineinfo: InlineInfo)(implicit eva: IRep[A], evb: IRep[B], evc: IRep[C], evd: IRep[D], evab: IRep[AB], evcd: IRep[CD], ab1: Lub[A, B, AB], ab2: Lub[AB, B, AB], ab3: Lub[A, AB, AB], ab4: Lub[AB, AB, AB], cd1: Lub[C, D, CD], cd2: Lub[CD, D, CD], cd3: Lub[C, CD, CD], cd4: Lub[CD, CD, CD]): MixKaratsubaHeader[A,B,AB,C,D,CD] = MixKaratsubaHeader[A,B,AB,C,D,CD](a,b,alength,blength,asignum,bsignum, inlineinfo,eva,evb,evc,evd, evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
   }
 
   object MixKaratsubaHeader {
@@ -77,7 +79,7 @@ trait KaratsubaHeader extends sort.Skeleton{
       val bl: B[Int] = choose(hs.blength(), hd.blength(), hs.evb)
       val as: C[Int] = choose(hs.asignum(), hd.asignum(), hs.evc)
       val bs: D[Int] = choose(hs.bsignum(), hd.bsignum(), hs.evd)
-      new MixKaratsubaHeader[A,B,AB,C,D,CD](hd.a, hd.b, al, bl, as, bs ,eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
+      new MixKaratsubaHeader[A,B,AB,C,D,CD](hd.a, hd.b, al, bl, as, bs , hs.inlineinfo, eva,evb,evc,evd,evab,evcd, ab1, ab2, ab3, ab4, cd1, cd2, cd3, cd4)
     }
 
   }

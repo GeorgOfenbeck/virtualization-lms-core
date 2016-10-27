@@ -18,6 +18,16 @@ class Core extends KaratsubaHeader {
     val IR: self.type = self
   }
 
+  case class MaybeSFunction[A[_], B[_], AB[_], C[_], D[_], CD[_]](f: Either[StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] , (DynKaratsubaHeader[A, B, AB, C, D, CD] => Rep[MyBigInt])]) {
+    def apply(dyn: DynKaratsubaHeader[A, B, AB, C, D, CD]): Rep[MyBigInt] = f.fold(fa => fa(dyn), fb => fb(dyn))
+  }
+
+  object MaybeSFunction {
+    def apply[A[_], B[_], AB[_], C[_], D[_], CD[_]](f: StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]]): MaybeSFunction[A, B, AB, C, D, CD] = MaybeSFunction(Left(f))
+
+    def apply[A[_], B[_], AB[_], C[_], D[_], CD[_]](f: DynKaratsubaHeader[A, B, AB, C, D, CD] => Rep[MyBigInt]): MaybeSFunction[A, B, AB, C, D, CD] = MaybeSFunction(Right(f))
+  }
+
 
   def multiplya[A[_], B[_], AB[_], C[_], D[_], CD[_]](stat: StatKaratsubaHeader[A, B, AB, C, D, CD]): (DynKaratsubaHeader[A, B, AB, C, D, CD] => Rep[MyBigInt]) = {
     val stageme: (DynKaratsubaHeader[A, B, AB, C, D, CD] => Rep[MyBigInt]) = (dyn: DynKaratsubaHeader[A, B, AB, C, D, CD]) => {
@@ -27,7 +37,7 @@ class Core extends KaratsubaHeader {
     stageme
   }
 
-  def multiply[A[_], B[_], AB[_], C[_], D[_], CD[_]](stat: StatKaratsubaHeader[A, B, AB, C, D, CD]): StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] = {
+  def multiply[A[_], B[_], AB[_], C[_], D[_], CD[_]](stat: StatKaratsubaHeader[A, B, AB, C, D, CD]): MaybeSFunction[A, B, AB, C, D, CD] = {
 
     val sstring = stat.genSig()
     val exposarg: ExposeRep[DynKaratsubaHeader[A, B, AB, C, D, CD]] = exposeDynHeader(stat)
@@ -75,11 +85,15 @@ class Core extends KaratsubaHeader {
       })
       r0
     }
-    val t: StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] = doGlobalLambda(stageme, Some("multiply" + stat.genSig()), Some("multiply"))(exposarg, exposeret)
-    t
+    if (stat.inlineinfo.inline) {
+      MaybeSFunction(stageme)
+    } else {
+      val t: StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] = doGlobalLambda(stageme, Some("multiply" + stat.genSig()), Some("multiply"))(exposarg, exposeret)
+      MaybeSFunction(t)
+    }
   }
 
-  def multiplyKaratsuba[A[_], B[_], AB[_], C[_], D[_], CD[_]](stat: StatKaratsubaHeader[A, B, AB, C, D, CD]): StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] = {
+  def multiplyKaratsuba[A[_], B[_], AB[_], C[_], D[_], CD[_]](stat: StatKaratsubaHeader[A, B, AB, C, D, CD]): MaybeSFunction[A, B, AB, C, D, CD] = {
 
     val sstring = stat.genSig()
     val exposarg: ExposeRep[DynKaratsubaHeader[A, B, AB, C, D, CD]] = exposeDynHeader(stat)
@@ -107,7 +121,7 @@ class Core extends KaratsubaHeader {
         val asignum = signum(a)
         val bsignum = signum(b)
 
-        val mixr = helpme[Rep,Rep,Rep,Rep,Rep,Rep](a,b,alength,blength,asignum,bsignum)
+        val mixr = helpme[Rep,Rep,Rep,Rep,Rep,Rep](a,b,alength,blength,asignum,bsignum,inlineInfo)
         val (statless, dynless) = mixr.split()
         val lessf = multiply(statless)
         val res = lessf(dynless)
@@ -122,7 +136,7 @@ class Core extends KaratsubaHeader {
         val blength = length(bmag)
         val asignum = signum(a)
         val bsignum = signum(b)
-        val mixr = helpme[Rep,Rep,Rep,Rep,Rep,Rep](a,b,alength,blength,asignum,bsignum)
+        val mixr = helpme[Rep,Rep,Rep,Rep,Rep,Rep](a,b,alength,blength,asignum,bsignum,inlineInfo)
         val (statless, dynless) = mixr.split()
         val lessf = multiply(statless)
         val res = lessf(dynless)
@@ -142,7 +156,7 @@ class Core extends KaratsubaHeader {
         val asignum = signum(a)
         val bsignum = signum(b)
 
-        val mixr = helpme[Rep,Rep,Rep,Rep,Rep,Rep](a,b,alength,blength,asignum,bsignum)
+        val mixr = helpme[Rep,Rep,Rep,Rep,Rep,Rep](a,b,alength,blength,asignum,bsignum,inlineInfo)
         val (statless, dynless) = mixr.split()
         val lessf = multiply(statless)
         val res = lessf(dynless)
@@ -152,8 +166,12 @@ class Core extends KaratsubaHeader {
       karatsuba_rest(p1,p2,p3,evab.toRep(half),evc.toRep(asignum),evd.toRep(bsignum))
 
     }
-    val t: StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] = doGlobalLambda(stageme, Some("Karatsuba" + stat.genSig()), Some("Karatsuba"))(exposarg, exposeret)
-    t
+    if (stat.inlineinfo.inline) {
+      MaybeSFunction(stageme)
+    } else {
+      val t: StagedFunction[DynKaratsubaHeader[A, B, AB, C, D, CD], Rep[MyBigInt]] = doGlobalLambda(stageme, Some("Karatsuba" + stat.genSig()), Some("Karatsuba"))(exposarg, exposeret)
+      MaybeSFunction(t)
+    }
   }
 
       def multiplyByInt(x: Array[Int], y: Int, sign: Int): MyBigInt = ???
@@ -178,7 +196,7 @@ class Core extends KaratsubaHeader {
   def codeexport() = {
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\TestKaratsuba.scala"))
     stream2.println(codefrag)
-    val ini: StatKaratsubaHeader[Rep,Rep,Rep,Rep,Rep,Rep] = StatKaratsubaHeader[Rep,Rep,Rep,Rep,Rep,Rep](Const(-1), Const(-1), Const(-1),Const(-1))
+    val ini: StatKaratsubaHeader[Rep,Rep,Rep,Rep,Rep,Rep] = StatKaratsubaHeader[Rep,Rep,Rep,Rep,Rep,Rep](Const(-1), Const(-1), Const(-1),Const(-1),InlineInfo(false, 3, true, false))
     val esc = codegen.emitSource(multiplya(ini), "testClass", stream2)(exposeDynHeader(ini), exposeRepFromRep[MyBigInt])
     stream2.println("\n}\n")
     stream2.flush()
