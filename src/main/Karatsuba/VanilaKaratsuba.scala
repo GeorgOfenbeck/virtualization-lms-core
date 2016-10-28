@@ -324,17 +324,17 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
 
     var xIndex = x.length;
     var yIndex = y.length;
-    var result: Array[Int] = new Array[Int](xIndex);
+    val result: Array[Int] = new Array[Int](xIndex);
     var sum: Long = 0;
     if (yIndex == 1) {
-      sum = (x(xIndex) & LONG_MASK) + (y(0) & LONG_MASK);
       xIndex = xIndex - 1
+      sum = (x(xIndex) & LONG_MASK) + (y(0) & LONG_MASK);
       result(xIndex) = sum.toInt
     } else {
       // Add common parts of both numbers
       while (yIndex > 0) {
         xIndex = xIndex - 1
-        yIndex - yIndex - 1
+        yIndex = yIndex - 1
         sum = (x(xIndex) & LONG_MASK) +
           (y(yIndex) & LONG_MASK) + (sum >>> 32);
         result(xIndex) = sum.toInt;
@@ -344,12 +344,15 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     var carry: Boolean = (sum >>> 32) != 0
     while (xIndex > 0 && carry) {
       xIndex = xIndex - 1
-      carry = ((result(xIndex) = x(xIndex) + 1) == 0)
+      (result(xIndex) = x(xIndex) + 1)
+      carry = (result(xIndex) == 0)
     }
 
     // Copy remainder of longer number
-    while (xIndex > 0)
+    while (xIndex > 0) {
+      xIndex = xIndex - 1
       result(xIndex) = x(xIndex)
+    }
 
     // Grow result if necessary
     if (carry) {

@@ -7,9 +7,26 @@ import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
 import Karatsuba._
+import Filter._
 
 
 trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
+
+  case class Plus[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]) extends Def[T]
+
+  def genplus[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = Plus(lhs,rhs)
+
+  case class Times[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]) extends Def[T]
+
+  def gentimes[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = Times(lhs,rhs)
+
+  case class SetImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int], p: Exp[T] ) extends Def[Image]
+
+  def setImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int], p: Exp[T] ): Exp[Image] = SetImage(img,x,y,p)
+
+  case class GetImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int] ) extends Def[T]
+
+  def getImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int] ): Exp[T] = GetImage[T](img,x,y)
 
   case class TrustedStrip(a: Exp[Array[Int]], b: Exp[Int] ) extends Def[MyBigInt]
 
@@ -287,6 +304,10 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case Plus(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " * " + quote(rhs) ))
+      case Times(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " + " + quote(rhs) ))
+      case SetImage(img,x,y,p) => Vector(emitValDef(tp,  quote(img) + ".set(" +  quote(x) + "," + quote(y) + "," + quote(p) +")"))
+      case GetImage(img,x,y) => Vector(emitValDef(tp,  quote(img) + ".get(" +  quote(x) + "," + quote(y) + ")"))
       case TrustedStrip(a,b) => Vector(emitValDef(tp,  "new MyBigInt(MyBigInt.trustedStripLeadingZeroInts(" + quote(a) + ")," +  quote(b) + ")"))
       case Int_max(a,b) => Vector(emitValDef(tp,  "Math.max(" + quote(a) + "," +  quote(b) + ")"))
       case Karatsuba_rest(a: Exp[MyBigInt], b: Exp[MyBigInt], c: Exp[MyBigInt], half: Exp[Int], asignum, bsignum) => Vector(emitValDef(tp, "{\n val p1 = " + quote(a) + "\n val p2 = " +quote(b) + "\n val p3 = " +quote(c) + "\n val half = " + quote(half) + "\n val asignum = " + quote(asignum) + "\n val bsignum = " + quote(bsignum) + "\n    val result: MyBigInt = p1.shiftLeft(32 * half).add(p3.subtract(p1).subtract(p2)).shiftLeft(32 * half).add(p2);\n\n    if (asignum != bsignum) {\n      result.negate();\n    } else {\n     result;\n    }}"))

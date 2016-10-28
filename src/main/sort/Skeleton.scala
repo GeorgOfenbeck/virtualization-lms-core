@@ -227,9 +227,16 @@ trait Skeleton extends Sort_DSL {
     def mod(lhs: T[Int], rhs: T[Int]): T[Int]
 
     def max(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def gtimes[A: Numeric: TypeRep](lhs: T[A], rhs: T[A]): T[A]
+    def gplus[A: Numeric: TypeRep](lhs: T[A], rhs: T[A]): T[A]
   }
 
   trait RepNum extends StagedNum[Rep] {
+
+    def gplus[T: Numeric: TypeRep](lhs: Rep[T], rhs: Rep[T]): Rep[T] = genplus(lhs, rhs)
+    def gtimes[T: Numeric: TypeRep](lhs: Rep[T], rhs: Rep[T]): Rep[T] = gentimes(lhs, rhs)
+
     def plus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_plus(lhs, rhs)
 
     def minus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_minus(lhs, rhs)
@@ -242,6 +249,16 @@ trait Skeleton extends Sort_DSL {
   }
 
   trait NoRepNum extends StagedNum[NoRep] {
+    def gplus[T: Numeric: TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+      val ev = implicitly[Numeric[T]]
+      ev.plus(lhs,rhs)
+    }
+
+    def gtimes[T: Numeric: TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+      val ev = implicitly[Numeric[T]]
+      ev.times(lhs,rhs)
+    }
+
     def plus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs + rhs
 
     def minus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs - rhs
