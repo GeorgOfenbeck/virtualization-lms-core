@@ -296,11 +296,11 @@ trait Skeleton extends Sort_DSL {
       } else if (ev.isRep()) None else Some(a)
   }
 
-  trait DynSelector {
+  trait DynSelector extends RepSelector{
     val rrep: Boolean = true
   }
 
-  trait StatSelector {
+  trait StatSelector extends RepSelector{
     val rrep: Boolean = false
   }
 

@@ -36,6 +36,8 @@ class Core extends FilterHeader {
     stageme
   }
 
+
+
   def multiply[T: Numeric : TypeRep, A[_] : IRep, B[_] : IRep, C[_] : IRep, D[_] : IRep, E[_] : IRep, F[_] : IRep, G[_] : IRep, H[_] : IRep, I[_] : IRep](stat: StatFilterHeader[T, A, B, C, D, E, F, G, H, I]): MaybeSFunction[T, A, B, C, D, E, F, G, H, I] = {
     val exposarg: ExposeRep[DynFilterHeader[T, A, B, C, D, E, F, G, H, I]] = exposeDynHeader(stat)
     implicit val exposeret = exposeRepFromRep[Image]
