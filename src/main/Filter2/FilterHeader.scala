@@ -1,5 +1,6 @@
-
 package Filter2
+class ImageH
+
 
 trait FilterHeader extends sort.Skeleton {
 
@@ -104,17 +105,9 @@ trait FilterHeader extends sort.Skeleton {
     }
   }
 
-
-  abstract class MInt {
-    type A[_]
-    val i: A[Int]
-    val ev: IRep[A]
-    val evnum: Numeric[Int]
-  }
-
   abstract class Image {
-    val xsize: MInt
-    val ysize: MInt
+    val xsize: OneEntry{ type T = Int}
+    val ysize: OneEntry{ type T = Int}
   }
 
 
@@ -126,10 +119,6 @@ trait FilterHeader extends sort.Skeleton {
         if (one.ev.isRep()) one.makeSome(one) else one.makeNone(one)
       } else if (one.ev.isRep()) one.makeNone(one) else one.makeSome(one)
 
-    def repselect2(one: MInt): Option[one.A[Int]] =
-      if (rrep) {
-        if (one.ev.isRep()) Some(one.i) else None
-      } else if (one.ev.isRep()) None else Some(one.i)
   }
 
   trait DynSelector2 extends RepSelector2 {
@@ -161,6 +150,10 @@ trait FilterHeader extends sort.Skeleton {
 
     def i() = repselect(matrix.r3.c3)
 
+    def x() = repselect(image.xsize)
+
+    def y() = repselect(image.ysize)
+
   }
 
   case class InlineInfo(inline: Boolean, maxfunctions: Int, compareinline: Boolean, consider_inline: Boolean, specialize: Boolean, spezialize_done: Int)
@@ -170,13 +163,6 @@ trait FilterHeader extends sort.Skeleton {
       val t = repselect(oneEntry)
       t.a match {
         case Some(x: NoRep[t.T]) => t.evnum.toLong(x).toString
-        case _ => ""
-      }
-    }
-
-    private def help(mInt: MInt): String = {
-      repselect2(mInt) match {
-        case Some(x: NoRep[Int]) => x.toString
         case _ => ""
       }
     }
@@ -199,14 +185,64 @@ trait FilterHeader extends sort.Skeleton {
 
   }
 
-  class DynFilterHeader(val image_in: Rep[Image], val image_out: Rep[Image], image: Image, matrix: Matrix) extends Header(image, matrix) with DynSelector2
+  class DynFilterHeader(val image_in: Rep[ImageH], val image_out: Rep[ImageH], image: Image, matrix: Matrix) extends Header(image, matrix) with DynSelector2
 
 
   object StatFilterHeader {
     def apply(image: Image, matrix: Matrix, inlineInfo: InlineInfo) = new StatFilterHeader(image, matrix, inlineInfo)
+
+    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0)): StatFilterHeader = {
+
+      def help[K: Numeric: TypeRep](o: Option[K]): OneEntry = {
+        if (o.isDefined)
+        new OneEntry {
+          override type A[X] = NoRep[X]
+          override type T = K
+          override val evnum: Numeric[T] = implicitly[Numeric[K]]
+          override val ev: IRep[A] = cNoRep
+          override val a: NoRep[K] = o.get
+          override val evtyp: TypeRep[K] = implicitly[TypeRep[K]]
+        } else {
+          val default = new OneEntry {
+            override type A[X] = Rep[X]
+            override type T = Int
+            override val evnum: Numeric[T] = implicitly[Numeric[T]]
+            override val ev: IRep[A] = cRep
+            override val a: Rep[Int] = Const(-1)
+            override val evtyp: TypeRep[Int] = implicitly[TypeRep[Int]]
+          }
+          default
+        }
+      }
+      val nm = new Matrix {
+        val r1 = new Row {
+          val c1 = help(a)
+          val c2 = help(b)
+          val c3 = help(c)
+        }
+        val r2 = new Row {
+          val c1 = help(d)
+          val c2 = help(e)
+          val c3 = help(f)
+        }
+        val r3 = new Row {
+          val c1 = help(g)
+          val c2 = help(h)
+          val c3 = help(i)
+        }
+      }
+      val im = new Image {
+        override val xsize: OneEntry {type T = Int} = help(x).asInstanceOf[OneEntry {type T = Int}]
+        override val ysize: OneEntry {type T = Int} = help(y).asInstanceOf[OneEntry {type T = Int}]
+      }
+
+      StatFilterHeader(im,nm,inlineInfo)
+    }
   }
 
-  case class MixFilterHeader(image_in: Rep[Image], image_out: Rep[Image], image: Image, matrix: Matrix, inlineInfo: InlineInfo) extends Base(image, matrix) {
+
+
+  case class MixFilterHeader(image_in: Rep[ImageH], image_out: Rep[ImageH], image: Image, matrix: Matrix, inlineInfo: InlineInfo) extends Base(image, matrix) {
     def getDynHeader(): DynFilterHeader = new DynFilterHeader(image_in, image_out, image, matrix)
 
     def getStatHeader(): StatFilterHeader = new StatFilterHeader(image, matrix, inlineInfo)
@@ -267,7 +303,9 @@ trait FilterHeader extends sort.Skeleton {
 
   implicit def exposeDynHeader(stat: StatFilterHeader): ExposeRep[DynFilterHeader] = new ExposeRep[DynFilterHeader] {
     val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-      Vector(Arg[Image]) ++ Vector(Arg[Image]) ++
+      Vector(Arg[ImageH]) ++ Vector(Arg[ImageH]) ++
+        stat.image.xsize.ev.fresh[Int]() ++
+        stat.image.ysize.ev.fresh[Int]() ++
         stat.matrix.r1.c1.ev.fresh[stat.matrix.r1.c1.T]()(stat.matrix.r1.c1.evtyp) ++
         stat.matrix.r1.c2.ev.fresh[stat.matrix.r1.c2.T]()(stat.matrix.r1.c2.evtyp) ++
         stat.matrix.r1.c3.ev.fresh[stat.matrix.r1.c3.T]()(stat.matrix.r1.c3.evtyp) ++
@@ -286,6 +324,8 @@ trait FilterHeader extends sort.Skeleton {
         //ele.map(p => ev.getRep(p).map(o => Vector(o)).getOrElse(Vector.empty)).getOrElse(Vector.empty)
       }
       Vector(in.image_in) ++ Vector(in.image_out) ++
+        help(in.x().toOneEntry()) ++
+        help(in.y().toOneEntry()) ++
         help(in.a().toOneEntry()) ++
         help(in.b().toOneEntry()) ++
         help(in.c().toOneEntry()) ++
@@ -295,41 +335,68 @@ trait FilterHeader extends sort.Skeleton {
         help(in.g().toOneEntry()) ++
         help(in.h().toOneEntry()) ++
         help(in.i().toOneEntry())
-
-      ??? //still need to add image dimensions
     }
 
     val vec2t: Vector[Exp[_]] => DynFilterHeader = (in: Vector[Exp[_]]) => {
       def help[T[_], A: TypeRep](in: Vector[Rep[_]], statele: OptionalEntry): (Vector[Rep[_]], OneEntry) = {
 
 
-        val (vecafter, ele) = statele.ev.fetch[statele.T](in)
+        val (vecafter, ele) = statele.ev.fetch[statele.T](in)(statele.evtyp)
 
         val res = ele.getOrElse(statele.a.get)
+
+
         val or = new OneEntry {
           override type A[X] = statele.A[X]
           override type T = statele.T
           override val evnum: Numeric[T] = statele.evnum
           override val ev: IRep[A] = statele.ev
-          override val a: A[T] = statele.a.get
+          override val a: A[T] = res
           override val evtyp = statele.evtyp
         }
         (vecafter, or)
 
       }
-      val image_in = in.head.asInstanceOf[Rep[Image]]
-      val image_out = in.tail.head.asInstanceOf[Rep[Image]]
-      val (oa, a) = help(in.tail.tail, stat.matrix.r1.c1)
-      val (ob, b) = help(oa, stat.b, implicitly[IRep[B]])
-      val (oc, c) = help(ob, stat.c, implicitly[IRep[C]])
-      val (od, d) = help(oc, stat.d, implicitly[IRep[D]])
-      val (oe, e) = help(od, stat.e, implicitly[IRep[E]])
-      val (of, f) = help(oe, stat.f, implicitly[IRep[F]])
-      val (og, g) = help(of, stat.g, implicitly[IRep[G]])
-      val (oh, h) = help(og, stat.h, implicitly[IRep[H]])
-      val (oi, i) = help(oh, stat.i, implicitly[IRep[I]])
+      val image_in = in.head.asInstanceOf[Rep[ImageH]]
+      val image_out = in.tail.head.asInstanceOf[Rep[ImageH]]
+      val (ox, x) = help(in.tail.tail, stat.x())
+      val (oy, y) = help(ox, stat.y())
+      val (oa, a) = help(oy, stat.a())
+      val (ob, b) = help(oa, stat.b())
+      val (oc, c) = help(ob, stat.c())
+      val (od, d) = help(oc, stat.d())
+      val (oe, e) = help(od, stat.e())
+      val (of, f) = help(oe, stat.f())
+      val (og, g) = help(of, stat.g())
+      val (oh, h) = help(og, stat.h())
+      val (oi, i) = help(oh, stat.i())
 
-      val t: DynFilterHeader[T, A, B, C, D, E, F, G, H, I] = new DynFilterHeader[T, A, B, C, D, E, F, G, H, I](image_in, image_out, a, b, c, d, e, f, g, h, i)
+
+      val nm = new Matrix {
+        val r1 = new Row {
+          val c1 = a
+          val c2 = b
+          val c3 = c
+        }
+        val r2 = new Row {
+          val c1 = d
+          val c2 = e
+          val c3 = f
+        }
+        val r3 = new Row {
+          val c1 = g
+          val c2 = h
+          val c3 = i
+        }
+      }
+
+      val ni = new Image
+      {
+        override val xsize: OneEntry {type T = Int} = x.asInstanceOf[OneEntry {type T = Int}]
+        override val ysize: OneEntry {type T = Int} = y.asInstanceOf[OneEntry {type T = Int}]
+      }
+
+      val t: DynFilterHeader = new DynFilterHeader(image_in, image_out, stat.image, nm)
       t
 
     }
