@@ -105,17 +105,22 @@ trait FilterHeader extends sort.Skeleton {
   }
 
   object MixFilterHeader {
-//    private def choose(a: Option[A[T]], b: Option[A[T]], ev: IRep[A]): A[T] = if (ev.isRep()) b.get else a.get
+    //private def choose(a: Option[A[T]], b: Option[A[T]], ev: IRep[A]): A[T] = if (ev.isRep()) b.get else a.get
 /*
     private def choose[T1, A1[_]](a: OneEntry{ type T = T1; type A[_] = A1[_]}, b: OneEntry{ type T = T1; type A[_] = A1[_]}): A1[T1] = {
       val y: b.A[T1] = b.a
       val z: A1[b.T] = b.a
       var x: A1[T1] = b.a
       if (a.ev.isRep()) a.a else b.a
-    }
-    def apply(hs: StatFilterHeader)(hd: DynFilterHeader { type A = hs.A }): MixFilterHeader = {
       ???
     }*/
+
+
+/*
+    def apply(hs: StatFilterHeader)(hd: DynFilterHeader { type matrix.r1.c1.A = hs.matrix.r1.c1.A }): MixFilterHeader = {
+      ???
+    }
+*/
   }
 
 
