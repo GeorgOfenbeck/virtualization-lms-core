@@ -23,7 +23,7 @@ trait ForTiark extends sort.Skeleton {
     val r2: R2
     val r3: R3
 
-    type ThisM = Matrix { type R1 = this.R1;  }
+//    type ThisM = Matrix { type R1 = this.R1;  }
   }
 
   abstract class Row {
@@ -50,6 +50,7 @@ trait ForTiark extends sort.Skeleton {
   def identicalmatrix(a: Matrix, b: Matrix): Matrix = {
     ???
   }
+/*
 
   def copy(a: Matrix): Matrix = {
     new Matrix{
@@ -58,9 +59,10 @@ trait ForTiark extends sort.Skeleton {
       val r3 = a.r3
     }
   }
+*/
 
 
-
+/*
   def copychange(a: Matrix): Matrix = {
     new Matrix{
       val r1 = a.r1
@@ -77,7 +79,7 @@ trait ForTiark extends sort.Skeleton {
         }
       }
     }
-  }
+  }*/
 
 /* def usecase[M1,M2](stat: Matrix): (stat.share. => Int) = {
 
