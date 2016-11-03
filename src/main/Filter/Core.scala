@@ -31,7 +31,8 @@ class Core extends FilterHeader {
   def multiplya[T: Numeric : TypeRep, A[_] : IRep, B[_] : IRep, C[_] : IRep, D[_] : IRep, E[_] : IRep, F[_] : IRep, G[_] : IRep, H[_] : IRep, I[_] : IRep](stat: StatFilterHeader[T, A, B, C, D, E, F, G, H, I]): (DynFilterHeader[T, A, B, C, D, E, F, G, H, I] => Rep[Image]) = {
     val stageme: (DynFilterHeader[T, A, B, C, D, E, F, G, H, I] => Rep[Image]) = (dyn: DynFilterHeader[T, A, B, C, D, E, F, G, H, I]) => {
       val f = multiply(stat)
-      f(dyn)
+      val t = f(dyn)
+      t
     }
     stageme
   }
@@ -48,6 +49,7 @@ class Core extends FilterHeader {
       val evnum = implicitly[Numeric[T]]
       val ttr = implicitly[TypeRep[T]]
       implicit val tmf = ttr.mf
+/*
 
       if (inline.specialize) {
         inline.spezialize_done match {
@@ -232,6 +234,8 @@ class Core extends FilterHeader {
 
         out
       }
+*/
+      mix.image_in
 
 
     }
