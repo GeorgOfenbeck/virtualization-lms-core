@@ -137,12 +137,15 @@ trait Skeleton extends Sort_DSL {
     def unt(from: T[Int], to: T[Int]): T[Range]
 
     def rangefold[B](range: T[Range], ini: B, exposeRep: ExposeRep[B])(body: ((B, T[Int])) => B): B
+
   }
 
   trait RepRangeFold extends RangeFold[Rep] {
     def unt(from: Rep[Int], to: Rep[Int]): Rep[Range] = range_create(from, to)
 
     def rangefold[B](range: Rep[Range], ini: B, exposeRep: ExposeRep[B])(body: ((B, Rep[Int])) => B): B = range_foldLeft(range, ini, body)(exposeRep)
+
+
   }
 
   trait NoRepRangeFold extends RangeFold[NoRep] {
@@ -152,6 +155,8 @@ trait Skeleton extends Sort_DSL {
       val f: (B, Int) => B = (b: B, i: Int) => body((b, i))
       range.foldLeft(ini)(f)
     }
+
+
   }
 
 

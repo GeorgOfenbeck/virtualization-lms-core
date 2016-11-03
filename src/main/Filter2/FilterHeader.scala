@@ -158,7 +158,9 @@ trait FilterHeader extends sort.Skeleton {
 
   case class InlineInfo(inline: Boolean, maxfunctions: Int, compareinline: Boolean, consider_inline: Boolean, specialize: Boolean, spezialize_done: Int)
 
-  class StatFilterHeader(image: Image, matrix: Matrix, val inline: InlineInfo) extends Header(image, matrix) with StatSelector2 {
+  case class Blocking(val blockingx: Int, val blockingy: Int, val unrollx: Int, val unrolly: Int)
+
+  class StatFilterHeader(image: Image, matrix: Matrix, val inline: InlineInfo, val blocking: Blocking) extends Header(image, matrix) with StatSelector2 {
     private def help(oneEntry: OneEntry): String = {
       val t = repselect(oneEntry)
       t.a match {
@@ -189,9 +191,9 @@ trait FilterHeader extends sort.Skeleton {
 
 
   object StatFilterHeader {
-    def apply(image: Image, matrix: Matrix, inlineInfo: InlineInfo) = new StatFilterHeader(image, matrix, inlineInfo)
+    def apply(image: Image, matrix: Matrix, inlineInfo: InlineInfo, blocking: Blocking) = new StatFilterHeader(image, matrix, inlineInfo, blocking)
 
-    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0)): StatFilterHeader = {
+    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0), blocking: Blocking = Blocking(32,32,8,8)): StatFilterHeader = {
 
       def help[K: Numeric: TypeRep](o: Option[K]): OneEntry = {
         if (o.isDefined)
@@ -236,21 +238,21 @@ trait FilterHeader extends sort.Skeleton {
         override val ysize: OneEntry {type T = Int} = help(y).asInstanceOf[OneEntry {type T = Int}]
       }
 
-      StatFilterHeader(im,nm,inlineInfo)
+      StatFilterHeader(im,nm,inlineInfo, blocking)
     }
   }
 
 
 
-  case class MixFilterHeader(image_in: Rep[ImageH], image_out: Rep[ImageH], image: Image, matrix: Matrix, inlineInfo: InlineInfo) extends Base(image, matrix) {
+  case class MixFilterHeader(image_in: Rep[ImageH], image_out: Rep[ImageH], image: Image, matrix: Matrix, inlineInfo: InlineInfo, blocking: Blocking) extends Base(image, matrix) {
     self =>
     def getDynHeader(): DynFilterHeader = new DynFilterHeader(image_in, image_out, image, matrix)
 
-    def getStatHeader(): StatFilterHeader = new StatFilterHeader(image, matrix, inlineInfo)
+    def getStatHeader(): StatFilterHeader = new StatFilterHeader(image, matrix, inlineInfo, blocking)
 
     def split(): (StatFilterHeader, DynFilterHeader) = (getStatHeader(), getDynHeader())
 
-    def cpy(image_in: Rep[ImageH] = self.image_in, image_out: Rep[ImageH] = self.image_out, a: Option[self.matrix.r1.c1.T] = None, b: Option[self.matrix.r1.c2.T] = None, c: Option[self.matrix.r1.c3.T] = None, d: Option[self.matrix.r2.c1.T] = None, e: Option[self.matrix.r2.c2.T] = None, f: Option[self.matrix.r2.c3.T] = None, g: Option[self.matrix.r3.c1.T]= None, h: Option[self.matrix.r3.c2.T] = None, i: Option[self.matrix.r3.c3.T] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = self.inlineInfo): MixFilterHeader = {
+    def cpy(image_in: Rep[ImageH] = self.image_in, image_out: Rep[ImageH] = self.image_out, a: Option[self.matrix.r1.c1.T] = None, b: Option[self.matrix.r1.c2.T] = None, c: Option[self.matrix.r1.c3.T] = None, d: Option[self.matrix.r2.c1.T] = None, e: Option[self.matrix.r2.c2.T] = None, f: Option[self.matrix.r2.c3.T] = None, g: Option[self.matrix.r3.c1.T]= None, h: Option[self.matrix.r3.c2.T] = None, i: Option[self.matrix.r3.c3.T] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = self.inlineInfo, blocking: Blocking = self.blocking): MixFilterHeader = {
 
       def help(sofar: OneEntry)(ele: Option[sofar.T]): Option[OneEntry] = {
         if (ele.isDefined)
@@ -294,7 +296,7 @@ trait FilterHeader extends sort.Skeleton {
       val nimin = image_in
       val nimout = image_out
 
-      MixFilterHeader(nimin,nimout,im,nm,inlineInfo)
+      MixFilterHeader(nimin,nimout,im,nm,inlineInfo,blocking)
     }
   }
 
@@ -344,7 +346,7 @@ trait FilterHeader extends sort.Skeleton {
         }
       }
 
-      new MixFilterHeader(hd.image_in, hd.image_out, hd.image, nm, hs.inline)
+      new MixFilterHeader(hd.image_in, hd.image_out, hd.image, nm, hs.inline, hs.blocking)
     }
 
 

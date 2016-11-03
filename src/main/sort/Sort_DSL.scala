@@ -8,9 +8,21 @@ import scala.lms.targets.scalalike._
 
 import Karatsuba._
 import Filter._
-
+import Filter2.ImageH
 
 trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
+
+  case class ToInt[T: Numeric: TypeRep](lhs: Exp[T]) extends Def[Int]
+
+  def toInt[T: Numeric: TypeRep](lhs: Exp[T]): Exp[Int] = ToInt(lhs)
+
+  case class ToDouble[T: Numeric: TypeRep](lhs: Exp[T]) extends Def[Double]
+
+  def toDouble[T: Numeric: TypeRep](lhs: Exp[T]): Exp[Double] = ToDouble(lhs)
+
+  case class FromInt[T: Numeric: TypeRep](lhs: Exp[Int]) extends Def[T]
+
+  def fromInt[T: Numeric: TypeRep](lhs: Exp[Int]): Exp[T] = FromInt[T](lhs)
 
   case class Plus[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]) extends Def[T]
 
@@ -20,13 +32,13 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   def gentimes[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = Times(lhs,rhs)
 
-  case class SetImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int], p: Exp[T] ) extends Def[Image]
+  case class SetImage[T: Numeric: TypeRep](img: Exp[ImageH], x: Exp[Int], y: Exp[Int], p: Exp[T] ) extends Def[ImageH]
 
-  def setImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int], p: Exp[T] ): Exp[Image] = SetImage(img,x,y,p)
+  def setImage[T: Numeric: TypeRep](img: Exp[ImageH], x: Exp[Int], y: Exp[Int], p: Exp[T] ): Exp[ImageH] = SetImage(img,x,y,p)
 
-  case class GetImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int] ) extends Def[T]
+  case class GetImage[T: Numeric: TypeRep](img: Exp[ImageH], x: Exp[Int], y: Exp[Int] ) extends Def[T]
 
-  def getImage[T: Numeric: TypeRep](img: Exp[Image], x: Exp[Int], y: Exp[Int] ): Exp[T] = GetImage[T](img,x,y)
+  def getImage[T: Numeric: TypeRep](img: Exp[ImageH], x: Exp[Int], y: Exp[Int] ): Exp[T] = GetImage[T](img,x,y)
 
   case class TrustedStrip(a: Exp[Array[Int]], b: Exp[Int] ) extends Def[MyBigInt]
 
@@ -255,6 +267,35 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
     sumloopnode
   }
 
+  case class FFor(from: Exp[Int], till: Exp[Int], loopvar: Exp[Int], body: Exp[_ => _]) extends Def[Any]
+
+  def ffor[A](from: Rep[Int], till: Rep[Int], body: Rep[Int] => A)(implicit tupleexpose: ExposeRep[Rep[Int]], singleexpose: ExposeRep[A]): A = {
+    val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
+    val newsyms = singleexpose.freshExps()
+    val looptuple = tupleexpose.freshExps()
+    val loopvar = looptuple.head.asInstanceOf[Exp[Int]]
+    val sumloopnode = FFor(from,till, loopvar, lambda.exp)
+    val sumnodeexp = toAtom(sumloopnode)
+
+    val returnNodes = if (newsyms.size > 1) {
+      newsyms.zipWithIndex.map(fsym => {
+        //had do to this ugly version since the compile time type is not know at this stage (of the return - Rep[_])
+        val otp = exp2tp(fsym._1)
+        val tag: TypeRep[Any] = otp.tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(sumnodeexp, fsym._1, fsym._2, true, newsyms.size == fsym._2 + 1)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    } else {
+      newsyms.zipWithIndex.map(fsym => {
+        val tag: TypeRep[Any] = exp2tp(fsym._1).tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(sumnodeexp, fsym._1, fsym._2, false, true)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    }
+    singleexpose.vec2t(returnNodes)
+  }
 
 
   case class SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
@@ -301,9 +342,14 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
 
 
 
+  val x = 10
+
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case FromInt(lhs) => Vector(emitValDef(tp, quote(lhs) ))
+      case ToDouble(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toDouble" ))
+      case ToInt(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toInt" ))
       case Plus(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " * " + quote(rhs) ))
       case Times(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " + " + quote(rhs) ))
       case SetImage(img,x,y,p) => Vector(emitValDef(tp,  quote(img) + ".set(" +  quote(x) + "," + quote(y) + "," + quote(p) +")"))

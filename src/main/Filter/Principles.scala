@@ -7,7 +7,7 @@ import scala.collection.mutable
   */
 object Principles extends App{
 
-  blocking(129,129,8,8)
+  blocking(128,128,8,8)
 
   def blocking(x: Int, y: Int, blockingx: Int, blockingy: Int) = {
 
@@ -15,6 +15,8 @@ object Principles extends App{
 
     var a: Array[Array[Boolean]] = init(x,y)
 
+    val unrollx = 2
+    val unrolly = 2
 
     val iterations_x = x / blockingx //dyn
     val iterations_y = y / blockingy //dyn
@@ -22,16 +24,35 @@ object Principles extends App{
     val rest_x = x % blockingx
     val rest_y = y % blockingy
 
+    val itblockedx = blockingx / unrollx
+    val itblockedy = blockingy / unrolly
+
     //main block
+
+
     for (i <- 0 until iterations_x)
       for (j <- 0 until iterations_y)
-        {
-          for (ii <- (i*blockingx) until (i*blockingx)+blockingx)
+          for (ii <- 0 until itblockedx)
+            for (jj <- 0 until itblockedy) {
+              val f = (i * blockingx + ii * unrollx)
+              //val t = (i * blockingx) + blockingx + (ii * unrollx) + unrollx
+              val t = (i * blockingx) + (ii * unrollx) + unrollx
+              for (iii <- f until t) {
+                val f1 = (j * blockingy + jj * unrolly)
+                //val t1 = (j * blockingy) + blockingy + (jj * unrolly) + unrolly
+                val t1 = (j * blockingy)  + (jj * unrolly) + unrolly
+                for (jjj <- f1 until t1)
+                  a(iii)(jjj) = true
+              }
+            }
+          /*for (ii <- (i*blockingx) until (i*blockingx)+blockingx)
             for (jj <- (j*blockingy) until (j*blockingy)+blockingy)
               {
+
+
                 a(ii)(jj) = true
-              }
-        }
+              }*/
+
     //bottom border
     for (r <- iterations_x*blockingx until x)
       for (c <- 0 until iterations_y)
