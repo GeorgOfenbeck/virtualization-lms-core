@@ -12,6 +12,22 @@ import Filter2.ImageH
 
 trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
 
+  case class PixelGetBlue(r: Exp[Int]) extends Def[Int]
+  def pixelgetBlue(r: Exp[Int]): Exp[Int] = PixelGetBlue(r)
+  
+  case class PixelGetGreen(r: Exp[Int]) extends Def[Int]
+  def pixelgetGreen(r: Exp[Int]): Exp[Int] = PixelGetGreen(r)
+
+  case class PixelGetRed(r: Exp[Int]) extends Def[Int]
+  def pixelgetRed(r: Exp[Int]): Exp[Int] = PixelGetRed(r)
+  
+  case class PixelGetAlpha(r: Exp[Int]) extends Def[Int]  
+  def pixelgetAlpha(r: Exp[Int]): Exp[Int] = PixelGetAlpha(r)
+
+  case class CombinePixel(a: Exp[Double], r: Exp[Double], g: Exp[Double], b: Exp[Double]) extends Def[Int]
+
+  def combinePixel(a: Exp[Double], r: Exp[Double], g: Exp[Double], b: Exp[Double]): Exp[Int] = CombinePixel(a,r,g,b)
+  
   case class ToInt[T: Numeric: TypeRep](lhs: Exp[T]) extends Def[Int]
 
   def toInt[T: Numeric: TypeRep](lhs: Exp[T]): Exp[Int] = ToInt(lhs)
