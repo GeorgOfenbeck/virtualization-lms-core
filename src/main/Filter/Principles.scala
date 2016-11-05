@@ -7,6 +7,15 @@ import scala.collection.mutable
   */
 object Principles extends App{
 
+  val t1 = Vector.empty[Int]
+  val t2 = Vector(1)
+  val t3 = Vector(1,2)
+
+  val r1 = if(t1.isEmpty) None else Some(t1.reduceLeft(_ + _))
+  t2.reduceLeft(_ + _)
+  t3.reduceLeft(_ + _)
+  val dres = symbench[Int,Long,Float,Float,Int,Int,Double,Double,Double](1,4,3.1f,3,1,3,3.16,2.2,2.2,Map.empty)
+  println(dres)
   blocking(128,128,8,8)
 
   def blocking(x: Int, y: Int, blockingx: Int, blockingy: Int) = {
@@ -129,5 +138,93 @@ object Principles extends App{
       })
     }
   }
+
+
+  def symbench[A, B, C, D, E, F, G, H, I](a: A, b: B, c: C, d: D, e: E, f: F, g: G, h: H, i: I, dup: Map[Int, Vector[Int]])(implicit eva: Numeric[A], evb: Numeric[B], evc: Numeric[C], evd: Numeric[D], eve: Numeric[E], evf: Numeric[F], evg: Numeric[G], evh: Numeric[H], evi: Numeric[I]): Double = {
+
+    def get(idx: Int): Any = {
+      idx match {
+        case 1 => a
+        case 2 => b
+        case 3 => c
+        case 4 => d
+        case 5 => e
+        case 6 => f
+        case 7 => g
+        case 8 => h
+        case 9 => i
+        case _ => ???
+      }
+    }
+
+    val tmap: Map[Int,Numeric[_]] = Map(1 -> eva, 2 -> evb, 3 -> evc, 4 -> evd, 5 -> eve, 6 -> evf, 7 -> evg, 8 -> evh, 9 -> evi)
+
+    val tintmap: Vector[Int] = tmap.foldLeft(Vector.empty[Int]) {
+      (acc, ele) => if (ele._2 == implicitly[Numeric[Int]]) acc :+ ele._1 else acc
+    }
+    val tintvec = tintmap.map(p => get(p).asInstanceOf[Int])
+
+    val longmap: Vector[Int] = tmap.foldLeft(Vector.empty[Int]) {
+      (acc, ele) => if (ele._2 == implicitly[Numeric[Long]]) acc :+ ele._1 else acc
+    }
+    val tlongvec = longmap.map(p => get(p).asInstanceOf[Long])
+    val floatmap: Vector[Int] = tmap.foldLeft(Vector.empty[Int]) {
+      (acc, ele) => if (ele._2 == implicitly[Numeric[Float]]) acc :+ ele._1 else acc
+    }
+    val tfloatvec = floatmap.map(p => get(p).asInstanceOf[Float])
+    val doublemap: Vector[Int] = tmap.foldLeft(Vector.empty[Int]) {
+      (acc, ele) => if (ele._2 == implicitly[Numeric[Double]]) acc :+ ele._1 else acc
+    }
+    val tdoublevec = doublemap.map(p => {
+      val ug: Any = get(p)
+      ug.asInstanceOf[Double]
+    })
+
+
+
+
+
+    val rtmap = tmap.foldLeft(Map.empty[Numeric[_],Vector[Int]]){
+      (acc,ele) => if (acc.contains(ele._2)){
+        val app = acc(ele._2) :+ ele._1
+        acc + (ele._2 -> app)
+      }
+        else
+        acc + (ele._2 -> Vector(ele._1))
+    }
+
+    val rint: Option[Int] = if (tintmap.isEmpty) None else Some(tintmap.reduceLeft(_ + _))
+    val rlong: Option[Long] = if (tlongvec.isEmpty) None else Some(tlongvec.reduceLeft(_ + _))
+    val rfloat = if(tfloatvec.isEmpty) None else Some(tfloatvec.reduceLeft(_ + _))
+    val rdouble = if(tdoublevec.isEmpty) None else Some(tdoublevec.reduceLeft(_ + _))
+
+
+    rint
+    
+    val dres:Double = (rint,rlong,rfloat,rdouble) match {
+      case (Some(xi), Some(xl), Some(xf), Some(xd)) => xi * xl * xf * xd
+      case (None, Some(xl), Some(xf), Some(xd)) =>  xl * xf * xd
+      case (Some(xi), None, Some(xf), Some(xd)) => xi * xf * xd
+      case (None, None, Some(xf), Some(xd)) => xf * xd
+      case (Some(xi), Some(xl), None, Some(xd)) => xi * xl  * xd
+      case (None, Some(xl), None, Some(xd)) =>  xl * xd
+      case (Some(xi), None, None, Some(xd)) => xi * xd
+      case (None, None, None, Some(xd)) => xd
+      case (Some(xi), Some(xl), Some(xf), None) => xi * xl * xf 
+      case (None, Some(xl), Some(xf), None) => xl * xf
+      case (Some(xi), None, Some(xf), None) => xi * xf
+      case (None, None, Some(xf), None) => xf
+      case (Some(xi), Some(xl), None, None) => xi * xl 
+      case (None, Some(xl), None, None) => xl
+      case (Some(xi), None, None, None) => xi
+      case (None, None, None, None) => ???
+    }
+
+    dres
+
+  }
+
+
+
 
 }

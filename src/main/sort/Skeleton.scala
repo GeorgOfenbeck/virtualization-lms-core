@@ -155,8 +155,6 @@ trait Skeleton extends Sort_DSL {
       val f: (B, Int) => B = (b: B, i: Int) => body((b, i))
       range.foldLeft(ini)(f)
     }
-
-
   }
 
 

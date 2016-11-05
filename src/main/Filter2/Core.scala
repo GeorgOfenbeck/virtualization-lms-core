@@ -29,7 +29,10 @@ class Core extends FilterHeader {
     def apply(f: (DynFilterHeader => Rep[ImageH])): MaybeSFunction = MaybeSFunction(Right(f))
   }
 
-
+  def compute_type_symetrie(stat: StatFilterHeader):StatFilterHeader = {
+    //val presort =
+    ???
+  }
 
 
   def multiply_core(stat: StatFilterHeader): MaybeSFunction = {
@@ -46,7 +49,7 @@ class Core extends FilterHeader {
       val rest_y = image.ysize.ev.mod(image.ysize.a,image.ysize.ev.const(blocking.blockingy)) //dyn
 
       val itblockedx = blocking.blockingx / blocking.unrollx
-      val itblockedy = blocking.blockingy / blocking.blockingy
+      val itblockedy = blocking.blockingy / blocking.unrolly
 
 
       val xe = image.xsize.ev
@@ -87,15 +90,15 @@ class Core extends FilterHeader {
                                 val yindex = int_plus(yoffset,Const(jjj))
 
 
-                                val ina = getImage[Int](image_in, int_minus(xoffset,Const(1)), int_minus(yoffset,Const(1)))
-                                val inb = getImage[Int](image_in, Const(0), int_minus(yoffset,Const(1)))
-                                val inc = getImage[Int](image_in, int_plus(xoffset,Const(1)), int_minus(yoffset,Const(1)))
-                                val ind = getImage[Int](image_in, int_minus(xoffset,Const(1)), Const(0))
+                                val ina = getImage[Int](image_in, int_minus(xindex,Const(1)), int_minus(yindex,Const(1)))
+                                val inb = getImage[Int](image_in, Const(0), int_minus(yindex,Const(1)))
+                                val inc = getImage[Int](image_in, int_plus(xindex,Const(1)), int_minus(yindex,Const(1)))
+                                val ind = getImage[Int](image_in, int_minus(xindex,Const(1)), Const(0))
                                 val ine = getImage[Int](image_in, Const(0), Const(0))
-                                val inf = getImage[Int](image_in, int_plus(xoffset,Const(1)), Const(0))
-                                val ing = getImage[Int](image_in, int_minus(xoffset,Const(1)), int_plus(yoffset,Const(1)))
-                                val inh = getImage[Int](image_in, Const(0), int_plus(yoffset,Const(1)))
-                                val ini = getImage[Int](image_in, int_plus(xoffset,Const(1)), int_plus(yoffset,Const(1)))
+                                val inf = getImage[Int](image_in, int_plus(xindex,Const(1)), Const(0))
+                                val ing = getImage[Int](image_in, int_minus(xindex,Const(1)), int_plus(yindex,Const(1)))
+                                val inh = getImage[Int](image_in, Const(0), int_plus(yindex,Const(1)))
+                                val ini = getImage[Int](image_in, int_plus(xindex,Const(1)), int_plus(yindex,Const(1)))
 
 
                                 val a1 = {
@@ -160,7 +163,7 @@ class Core extends FilterHeader {
 
                                     genplus(acc, ele)
                                   })
-                                val out = setImage(image_out, xoffset, yoffset, toInt(sum))
+                                val out = setImage(arrayjjj, xindex, yindex, toInt(sum))
 
                                 out
 
@@ -180,34 +183,6 @@ class Core extends FilterHeader {
             })
           }
         })
-
-
-
-
-      //main block
-/*
-      for (i <- 0 until iterations_x)
-        for (j <- 0 until iterations_y)
-          for (ii <- 0 until itblockedx)
-            for (jj <- 0 until itblockedy) {
-              val f = (i * blockingx + ii * unrollx)
-              //val t = (i * blockingx) + blockingx + (ii * unrollx) + unrollx
-              val t = (i * blockingx) + (ii * unrollx) + unrollx
-              for (iii <- f until t) {
-                val f1 = (j * blockingy + jj * unrolly)
-                //val t1 = (j * blockingy) + blockingy + (jj * unrolly) + unrolly
-                val t1 = (j * blockingy)  + (jj * unrolly) + unrolly
-                for (jjj <- f1 until t1)
-                  a(iii)(jjj) = true
-              }
-            }
-      }*/
-      /*
-            val nmix = mix.cpy(image_in = image_out, image_out = image_in)
-            val (nstat,ndyn) = nmix.split()
-            val f = multiply(nstat)
-            f(ndyn)*/
-
     }
     if (stat.inline.inline) {
       MaybeSFunction(stageme)
@@ -216,7 +191,6 @@ class Core extends FilterHeader {
       MaybeSFunction(t)
     }
   }
-
 
   def multiply(stat: StatFilterHeader): MaybeSFunction = {
     val exposarg: ExposeRep[DynFilterHeader] = exposeDynHeader(stat)
