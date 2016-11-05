@@ -41,7 +41,7 @@ class Core extends FilterHeader {
       import matrix.r1.c1._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, int_minus(xindex, Const(1)), int_minus(yindex, Const(1)))
       }
     }
@@ -49,7 +49,7 @@ class Core extends FilterHeader {
       import matrix.r1.c2._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, Const(0), int_minus(yindex, Const(1)))
       }
     }
@@ -57,7 +57,7 @@ class Core extends FilterHeader {
       import matrix.r1.c3._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, int_plus(xindex, Const(1)), int_minus(yindex, Const(1)))
       }
     }
@@ -65,7 +65,7 @@ class Core extends FilterHeader {
       import matrix.r2.c1._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, int_minus(xindex, Const(1)), Const(0))
       }
     }
@@ -73,7 +73,7 @@ class Core extends FilterHeader {
       import matrix.r2.c2._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, Const(0), Const(0))
       }
     }
@@ -81,7 +81,7 @@ class Core extends FilterHeader {
       import matrix.r2.c3._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, int_plus(xindex, Const(1)), Const(0))
       }
     }
@@ -89,7 +89,7 @@ class Core extends FilterHeader {
       import matrix.r3.c1._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, int_minus(xindex, Const(1)), int_plus(yindex, Const(1)))
       }
     }
@@ -97,7 +97,7 @@ class Core extends FilterHeader {
       import matrix.r3.c2._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, Const(0), int_plus(yindex, Const(1)))
       }
     }
@@ -105,7 +105,7 @@ class Core extends FilterHeader {
       import matrix.r3.c3._
       val z = evnum.zero
       a match {
-        case z => Const(0)
+        case `z` => Const(0)
         case _ => getImage[Int](image_in, int_plus(xindex, Const(1)), int_plus(yindex, Const(1)))
       }
     }
@@ -134,14 +134,14 @@ class Core extends FilterHeader {
     }
 
     val (aa, ar, ag, ab) = short(matrix.r1.c1, ina)
-    val (ba, br, bg, bb) = short(matrix.r1.c2, ina)
-    val (ca, cr, cg, cb) = short(matrix.r1.c3, ina)
-    val (da, dr, dg, db) = short(matrix.r2.c1, ina)
-    val (ea, er, eg, eb) = short(matrix.r2.c2, ina)
-    val (fa, fr, fg, fb) = short(matrix.r2.c3, ina)
-    val (ga, gr, gg, gb) = short(matrix.r3.c1, ina)
-    val (ha, hr, hg, hb) = short(matrix.r3.c2, ina)
-    val (ia, ir, ig, ib) = short(matrix.r3.c3, ina)
+    val (ba, br, bg, bb) = short(matrix.r1.c2, inb)
+    val (ca, cr, cg, cb) = short(matrix.r1.c3, inc)
+    val (da, dr, dg, db) = short(matrix.r2.c1, ind)
+    val (ea, er, eg, eb) = short(matrix.r2.c2, ine)
+    val (fa, fr, fg, fb) = short(matrix.r2.c3, inf)
+    val (ga, gr, gg, gb) = short(matrix.r3.c1, ing)
+    val (ha, hr, hg, hb) = short(matrix.r3.c2, inh)
+    val (ia, ir, ig, ib) = short(matrix.r3.c3, ini)
 
 
     val suma = Vector(aa, ba, ca, da, ea, fa, ga, ha, ia).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
