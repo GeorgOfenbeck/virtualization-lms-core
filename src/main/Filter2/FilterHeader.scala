@@ -195,7 +195,7 @@ trait FilterHeader extends sort.Skeleton {
   object StatFilterHeader {
     def apply(image: Image, matrix: Matrix, inlineInfo: InlineInfo, blocking: Blocking, sym: Symetries) = new StatFilterHeader(image, matrix, inlineInfo, blocking, sym)
 
-    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0), blocking: Blocking = Blocking(32,32,8,8), sym: Symetries = Symetries(Map.empty, Map.empty)): StatFilterHeader = {
+    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0), blocking: Blocking = Blocking(32,32,4,4), sym: Symetries = Symetries(Map.empty, Map.empty)): StatFilterHeader = {
 
       def help[K: Numeric: TypeRep](o: Option[K]): OneEntry = {
         if (o.isDefined)

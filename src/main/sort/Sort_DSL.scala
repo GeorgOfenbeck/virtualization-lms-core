@@ -357,12 +357,32 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
   var delaynow: Boolean = false
 
 
+  {
+
+  }
 
   val x = 10
 
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case PixelGetAlpha(lhs) => Vector(emitValDef(tp, "((" + quote(lhs) + " >> 24) & 0xff)" ))
+      case PixelGetRed(lhs) => Vector(emitValDef(tp, "((" + quote(lhs) + " >> 16) & 0xff)" ))
+      case PixelGetGreen(lhs) => Vector(emitValDef(tp, "((" + quote(lhs) + " >> 8) & 0xff)" ))
+      case PixelGetBlue(lhs) => Vector(emitValDef(tp, "((" + quote(lhs) + " ) & 0xff)" ))
+      case CombinePixel(a,r,g,b) => {
+        Vector(emitValDef(tp,  "{ \n"+
+        "val ia = 0xff\n" +
+        "val ir = PixelUtils.clamp((" + quote(r) + "+0.5).toInt)\n" +
+        "val ig = PixelUtils.clamp((" + quote(g) + "+0.5).toInt)\n" +
+        "val ib = PixelUtils.clamp((" + quote(b) + "+0.5).toInt)\n" +
+        "(ia << 24) | (ir << 16) | (ig << 8) | ib; \n } \n"
+
+        )
+
+        )
+      }
+
       case FromInt(lhs) => Vector(emitValDef(tp, quote(lhs) ))
       case ToDouble(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toDouble" ))
       case ToInt(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toInt" ))

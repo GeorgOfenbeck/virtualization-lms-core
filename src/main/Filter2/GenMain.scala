@@ -26,7 +26,7 @@ class ImagePanel(rows0: Int, cols0: Int) extends GridPanel(rows0, cols0) {
 
 object GenMain extends App {
 
-
+  /*
   val f        = new Frame()
   val p        = new ImagePanel(1, 3)
   p.imagePath  = "http://i2.kym-cdn.com/entries/icons/facebook/000/001/030/dickbutt.jpg"
@@ -41,7 +41,7 @@ object GenMain extends App {
     centerOnScreen()
   }
 
-  frame.visible = true
+  frame.visible = true */
   val dsl = new Core
   dsl.codeexport()
   //dsl.graphvizexport()
