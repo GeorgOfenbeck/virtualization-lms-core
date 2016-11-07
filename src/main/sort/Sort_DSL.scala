@@ -42,11 +42,31 @@ trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfT
 
   case class Plus[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]) extends Def[T]
 
-  def genplus[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = Plus(lhs,rhs)
+  def genplus[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = {
+    val nev = implicitly[Numeric[T]]
+    val z = Const(nev.fromInt(0))
+    (lhs,rhs) match {
+      case (`z`, _) => rhs
+      case (_, `z`) => lhs
+      case _ => Plus(lhs,rhs)
+    }
+  }
 
   case class Times[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]) extends Def[T]
 
-  def gentimes[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = Times(lhs,rhs)
+  def gentimes[T: Numeric: TypeRep](lhs: Exp[T], rhs: Exp[T]): Exp[T] = {
+    val nev = implicitly[Numeric[T]]
+    val z = Const(nev.fromInt(0))
+    val o = Const(nev.fromInt(1))
+    (lhs, rhs) match {
+      case (`o`, _) => rhs
+      case (_, `o`) => lhs
+      case (`z`, _) => Const(nev.fromInt(0))
+      case (_, `z`) => Const(nev.fromInt(0))
+      case _ => Times(lhs, rhs)
+    }
+  }
+
 
   case class SetImage[T: Numeric: TypeRep](img: Exp[ImageH], x: Exp[Int], y: Exp[Int], p: Exp[T] ) extends Def[ImageH]
 
@@ -386,8 +406,8 @@ trait ScalaGenSort_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass
       case FromInt(lhs) => Vector(emitValDef(tp, quote(lhs) ))
       case ToDouble(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toDouble" ))
       case ToInt(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toInt" ))
-      case Plus(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " * " + quote(rhs) ))
-      case Times(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " + " + quote(rhs) ))
+      case Plus(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " + " + quote(rhs) ))
+      case Times(lhs,rhs) => Vector(emitValDef(tp,  quote(lhs) + " * " + quote(rhs) ))
       case SetImage(img,x,y,p) => Vector(emitValDef(tp,  quote(img) + ".set(" +  quote(x) + "," + quote(y) + "," + quote(p) +")"))
       case GetImage(img,x,y) => Vector(emitValDef(tp,  quote(img) + ".get(" +  quote(x) + "," + quote(y) + ")"))
       case TrustedStrip(a,b) => Vector(emitValDef(tp,  "new MyBigInt(MyBigInt.trustedStripLeadingZeroInts(" + quote(a) + ")," +  quote(b) + ")"))
