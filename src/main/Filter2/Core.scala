@@ -228,7 +228,7 @@ class Core extends FilterHeader {
         implicit val nev = evnum
         implicit val tev = evtyp
         val res = (genplus(la, ra), genplus(lr, rr), genplus(lg, rg), genplus(lb, rb), o)
-        res.asInstanceOf[(Exp[_], Exp[_], Exp[_], Exp[_],OneEntry)]
+        res.asInstanceOf[(Exp[_], Exp[_], Exp[_], Exp[_], OneEntry)]
       })
     })
 
@@ -244,34 +244,11 @@ class Core extends FilterHeader {
         val res = (genplus[Double](toDouble(la), ra), genplus[Double](toDouble(lr), rr), genplus[Double](toDouble(lg), rg), genplus[Double](toDouble(lb), rb))
         res
       })
-/*
-    val suma = Vector(aa, ba, ca, da, ea, fa, ga, ha, ia).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
-      genplus(acc, ele)
-    })
-    val sumr = Vector(ar, br, cr, dr, er, fr, gr, hr, ir).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
-      genplus(acc, ele)
-    })
-    val sumg = Vector(ag, bg, cg, dg, eg, fg, gg, hg, ig).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
-      genplus(acc, ele)
-    })
-    val sumb = Vector(ab, bb, cb, db, eb, fb, gb, hb, ib).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
-      genplus(acc, ele)
-    })*/
-    val (suma,sumr,sumg,sumb) = sumtotal
+    val (suma, sumr, sumg, sumb) = sumtotal
     val outPixel = combinePixel(suma, sumr, sumg, sumb)
 
     val out = setImage(outimg, xindex, yindex, outPixel)
     out
-    //setImage(arrayjjj,xindex,yindex,Const(0))
-
-
-    /*
-                  int rgb = inPixels[ioffset+ix];
-a += f * ((rgb >> 24) & 0xff);
-r += f * ((rgb >> 16) & 0xff);
-g += f * ((rgb >> 8) & 0xff);
-b += f * (rgb & 0xff);
-     */
   }
 
 
@@ -361,11 +338,31 @@ b += f * (rgb & 0xff);
       val mix = MixFilterHeader(stat, dyn)
       import mix._
 
+      if (inlineInfo.specialize) {
+        inlineInfo.spezialize_done match
+          {
+            case 0 => {
 
-      val nmix = mix.cpy(image_in = image_in, image_out = image_out)
-      val (nstat, ndyn) = nmix.split()
-      val f = multiply_core(nstat)
-      f(ndyn)
+              val nmix = mix.cpy(image_in = image_in, image_out = image_out)
+              val (nstat, ndyn) = nmix.split()
+              val f = multiply_core(nstat)
+              f(ndyn)
+            }
+            case _ => {
+              val nmix = mix.cpy(image_in = image_in, image_out = image_out)
+              val (nstat, ndyn) = nmix.split()
+              val f = multiply_core(nstat)
+              f(ndyn)
+            }
+          }
+
+      }
+      else {
+        val nmix = mix.cpy(image_in = image_in, image_out = image_out)
+        val (nstat, ndyn) = nmix.split()
+        val f = multiply_core(nstat)
+        f(ndyn)
+      }
     }
     if (stat.inline.inline) {
       MaybeSFunction(stageme)

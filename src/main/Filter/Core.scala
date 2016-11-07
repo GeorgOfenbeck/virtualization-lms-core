@@ -1,4 +1,4 @@
-/*
+
 package Filter
 
 import org.scala_lang.virtualized.SourceContext
@@ -488,4 +488,4 @@ class Core extends FilterHeader {
 
 }
 
-*/
+
