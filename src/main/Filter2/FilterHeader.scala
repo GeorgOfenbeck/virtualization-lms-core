@@ -160,7 +160,7 @@ trait FilterHeader extends sort.Skeleton {
 
   case class Blocking(val blockingx: Int, val blockingy: Int, val unrollx: Int, val unrolly: Int)
 
-  case class Symetries(val valuesym: Map[Int,Int], val typesym: Map[Int,Int])
+  case class Symetries(val valuesym: Map[Int,Vector[Int]])
 
   class StatFilterHeader(image: Image, matrix: Matrix, val inline: InlineInfo, val blocking: Blocking, val sym: Symetries) extends Header(image, matrix) with StatSelector2 {
     private def help(oneEntry: OneEntry): String = {
@@ -195,7 +195,7 @@ trait FilterHeader extends sort.Skeleton {
   object StatFilterHeader {
     def apply(image: Image, matrix: Matrix, inlineInfo: InlineInfo, blocking: Blocking, sym: Symetries) = new StatFilterHeader(image, matrix, inlineInfo, blocking, sym)
 
-    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0), blocking: Blocking = Blocking(16,16,1,1), sym: Symetries = Symetries(Map.empty, Map.empty)): StatFilterHeader = {
+    def apply[A: Numeric : TypeRep,B: Numeric : TypeRep,C: Numeric : TypeRep,D: Numeric : TypeRep,E: Numeric : TypeRep,F: Numeric : TypeRep,G: Numeric : TypeRep,H: Numeric : TypeRep,I: Numeric : TypeRep](a: Option[A] = None, b: Option[B] = None, c: Option[C] = None, d: Option[D] = None, e: Option[E] = None, f: Option[F] = None, g: Option[G]= None, h: Option[H] = None, i: Option[I] = None, x: Option[Int] = None, y: Option[Int] = None, inlineInfo: InlineInfo = InlineInfo(false, 10, true, false, true, 0), blocking: Blocking = Blocking(16,16,1,1), sym: Symetries = Symetries(Map(1->Vector(1), 2-> Vector(2), 3->Vector(3), 4->Vector( 4), 5->Vector( 5), 6->Vector(6), 7->Vector(7), 8->Vector(8), 9->Vector(9)) )): StatFilterHeader = {
 
       def help[K: Numeric: TypeRep](o: Option[K]): OneEntry = {
         if (o.isDefined)

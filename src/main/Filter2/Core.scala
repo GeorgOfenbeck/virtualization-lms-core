@@ -133,6 +133,8 @@ class Core extends FilterHeader {
       (ra, rr, rg, rb)
     }
 
+
+
     val (aa, ar, ag, ab) = short(matrix.r1.c1, ina)
     val (ba, br, bg, bb) = short(matrix.r1.c2, inb)
     val (ca, cr, cg, cb) = short(matrix.r1.c3, inc)
@@ -143,7 +145,106 @@ class Core extends FilterHeader {
     val (ha, hr, hg, hb) = short(matrix.r3.c2, inh)
     val (ia, ir, ig, ib) = short(matrix.r3.c3, ini)
 
+    def wcast(o: OneEntry, ids: Vector[Int]) = {
+      import o._
+      implicit val nev = evnum
+      implicit val tev = evtyp
 
+      val mapped = ids.map(id => {
+        val pixel = id2inint(id)
+        val pa = pixelgetAlpha(pixel)
+        val pr = pixelgetRed(pixel)
+        val pg = pixelgetGreen(pixel)
+        val pb = pixelgetBlue(pixel)
+        (pa, pr, pg, pb)
+      })
+      val summed = mapped.reduce((l, r) => {
+        val (la, lr, lg, lb) = l
+        val (ra, rr, rg, rb) = l
+        (genplus(la, ra), genplus(lr, rr), genplus(lg, rg), genplus(lb, rb))
+      })
+      summed
+    }
+
+    def id2oentry(id: Int): OneEntry = id match {
+      case 1 => matrix.r1.c1
+      case 2 => matrix.r1.c2
+      case 3 => matrix.r1.c3
+      case 4 => matrix.r2.c1
+      case 5 => matrix.r2.c2
+      case 6 => matrix.r2.c3
+      case 7 => matrix.r3.c1
+      case 8 => matrix.r3.c2
+      case 9 => matrix.r3.c3
+    }
+
+    def id2inint(id: Int): Rep[Int] = id match {
+      case 1 => ina
+      case 2 => inb
+      case 3 => inc
+      case 4 => ind
+      case 5 => ine
+      case 6 => inf
+      case 7 => ing
+      case 8 => inh
+      case 9 => ini
+    }
+
+    val symsum = mix.sym.valuesym.map(p => {
+      val (facid, inids) = p
+      val (ga, gr, gg, gb) = wcast(id2oentry(facid), inids)
+      (ga, gr, gg, gb, id2oentry(facid))
+    })
+
+    val scaledsymsum = symsum.map(p => {
+      val (la, lr, lg, lb, o) = p
+      import o._
+      implicit val nev = evnum
+      implicit val tev = evtyp
+      val ra = gentimes[T](fromInt(la), ev.toRep(a))
+      val rr = gentimes[T](fromInt(lr), ev.toRep(a))
+      val rg = gentimes[T](fromInt(lg), ev.toRep(a))
+      val rb = gentimes[T](fromInt(lb), ev.toRep(a))
+      (ra, rr, rg, rb, o)
+    })
+    val orderbytyp = scaledsymsum.foldLeft(Map.empty[Numeric[_], Vector[(Exp[_], Exp[_], Exp[_], Exp[_], OneEntry)]]) {
+      (acc, ele) => {
+        val (la, lr, lg, lb, o) = ele
+
+        if (acc.contains(o.evnum))
+          acc + (o.evnum -> (acc(o.evnum) ++ Vector((la, lr, lg, lb, o))))
+        else
+          acc + (o.evnum -> Vector((la, lr, lg, lb, o)))
+      }
+    }
+
+    val sumbytype = orderbytyp.map(p => {
+      val (num, ele) = p
+      ele.reduce((l, r) => {
+        val o = l._5
+        val (la, lr, lg, lb, lo) = l.asInstanceOf[(Exp[o.T], Exp[o.T], Exp[o.T], Exp[o.T], OneEntry)]
+        val (ra, rr, rg, rb, ro) = r.asInstanceOf[(Exp[o.T], Exp[o.T], Exp[o.T], Exp[o.T], OneEntry)]
+        import o._
+        implicit val nev = evnum
+        implicit val tev = evtyp
+        val res = (genplus(la, ra), genplus(lr, rr), genplus(lg, rg), genplus(lb, rb), o)
+        res.asInstanceOf[(Exp[_], Exp[_], Exp[_], Exp[_],OneEntry)]
+      })
+    })
+
+    val dzero = Const(implicitly[Numeric[Double]].zero)
+    val sumtotal = sumbytype.foldLeft((dzero, dzero, dzero, dzero))(
+      (acc, ele) => {
+        val o = ele._5
+        import o._
+        val (la, lr, lg, lb, lo) = ele.asInstanceOf[(Exp[o.T], Exp[o.T], Exp[o.T], Exp[o.T], OneEntry)]
+        implicit val nev = evnum
+        implicit val tev = evtyp
+        val (ra, rr, rg, rb) = acc
+        val res = (genplus[Double](toDouble(la), ra), genplus[Double](toDouble(lr), rr), genplus[Double](toDouble(lg), rg), genplus[Double](toDouble(lb), rb))
+        res
+      })
+/*
     val suma = Vector(aa, ba, ca, da, ea, fa, ga, ha, ia).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
       genplus(acc, ele)
     })
@@ -155,8 +256,8 @@ class Core extends FilterHeader {
     })
     val sumb = Vector(ab, bb, cb, db, eb, fb, gb, hb, ib).foldLeft(Const(implicitly[Numeric[Double]].zero))((acc, ele) => {
       genplus(acc, ele)
-    })
-
+    })*/
+    val (suma,sumr,sumg,sumb) = sumtotal
     val outPixel = combinePixel(suma, sumr, sumg, sumb)
 
     val out = setImage(outimg, xindex, yindex, outPixel)
