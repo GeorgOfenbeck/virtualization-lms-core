@@ -31,6 +31,15 @@ libraryDependencies += "org.scala-lang.modules" %% "spores-core" % "0.2.4"
 
 libraryDependencies += "org.scala-lang.modules" %% "spores-pickling" % "0.2.4"
 
+libraryDependencies += "org.scala-lang.modules" %% "scala-swing" % "2.0.0-M2"
+
+libraryDependencies += "com.sksamuel.scrimage" %% "scrimage-core" % "2.1.7"
+
+libraryDependencies += "com.sksamuel.scrimage" %% "scrimage-io-extra" % "2.1.7"
+
+libraryDependencies += "com.sksamuel.scrimage" %% "scrimage-filters" % "2.1.7"
+
+
 // tests are not thread safe
 parallelExecution in Test := false
 

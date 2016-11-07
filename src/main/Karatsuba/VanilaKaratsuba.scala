@@ -16,6 +16,30 @@ case class MyBigInt(val mag: Array[Int], val signum: Int) {
     return 32 - java.lang.Integer.numberOfLeadingZeros(n);
   }
 
+  def plus(inv: Vector[Any]): Vector[Any] = {
+    val x: Int = inv(0).asInstanceOf[Int]
+    val y: Int = inv(1).asInstanceOf[Int]
+    Vector(x+y)
+  }
+  case class Ops(f: Vector[Any] => Vector[Any]){
+    def fetchValues(in: Vector[Any]): Vector[Any] = ???
+  }
+  case class Depgraph(ops: Vector[Ops])
+  def createProg(depgraph: Depgraph): (Vector[Any] => Vector[Any]) = {
+    //omitting how we got the inital args
+    val fullprog: Vector[Any] => Vector[Any] =
+      (ini: Vector[Any]) => {
+        depgraph.ops.foldLeft(ini) {
+          (acc, op) => {
+            val v = op.fetchValues(acc)
+            acc ++ op.f(v)
+          }
+        }
+      }
+    fullprog
+  }
+
+
   /**
     * Returns the number of bits in the minimal two's-complement
     * representation of this BigInteger, <i>excluding</i> a sign bit.
