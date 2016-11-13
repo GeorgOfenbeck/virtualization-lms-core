@@ -10,7 +10,16 @@ import Karatsuba._
 import Filter._
 import Filter2.ImageH
 
-trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
+trait Sort_DSL  extends BaseExp with FunctionsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with VarrayOpsExp  with OrderingOpsExp with RangeOpsExp with ImplicitOpsExp with ScalaCompile  {
+
+  case class Take(x: Rep[Array[Double]], pos: Exp[Int]) extends Def[Array[Double]]
+  def take(x: Rep[Array[Double]], pos: Exp[Int]): Rep[Array[Double]] = Take(x,pos)
+
+  case class Drop(x: Rep[Array[Double]], pos: Exp[Int]) extends Def[Array[Double]]
+  def drop(x: Rep[Array[Double]], pos: Exp[Int]): Rep[Array[Double]] = Take(x,pos)
+
+  case class Sin(x: Exp[Double]) extends Def[Double]
+  def sinus(x: Exp[Double]): Exp[Double] = Sin(x)
 
   case class PixelGetBlue(r: Exp[Int]) extends Def[Int]
   def pixelgetBlue(r: Exp[Int]): Exp[Int] = PixelGetBlue(r)

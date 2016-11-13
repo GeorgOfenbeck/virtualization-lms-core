@@ -1,3 +1,4 @@
+/*
 
 package Filter
 
@@ -489,3 +490,4 @@ class Core extends FilterHeader {
 }
 
 
+*/

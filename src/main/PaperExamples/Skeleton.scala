@@ -1,4 +1,4 @@
-package sort
+package PaperExamples
 
 
 import org.scala_lang.virtualized.SourceContext
@@ -9,56 +9,63 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-class ComplexVector
 
-class Complex
-case class MyComplex(re: Double, im: Double)
-
-trait Skeleton extends Sort_DSL {
+trait Skeleton extends sort.Sort_DSL {
   type NoRep[T] = T
 
+  trait IRep[T[_]] extends RepBase[T] with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T] {
 
-
-
-  // encode least upper bound relation as implicit
-  trait Lub[A[_], B[_], C[_]] {
-    implicit def fromA[T: TypeRep](x: A[T]): C[T]
-
-    implicit def fromB[T: TypeRep](x: B[T]): C[T]
-  }
-
-  implicit def NoRepNoRep: Lub[NoRep, NoRep, NoRep] = new Lub[NoRep, NoRep, NoRep] {
-    def fromA[T: TypeRep](x: T) = x;
-
-    def fromB[T: TypeRep](x: T) = x
-  }
-
-  implicit def RepNoRep: Lub[Rep, NoRep, Rep] = new Lub[Rep, NoRep, Rep] {
-    def fromA[T: TypeRep](x: Rep[T]) = x;
-
-    def fromB[T: TypeRep](x: T) = Const(x)
-  }
-
-  implicit def NoRepRep: Lub[NoRep, Rep, Rep] = new Lub[NoRep, Rep, Rep] {
-    def fromA[T: TypeRep](x: T) = Const(x);
-
-    def fromB[T: TypeRep](x: Rep[T]) = x
-  }
-
-  implicit def RepRep: Lub[Rep, Rep, Rep] = new Lub[Rep, Rep, Rep] {
-    def fromA[T: TypeRep](x: Rep[T]) = x;
-
-    def fromB[T: TypeRep](x: Rep[T]) = x
-  }
-
-  trait IRep[T[_]] extends RepBase[T] with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T]{
     class Ops[A](lhs: T[A]) {
       def +(rhs: T[A]): T[A] = ???
+      def %(rhs: T[A]): T[A] = ???
+      def %(rhs: Int): T[A] = ???
+      def /(rhs: Int): T[A] = ???
+      def <(rhs: Int): T[A] = ???
+      def toDouble(): T[Double] = ???
+    }
+
+
+    class DoubleOps[A](lhs: T[Double]) {
+      def eq(rhs: T[Double]): T[Boolean] = ???
+    }
+
+
+
+  }
+
+  object Implicits {
+    implicit def toDoubleOps[R[_], T](x: R[Double])(implicit ev: IRep[R]): IRep[R]#DoubleOps[T] = new ev.DoubleOps(x)
+    implicit def toOps[R[_], T](x: R[T])(implicit ev: IRep[R]): IRep[R]#Ops[T] = new ev.Ops(x)
+    implicit def toVRayOps(x: Rep[Array[Double]]) = new VRayOps(x)
+    implicit def InttoRange(x: Int) = new I2RangeOps(x)
+    implicit def mktoRangeOps[T[_]: IRep](lhs: T[Int]): RangeFold[T]#toRangeOps = {
+      val ev = implicitly[IRep[T]]
+      new ev.toRangeOps(lhs)
+    }
+    implicit def mkRangeOps[T[_]: IRep](lhs: T[Range]): RangeFold[T]#RangeOps = {
+      val ev = implicitly[IRep[T]]
+      new ev.RangeOps(lhs)
+    }
+    implicit def toComparisionOps[T[_]: IRep, A: Ordering : Manifest](lhs: T[A]): Comparisons[T]#ComparisonOps[A] = {
+      val ev = implicitly[IRep[T]]
+      new ev.ComparisonOps(lhs)
     }
   }
 
-  object Implicits{
-    implicit def toOps[R[_],T](x: R[T])(implicit ev: IRep[R]): IRep[R]#Ops[T] = new ev.Ops(x)
+  class I2RangeOps(lhs: Int){
+    def until[R[_]: IRep](to: R[Int]): R[Range] = {
+      val ev = implicitly[IRep[R]]
+      ev.unt(ev.const(lhs),to)
+    }
+    def const[R[_]: IRep](to: R[Int]): R[Int] = {
+      val ev = implicitly[IRep[R]]
+      ev.const(lhs)
+    }
+  }
+  class VRayOps(lhs: Rep[Array[Double]]){
+    def length(): Rep[Int] = ???
+    def splitAt(rhs: Rep[Int]): (Rep[Array[Double]], Rep[Array[Double]]) = ???
+    def ++(rhs: Rep[Array[Double]]): Rep[Array[Double]] = ???
   }
 
   implicit object cRep extends IRep[Rep] with isRepBase with RepNum with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff with RepBooleanOps
@@ -80,6 +87,8 @@ trait Skeleton extends Sort_DSL {
     def fresh[A: TypeRep](): Vector[Rep[_]]
 
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[T[A]])
+
+    def sin(x: T[Double]): T[Double]
   }
 
   trait isRepBase extends RepBase[Rep] {
@@ -96,6 +105,8 @@ trait Skeleton extends Sort_DSL {
     def fresh[A: TypeRep](): Vector[Rep[_]] = Vector(Arg[A])
 
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Some[Rep[A]]) = (x.tail, Some(x.head.asInstanceOf[Rep[A]]))
+
+    def sin(x: Rep[Double]): Rep[Double] = sinus(x)
 
   }
 
@@ -114,6 +125,8 @@ trait Skeleton extends Sort_DSL {
 
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[NoRep[A]]) = (x, None)
 
+    def sin(x: NoRep[Double]): NoRep[Double] = Math.sin(x)
+
   }
 
 
@@ -130,26 +143,33 @@ trait Skeleton extends Sort_DSL {
   }
 
   trait RangeFold[T[_]] {
-    implicit def mkRangeOps(lhs: T[Int]): Ops = new Ops(lhs)
 
-    class Ops(lhs: T[Int]) {
+    class toRangeOps(lhs: T[Int]) {
       def until(rhs: T[Int]): T[Range] = unt(lhs, rhs)
     }
-
-    implicit def mkFoldOps(lhs: T[Range]): OpsF = new OpsF(lhs)
-
-    class OpsF(r: T[Range]) {
-      def foldLeft[B](ini: B)(body: ((B, T[Int])) => B)(implicit exposeRep: ExposeRep[B]): B = rangefold(r, ini, exposeRep)(body)
+    class RangeOps(lhs: T[Range]){
+      def foldLeftx[B](ini: B)(body: (B, T[Int]) => B)(implicit exposeRep: ExposeRep[B]): B = rangefold_a2(lhs, ini, exposeRep)(body)
+      def foldLeft[B](ini: B)(body: ((B, T[Int])) => B)(implicit exposeRep: ExposeRep[B]): B = rangefold(lhs, ini, exposeRep)(body)
+      def map[B](body: (T[Int] => T[B]))(implicit exposeRep: ExposeRep[T[B]]): T[Array[B]] = rangemap(lhs,exposeRep, body)
     }
 
-    def unt(from: T[Int], to: T[Int]): T[Range]
 
+    def rangefold_a2[B](range: T[Range], ini: B, exposeRep: ExposeRep[B])(body: (B, T[Int]) => B): B = {
+      def helper(inf: (B, T[Int]) => B): (((B, T[Int])) => B) = {
+        ???
+      }
+      rangefold(range, ini, exposeRep)(helper(body))
+    }
+    def rangemap[B](range: T[Range], exposeRep: ExposeRep[T[B]],body: (T[Int] => T[B])): T[Array[B]]  = ???
+    def unt(from: T[Int], to: T[Int]): T[Range]
     def rangefold[B](range: T[Range], ini: B, exposeRep: ExposeRep[B])(body: ((B, T[Int])) => B): B
 
   }
 
   trait RepRangeFold extends RangeFold[Rep] {
     def unt(from: Rep[Int], to: Rep[Int]): Rep[Range] = range_create(from, to)
+
+    //def map[B](range: Rep[Range], exposeRep: ExposeRep[B])(body: (Rep[Int] => B)): B
 
     def rangefold[B](range: Rep[Range], ini: B, exposeRep: ExposeRep[B])(body: ((B, Rep[Int])) => B): B = range_foldLeft(range, ini, body)(exposeRep)
 
@@ -173,23 +193,23 @@ trait Skeleton extends Sort_DSL {
       def ||(rhs: T[Boolean]): T[Boolean] = or(lhs, rhs)
     }
 
-    def or(lhs: T[Boolean], rhs: T[Boolean]): T[Boolean]    
+    def or(lhs: T[Boolean], rhs: T[Boolean]): T[Boolean]
   }
 
   trait RepBooleanOps extends BooleanOps[Rep] {
-    def or(lhs: Rep[Boolean], rhs: Rep[Boolean]): Rep[Boolean] = boolean_or(lhs,rhs)    
+    def or(lhs: Rep[Boolean], rhs: Rep[Boolean]): Rep[Boolean] = boolean_or(lhs, rhs)
   }
 
   trait NoRepBooleanOps extends BooleanOps[NoRep] {
     def or(lhs: NoRep[Boolean], rhs: NoRep[Boolean]): NoRep[Boolean] = lhs || rhs
-  }  
-  
+  }
+
 
   trait Comparisons[T[_]] {
-    implicit def mkComparisonOps[A: Ordering : Manifest](lhs: T[A]): Ops[A] = new Ops[A](lhs)
 
-    class Ops[A: Ordering : Manifest](lhs: T[A]) {
-      def ==(rhs: T[A]): T[Boolean] = equiv(lhs, rhs)
+
+    class ComparisonOps[A: Ordering : Manifest](lhs: T[A]) {
+      def eq(rhs: T[A]): T[Boolean] = equiv(lhs, rhs)
 
       def <(rhs: T[A]): T[Boolean] = less(lhs, rhs)
     }
@@ -198,9 +218,7 @@ trait Skeleton extends Sort_DSL {
 
     def less[A: Ordering : Manifest](lhs: T[A], rhs: T[A]): T[Boolean]
   }
-  
-  
-  
+
 
   trait RepComparisons extends Comparisons[Rep] {
     def equiv[T: Ordering : Manifest](lhs: Rep[T], rhs: Rep[T]): Rep[Boolean] = ordering_equiv(lhs, rhs)
@@ -229,6 +247,7 @@ trait Skeleton extends Sort_DSL {
       def infix_max(rhs: T[Int]) = max(lhs, rhs)
     }
 
+
     def plus(lhs: T[Int], rhs: T[Int]): T[Int]
 
     def minus(lhs: T[Int], rhs: T[Int]): T[Int]
@@ -239,14 +258,19 @@ trait Skeleton extends Sort_DSL {
 
     def max(lhs: T[Int], rhs: T[Int]): T[Int]
 
-    def gtimes[A: Numeric: TypeRep](lhs: T[A], rhs: T[A]): T[A]
-    def gplus[A: Numeric: TypeRep](lhs: T[A], rhs: T[A]): T[A]
+    def gtimes[A: Numeric : TypeRep](lhs: T[A], rhs: T[A]): T[A]
+
+    def gplus[A: Numeric : TypeRep](lhs: T[A], rhs: T[A]): T[A]
+
+    def gtoDouble[A: Numeric : TypeRep](lhs: T[A]): T[Double]
   }
 
   trait RepNum extends StagedNum[Rep] {
+    def gtoDouble[A: Numeric : TypeRep](lhs: Rep[A]): Rep[Double] = toDouble(lhs)
 
-    def gplus[T: Numeric: TypeRep](lhs: Rep[T], rhs: Rep[T]): Rep[T] = genplus(lhs, rhs)
-    def gtimes[T: Numeric: TypeRep](lhs: Rep[T], rhs: Rep[T]): Rep[T] = gentimes(lhs, rhs)
+    def gplus[T: Numeric : TypeRep](lhs: Rep[T], rhs: Rep[T]): Rep[T] = genplus(lhs, rhs)
+
+    def gtimes[T: Numeric : TypeRep](lhs: Rep[T], rhs: Rep[T]): Rep[T] = gentimes(lhs, rhs)
 
     def plus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_plus(lhs, rhs)
 
@@ -260,14 +284,18 @@ trait Skeleton extends Sort_DSL {
   }
 
   trait NoRepNum extends StagedNum[NoRep] {
-    def gplus[T: Numeric: TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+    def gtoDouble[T: Numeric : TypeRep](lhs: NoRep[T] ): NoRep[Double] = {
       val ev = implicitly[Numeric[T]]
-      ev.plus(lhs,rhs)
+      ev.toDouble(lhs)
+    }
+    def gplus[T: Numeric : TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+      val ev = implicitly[Numeric[T]]
+      ev.plus(lhs, rhs)
     }
 
-    def gtimes[T: Numeric: TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+    def gtimes[T: Numeric : TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
       val ev = implicitly[Numeric[T]]
-      ev.times(lhs,rhs)
+      ev.times(lhs, rhs)
     }
 
     def plus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs + rhs
@@ -278,44 +306,28 @@ trait Skeleton extends Sort_DSL {
 
     def mod(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs % rhs
 
-    def max(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = Math.max(lhs,rhs)
+    def max(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = Math.max(lhs, rhs)
   }
 
 
   trait ChooseStuff[T[_]] {
     def choose_algorithm(x: T[Int]): T[Int]
+
     def choose_inline(x: T[Int]): T[Boolean]
   }
 
   trait RepChooseStuff extends ChooseStuff[Rep] {
     def choose_algorithm(x: Rep[Int]): Rep[Int] = choose_sort(x)
+
     def choose_inline(x: Rep[Int]): Rep[Boolean] = choose_inlinex(x)
   }
 
   trait NoRepChooseStuff extends ChooseStuff[NoRep] {
     def choose_algorithm(x: NoRep[Int]): NoRep[Int] = 0
+
     def choose_inline(x: NoRep[Int]): NoRep[Boolean] = x < 100
-  }
-
-
-  trait RepSelector {
-    val rrep: Boolean
-
-    def repselect[A[_], T](a: A[T], ev: IRep[A]): Option[A[T]] =
-      if (rrep) {
-        if (ev.isRep()) Some(a) else None
-      } else if (ev.isRep()) None else Some(a)
-  }
-
-  trait DynSelector extends RepSelector{
-    val rrep: Boolean = true
-  }
-
-  trait StatSelector extends RepSelector{
-    val rrep: Boolean = false
   }
 
 
 
 }
-
