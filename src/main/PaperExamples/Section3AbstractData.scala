@@ -5,6 +5,7 @@ package PaperExamples
   */
 trait Section3AbstractData extends Skeleton {
 
+
   abstract class AC[R[_] : IRep] {
     val ev = implicitly[IRep[R]]
 
@@ -31,6 +32,12 @@ trait Section3AbstractData extends Skeleton {
     def fresh(): Vector[Exp[_]]
 
     def splitAt(pos: R[Int]): (AC[R], AC[R])
+
+    def concatx(rhs: AC[R]): AC[R]
+
+    def concatx(lhs: StagedArray): StagedArray
+    def concatx(lhs: MetaArrayofScalars): MetaArrayofScalars
+
   }
 
   class StagedArray(val data: Rep[Array[Double]]) extends
@@ -67,6 +74,14 @@ trait Section3AbstractData extends Skeleton {
     }
 
     def fromScalars(x: Array[Rep[Double]]): AC[Rep] =  new StagedArray( vector_obj_fromseq(x))
+
+    def concatx(rhs: AC[Rep]): AC[Rep] = rhs.concatx(this)
+
+    def concatx(lhs: StagedArray): StagedArray = {
+      val con:Rep[Array[Double]] = concat(lhs.data, this.data)
+      new StagedArray(con)
+    }
+    def concatx(lhs: MetaArrayofScalars): MetaArrayofScalars = ???
   }
 
   class MetaArrayofScalars(val data: Array[Rep[Double]])
@@ -101,6 +116,11 @@ trait Section3AbstractData extends Skeleton {
     }
 
     def fromScalars(x: Array[Rep[Double]]): AC[NoRep] = new MetaArrayofScalars(x)
+
+    def concatx(rhs: AC[NoRep]): AC[NoRep] = rhs.concatx(this)
+
+    def concatx(lhs: StagedArray): StagedArray = ???
+    def concatx(lhs: MetaArrayofScalars): MetaArrayofScalars = new MetaArrayofScalars(lhs.data ++ this.data)
   }
 
 

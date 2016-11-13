@@ -16,7 +16,9 @@ trait Skeleton extends sort.Sort_DSL {
   trait IRep[T[_]] extends RepBase[T] with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T] {
 
     class Ops[A](lhs: T[A]) {
+      def *(rhs: T[A]): T[A] = ???
       def +(rhs: T[A]): T[A] = ???
+      def -(rhs: T[A]): T[A] = ???
       def %(rhs: T[A]): T[A] = ???
       def %(rhs: Int): T[A] = ???
       def /(rhs: Int): T[A] = ???
