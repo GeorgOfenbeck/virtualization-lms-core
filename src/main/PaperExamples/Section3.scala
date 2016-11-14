@@ -75,11 +75,16 @@ class Section3 extends Section3Headers {
     val t: StagedFunction[DynHeader[R], AC[R]] = doGlobalLambda(stageme, Some("SizeCheck" + stat.genSig()), Some("SizeCheck" + stat.genSig()))(exposarg, exposeret)
     t
   }
-
-  def recurse[R[_] : IRep](stat: StatHeader[R]): StagedFunction[DynHeader[R], AC[R]] = {
-    val exposarg: ExposeRep[DynHeader[R]] = exposeDynHeader(stat)
+  
+  type Dyn[R] = DynHeader[R]
+  type Stat[R] = StatHeader[R]
+  type Mix[R] = MixHeader[R]
+  
+  def recurse[R[_] : IRep](stat: Stat[R]): StagedFunction[Dyn[R], AC[R]] = {
+    val (exparg,expret): (ExposeRep[Dyn[R]], ExposeRep[AC[R]]) = ???
+    val exposarg: ExposeRep[Dyn[R]] = exposeDynHeader(stat)
     implicit val exposeret = stat.a.expose
-    val stageme: (DynHeader[R] => AC[R]) = (dyn: DynHeader[R]) => {
+    val stageme: (Dyn[R] => AC[R]) = (dyn: Dyn[R]) => {
       val mix = MixHeader[R](stat, dyn)
       import mix._
       val ev = implicitly[IRep[R]]
@@ -94,7 +99,7 @@ class Section3 extends Section3Headers {
 
       //tile the suming
       val size = a.length()
-      val tiled = size / tiling
+      val tiled = (size / tiling) - 1 //border issues
       (0 until tiled).foldLeftx(scaled)(
         (acc, idx_poly) => (0 until tiling).foldLeft(acc)(
           (acc2, idx_meta) => {
@@ -106,6 +111,17 @@ class Section3 extends Section3Headers {
           }
         )
       )
+      //border
+      val tiledx = ((tiled * tiling) until size-1).foldLeftx(scaled)(
+        (acc, idx) => {
+            val t1 = acc(idx)
+            val t2 = acc(idx + ev.const(1))
+            acc(idx) = t1 + t2
+            acc
+          }
+        )
+
+
       val (l, r) = a.splitAt(a.length() / 2)
       val lres = {
         val nmix = mix.cpy(a = l)
@@ -122,7 +138,7 @@ class Section3 extends Section3Headers {
       lres.concatx(rres)
     }
     val function_signature = stat.genSig()
-    val t: StagedFunction[DynHeader[R], AC[R]] = doGlobalLambda(stageme, Some("ClosureExample" + stat.genSig()), Some("ClosureExample" + stat.genSig()))(exposarg, exposeret)
+    val t: StagedFunction[Dyn[R], AC[R]] = doGlobalLambda(stageme, Some("ClosureExample" + stat.genSig()), Some("ClosureExample" + stat.genSig()))(exposarg, exposeret)
     t
   }
 

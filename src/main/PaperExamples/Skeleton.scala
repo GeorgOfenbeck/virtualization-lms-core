@@ -21,8 +21,10 @@ trait Skeleton extends sort.Sort_DSL {
       def -(rhs: T[A]): T[A] = ???
       def %(rhs: T[A]): T[A] = ???
       def %(rhs: Int): T[A] = ???
+      def *(rhs: Int): T[A] = ???
       def /(rhs: Int): T[A] = ???
       def <(rhs: Int): T[A] = ???
+      def -(rhs: Int): T[A] = ???
       def toDouble(): T[Double] = ???
     }
 
