@@ -14,7 +14,7 @@ class NewCore extends NewSkeleton {
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
   }
-  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse {
+  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse with ScalaGenOrderingOps {
     val IR: self.type = self
   }
 
@@ -175,7 +175,7 @@ class NewCore extends NewSkeleton {
 
         //val newvecinfo = if(mix.vecinfo.isDefined) Some(VecInfo(mix.vecinfo.get.u, vecit)) else None
         val after_stage1 = {
-          val f1: MaybeSFunction =  DFT(stage1stat)
+          val f1: MaybeSFunction =  sizecheck(stage1stat)
           f1(stage1dyn)
         }
 
@@ -211,7 +211,7 @@ class NewCore extends NewSkeleton {
           val stage2stat = nmix.getStatSkel()
           val stage2expose = exposeDynGTSkeleton(stage2stat)
           val stage2dyn = nmix.getDynSkel()
-          val f2: MaybeSFunction =  DFT(stage2stat)
+          val f2: MaybeSFunction =  sizecheck(stage2stat)
           f2(stage2dyn)
         }
 
@@ -229,12 +229,100 @@ class NewCore extends NewSkeleton {
   }
 
 
+  val codeletsize = 66
+
+  def basef2(mid: Int, mix: GTSkeletonFull): Single = {
+    if (mid <= 3) {
+      val nmix = mix.copy(n = SInt(mid))
+      val (nstat, ndyn) = nmix.split()
+      val f2f = F2(nstat)
+      sumFold(mix.loopbound.toRep(), false, Single(veccreate(mix.n.toRep())), {
+        isingle => f2f(nmix.copy(v = ivecappend(mix.v, isingle.i)).getDynSkel())
+      })
+    } else {
+      //we found the base case size
+      /*val scalarized = mix.a.scalarize(mid)
+    val nmix = mix.cpy(a = scalarized)*/
+      val nmix = mix.copy(n = SInt(mid))
+      val (nstat, ndyn) = nmix.split()
+      val rf = DFT(nstat)
+      val result_scalars = rf(ndyn)
+      //val data: Array[Rep[Double]] = result_scalars.scalarize(result_scalars.length()).data
+      //mix.a.fromScalars(data)
+      result_scalars
+    }
+
+
+  }
+
+  def binsearch(mix: GTSkeletonFull, check: Rep[Int], low: Int, high: Int): Single = {
+    val mid = low + (high - low)/2
+    if ((high - low) <= 1) {
+      myifThenElse(check < Const(high), {
+        basef2(low,mix)
+      }, {
+        basef2(high,mix)
+      })    }
+    else {
+
+      myifThenElse(check < Const(mid), {
+        binsearch(mix, check, low, mid)
+      }, {
+        binsearch(mix, check, mid, high)
+      })
+    }
+  }
+
+  def sizecheck(stat: StatGTSkeleton): MaybeSFunction = {
+    val expose = exposeDynGTSkeleton(stat)
+    val stageme: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
+      val mix = GTSkeletonFull(stat, dyn)
+      import mix._
+      mix.n.i.fold(fa => {
+        //only check if its target value
+        // = a.length() < ev.const(64)
+        myifThenElse(n.toRep() < Const(codeletsize), {
+          binsearch(mix, mix.n.toRep(), 0, codeletsize)
+        }, {
+          val (nstat, ndyn) = mix.split()
+          val rf = DFT(nstat)
+          rf(ndyn)
+        })
+      }, { fb =>
+      {
+        if (fb <= 2) {
+          val nmix = mix.copy(n = SInt(fb))
+          val (nstat, ndyn) = nmix.split()
+          val f2f = F2(nstat)
+          sumFold(mix.loopbound.toRep(), false, Single(veccreate(mix.n.toRep())), {
+            isingle => f2f(mix.copy(v = ivecappend(mix.v, isingle.i)).getDynSkel())
+          })
+        } else {
+          println(fb)
+          val (nstat, ndyn) = mix.split()
+          val rf = DFT(nstat)
+          rf(ndyn)
+        }
+      }
+      })
+    }
+    if (stat.inline.inline) {
+      MaybeSFunction(stageme)
+    } else {
+      val t: StagedFunction[DynGTSkeleton, Single] = doGlobalLambda(stageme, Some("SizeCheck" + stat.genSig()), Some("SizeCheck" + stat.genSig()))(expose, exposeSingle)
+      MaybeSFunction(t)
+    }
+  }
+
+
+
   def DFT(stat: StatGTSkeleton): MaybeSFunction = {
     val expose = exposeDynGTSkeleton(stat)
     val stageme: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
       /*val vecup = if(dyn.vecinfo_dyn.isDefined) Some(Const(false)) else None
       val dynup = dyn.copy(vecinfo_dyn = vecup)*/
       val mix = GTSkeletonFull(stat, dyn)
+      /*
       val sn: Rep[Int] = mix.n.toRep()
       val cond = isbasecase(sn)
       myifThenElse(cond, {
@@ -242,9 +330,11 @@ class NewCore extends NewSkeleton {
         sumFold(mix.loopbound.toRep(), false, Single(veccreate(mix.n.toRep())), {
           isingle => f2f(mix.copy(v = ivecappend(mix.v, isingle.i)).getDynSkel())
         })
-      },
+      }, {
         DFT_CT(mix)
-      )
+      }
+      ) */
+      DFT_CT(mix)
     }
     if (stat.inline.inline) {
       MaybeSFunction(stageme)
@@ -256,8 +346,8 @@ class NewCore extends NewSkeleton {
 
   def ini(stat: StatGTSkeleton): (DynGTSkeleton => Single) = {
     val outer: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
-      val f = DFT(stat)
-      f(dyn)
+      val sf = sizecheck(stat)
+      sf.apply(dyn)
     }
     outer
   }

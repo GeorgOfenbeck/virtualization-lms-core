@@ -18,6 +18,7 @@ trait NewSkeleton extends Spiral_DSL {
   }
 
   case class SInt(i: Either[Rep[Int], Int]) {
+    def isRep(): Boolean = i.isLeft
     def +(that: SInt): SInt = {
       val t: Either[Rep[Int], Int] = i.fold(fa => {
         val r: Rep[Int] = that.i.fold(ifa => fa + ifa, ifb => fa + unit(ifb))
@@ -217,7 +218,7 @@ trait NewSkeleton extends Spiral_DSL {
       })
       val ds = ""
       val es = s"inline${inline.inline}"
-      s"_ix${ix}iy${iy}a${as}b${bs}c${cs}d${ds}e${es}f"
+      s"_Size${ix}_iy${iy}a${as}b${bs}c${cs}d${ds}e${es}f"
     }
   }
 
