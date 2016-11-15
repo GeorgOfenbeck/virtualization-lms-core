@@ -76,9 +76,9 @@ class Section3 extends Section3Headers {
     t
   }
   
-  type Dyn[R] = DynHeader[R]
-  type Stat[R] = StatHeader[R]
-  type Mix[R] = MixHeader[R]
+  type Dyn[R[X]] = DynHeader[R]
+  type Stat[R[X]] = StatHeader[R]
+  type Mix[R[X]] = MixHeader[R]
   
   def recurse[R[_] : IRep](stat: Stat[R]): StagedFunction[Dyn[R], AC[R]] = {
     val (exparg,expret): (ExposeRep[Dyn[R]], ExposeRep[AC[R]]) = ???

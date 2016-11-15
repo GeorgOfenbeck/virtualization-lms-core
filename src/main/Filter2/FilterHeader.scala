@@ -19,6 +19,19 @@ trait FilterHeader extends sort.Skeleton {
         val r3 = a3
       }
     }
+    def cpy(m: Matrix, i: Int, o: OneEntry): Matrix = {
+      i match {
+        case 0 => cpy (m, a = m.r1.cpy (m.r1, a = o) )
+        case 1 => cpy (m, a = m.r1.cpy (m.r1, b = o) )
+        case 2 => cpy (m, a = m.r1.cpy (m.r1, c = o) )
+        case 3 => cpy (m, b = m.r2.cpy (m.r2, a = o) )
+        case 4 => cpy (m, b = m.r2.cpy (m.r2, b = o) )
+        case 5 => cpy (m, b = m.r2.cpy (m.r2, c = o) )
+        case 6 => cpy (m, c = m.r3.cpy (m.r3, a = o) )
+        case 7 => cpy (m, c = m.r3.cpy (m.r3, b = o) )
+        case 8 => cpy (m, c = m.r3.cpy (m.r3, c = o) )
+      }
+    }
   }
 
   abstract class Row {
