@@ -1,4 +1,4 @@
-/*
+
 package SpiralS
 
 import scala.lms._
@@ -107,7 +107,7 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with BooleanOpsExpOpt with If
 
 
   def sumFold[A](till: Rep[Int], parallel: Boolean, ini: Single, body: ISingle => Single)(implicit tupleexpose: ExposeRep[ISingle], singleexpose: ExposeRep[Single]): Single = {
-    val lambda = doInternalLambda(body, false, false)(tupleexpose, singleexpose)
+    val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     val looptuple = tupleexpose.freshExps()
     val loopvar = looptuple.head.asInstanceOf[Exp[Int]]
@@ -153,7 +153,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
       case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " false //put prime factor check here"))
       //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
-      case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(" + quote(n) + ") //buffer creation"))
+      case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(new Array[Complex](" + quote(n) + ")) //buffer creation"))
       case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
       case VecUpdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]) => Vector(emitValDef(tp, "" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + ")"))
       case IVecAddStride(v: Exp[Vector[Int]], y: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(v) + ".dropRight(1) :+ " + quote(v) + ".last / " + quote(y) + "/// ADD STride " + quote(b)))
@@ -217,4 +217,4 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
     }
     ma
   }
-}*/
+}

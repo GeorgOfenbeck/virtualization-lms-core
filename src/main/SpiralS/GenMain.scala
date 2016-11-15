@@ -1,4 +1,4 @@
-/*
+
 package SpiralS
 
 /**
@@ -7,6 +7,10 @@ package SpiralS
   * Date: 03/06/2016
   * Time: 13:09 
   */
+
+class ComplexVector
+
+class Complex
 
 case class IMT(base: Int, strides: Vector[Int]) {
 
@@ -36,7 +40,7 @@ object VectorMult {
     def f(j: Int, i: Int) = 1 * j + 2 * i
     def g(k: Int, i: Int) = 1 * k + 2 * i
 
-    val dsl = new Core
+    val dsl = new NewCore
     dsl.codeexport()
 
     /*val outer = IMT(0,Vector(2,1))
@@ -54,4 +58,4 @@ object VectorMult {
           //println(testIM(fused,Vector(i,j,k)))
         }*/
   }
-*/
+

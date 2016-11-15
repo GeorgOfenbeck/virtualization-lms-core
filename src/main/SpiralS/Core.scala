@@ -1,4 +1,6 @@
 /*
+
+
 package SpiralS
 
 import scala.lms._
@@ -7,9 +9,7 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-class ComplexVector
 
-class Complex
 
 class Core extends Skeleton {
   self =>
@@ -32,8 +32,6 @@ class Core extends Skeleton {
   def F2(stat: StatGTSkeleton): StagedFunction[DynGTSkeleton, Single] = {
     val expose = exposeDynGTSkeleton(stat)
     val f: (DynGTSkeleton => Single) = (z: DynGTSkeleton) => {
-
-
       val nv0 = ivecappend(z.v, Const(0))
       val nv1 = ivecappend(z.v, Const(1))
       val mix = GTSkeletonFull(stat, z)
@@ -52,7 +50,6 @@ class Core extends Skeleton {
 
       val (t1, t2) = mix.twiddleScaling match {
         case Some(twiddleScaling) => {
-
           mix.im match {
             case im_gti: GTI_IM => {
               val gti_tw_im = im_gti.twim
@@ -74,11 +71,8 @@ class Core extends Skeleton {
         }
         case None => (t01, t02)
       }
-
       val cres1 = plus(t1, t2)
       val cres2 = minus(t1, t2)
-
-
       val res1 = vecupdate(target.y, sindex1, cres1)
       val res2 = vecupdate(res1, sindex2, cres2)
       Single(res2)
@@ -344,7 +338,6 @@ class Core extends Skeleton {
     res
   }
 
-  def DFT_Rader(mix: GTSkeletonFull): Single = mix.x
 
   def DFT(stat: StatGTSkeleton): (DynGTSkeleton => Single) = {
     val outer: (DynGTSkeleton => Single) = (dyn: DynGTSkeleton) => {
@@ -390,4 +383,6 @@ class Core extends Skeleton {
   }
 
 }
+
+
 */

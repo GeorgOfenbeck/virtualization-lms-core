@@ -8,7 +8,7 @@ import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
 
-trait Skeleton extends Spiral_DSL {
+trait NewSkeleton extends Spiral_DSL {
 
 
   object SInt {
@@ -198,7 +198,28 @@ trait Skeleton extends Spiral_DSL {
 
   case class DynGTSkeleton(x: Single, y: Single, n: Option[Rep[Int]], loopbound: Option[Rep[Int]], im: DynIM, v: Rep[Vector[Int]], dynTwiddleScaling: Option[DynTwiddleScaling])
 
-  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], im: StatIM, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling], vecinfo_stat: Option[VecInfo])
+  case class InlineInfo(inline: Boolean, maxfunctions: Int, compareinline: Boolean, consider_inline: Boolean, specialize: Boolean, spezialize_done: Int)
+
+  case class StatGTSkeleton(n: Option[Int], loopbound: Option[Int], im: StatIM, parInfo: Option[ParInfo], statTwiddleScaling: Option[StatTwiddleScaling], vecinfo_stat: Option[VecInfo] , val inline: InlineInfo){
+    def genSig(): String = {
+      val ix = n.fold("")(_.toString)
+      val iy = loopbound.fold("")(_.toString)
+      val as = im match{
+        case Stat_GT_IM(g,s) => s"g${g.base.fold("")(_.toString)}s${s.base.fold("")(_.toString)}"
+        case Stat_GTI_IM(g,s) => s"g${g.base.fold("")(_.toString)}s${s.base.fold("")(_.toString)}"
+        case _ => ???
+      }
+      val bs = ""
+      val cs = statTwiddleScaling.fold("")(p => {
+        "tp" + p.d.fold("")(_.toString) +
+        "tk" + p.k.fold("")(_.toString) +
+        "tn" + p.n.fold("")(_.toString)
+      })
+      val ds = ""
+      val es = s"inline${inline.inline}"
+      s"_ix${ix}iy${iy}a${as}b${bs}c${cs}d${ds}e${es}f"
+    }
+  }
 
   object GTSkeletonFull {
     def apply(s: StatGTSkeleton, d: DynGTSkeleton): GTSkeletonFull = {
@@ -219,7 +240,7 @@ trait Skeleton extends Spiral_DSL {
       }
       val vecinfo = s.vecinfo_stat
 
-      GTSkeletonFull(d.x, d.y, na, nl, IM(s.im,d.im), d.v, s.parInfo, tw, vecinfo)
+      GTSkeletonFull(d.x, d.y, na, nl, IM(s.im,d.im), d.v, s.parInfo, tw, vecinfo, s.inline)
 
     }
   }
@@ -304,7 +325,7 @@ trait Skeleton extends Spiral_DSL {
 
 
   //, twiddle: Option[Twi]
-  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, im: IM, v: Rep[Vector[Int]], parInfo: Option[ParInfo], twiddleScaling: Option[TwiddleScaling], vecinfo: Option[VecInfo]) {
+  case class GTSkeletonFull(x: Single, y: Single, n: SInt, loopbound: SInt, im: IM, v: Rep[Vector[Int]], parInfo: Option[ParInfo], twiddleScaling: Option[TwiddleScaling], vecinfo: Option[VecInfo], val inline: InlineInfo) {
     def getDynSkel() = {
       val on: Option[Rep[Int]] = n.i.fold(fa => Some(fa), fb => None)
       val ol: Option[Rep[Int]] = loopbound.i.fold(fa => Some(fa), fb => None)
@@ -319,8 +340,10 @@ trait Skeleton extends Spiral_DSL {
       val ol: Option[Int] = loopbound.i.fold(fa => None, fb => Some(fb))
       val to: Option[StatTwiddleScaling] = twiddleScaling.map( e => e.getStatTwiddleScaling())
       val statim = im.getStatIM()
-      StatGTSkeleton(on, ol, statim, parInfo, to, vecinfo)
+      StatGTSkeleton(on, ol, statim, parInfo, to, vecinfo, inline)
     }
+
+    def split() = (getStatSkel(), getDynSkel())
   }
 
   implicit def exposeDynGTSkeleton(stat: StatGTSkeleton): ExposeRep[DynGTSkeleton] = {
@@ -393,5 +416,6 @@ trait Skeleton extends Spiral_DSL {
     val vec2t: Vector[Exp[_]] => Single = (in: Vector[Exp[_]]) => Single(in.head.asInstanceOf[Rep[ComplexVector]])
     val t2vec: Single => Vector[Exp[_]] = (in: Single) => Vector(in.y)
   }
-}
 
+
+}
