@@ -1,6 +1,6 @@
  package SpiralS2
 
-trait Header extends DFTData {
+trait Header extends Skeleton {
 
   implicit def mkDataEleOops(lhs: DataEle) = new DataEleOps(lhs)
   class DataEleOps(lhs: DataEle){
@@ -68,7 +68,7 @@ trait Header extends DFTData {
     oo.toOneEntry().map(p => p.ev.getRep(p.a).map(o => Vector(o)).getOrElse(Vector.empty)).getOrElse(Vector.empty)
   }
 
-  def toOE[X: Numeric : TypeRep](x: X): OneEntry{type T = X} = {
+  implicit def toOE[X: Numeric : TypeRep](x: X): OneEntry{type T = X} = {
     new OneEntry {
       override type A[Y] = NoRep[Y]
       override type T = X
@@ -146,10 +146,22 @@ trait Header extends DFTData {
       else None
     }
   }
-  def R2AInt(x: Exp[Int]): AInt = {
-    new AInt {
+
+  def sph(): AInt = {
+    new OneEntry{
+      override type T = Int
       override type A[X] = Exp[X]
-      override val evnum: Numeric[Int] = Numeric[Int]
+      override val evnum: Numeric[Int] = implicitly[Numeric[Int]]
+      override val ev: IRep[A] = cRep
+      override val evtyp: TypeRep[T] = manifest[Int]
+      override val a: this.A[this.T] = fresh[Int]
+    }
+  }
+  def R2AInt(x: Exp[Int]): AInt = {
+    new OneEntry{
+      override type T = Int
+      override type A[X] = Exp[X]
+      override val evnum: Numeric[Int] = implicitly[Numeric[Int]]
       override val ev: IRep[A] = cRep
       override val evtyp: TypeRep[T] = manifest[Int]
       override val a: this.A[this.T] = x
@@ -189,7 +201,11 @@ trait Header extends DFTData {
   }
 
   abstract class IMHBase(base: AInt, s0: AInt, s1: AInt)
-  abstract class IMHHeader(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base,s0, s1) with RepSelector2
+  abstract class IMHHeader(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base,s0, s1) with RepSelector2 {
+    def getbase() = repselect(base)
+    def gets0() = repselect(s0)
+    def gets1() = repselect(s1)
+  }
   class StatIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base,s0, s1) with StatSelector2{
     def freshExps(): Vector[Exp[_]] = base.ev.fresh() ++ s0.ev.fresh() ++ s1.ev.fresh()
     def vec2t(v: Vector[Exp[_]]): (DynIMH, Vector[Exp[_]]) = {
@@ -204,35 +220,65 @@ trait Header extends DFTData {
   class DynIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base,s0,s1) with DynSelector2{
     def t2vec(): Vector[Exp[_]] = OO2Exp(repselect(base)) ++ OO2Exp(repselect(s0)) ++ OO2Exp(repselect(s1))
   }
+  object IMH{
+    def apply (stat: StatIMH, dyn: DynIMH): IMH = {
+      val b = stat.getbase().toOneEntry().getOrElse(dyn.getbase().toOneEntry().get)
+      val s0 = stat.gets0().toOneEntry().getOrElse(dyn.gets0().toOneEntry().get)
+      val s1 = stat.gets1().toOneEntry().getOrElse(dyn.gets1().toOneEntry().get)
+      new IMH(b,s0,s1)
+    }
+  }
   case class IMH(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base,s0,s1){
     def getDynIMH(): DynIMH = ???
     def getStatIMH(): StatIMH = ???
   }
 
-  abstract class IM {
-    def getDynIM(): DynIM
-    def getStatIM(): StatIM
-    def gather(): IMH
-    def scatter(): IMH
-    def toSig() = gather().getStatIMH().genSig() + scatter().getStatIMH().genSig()
+  object IM{
+    def apply(stat: StatIM, dyn: DynIM): IMFull = ???
+    def apply(stat: Stat_GT_IM, dyn: Dyn_GT_IM): GT_IM = {
+      val g = IMH(stat.g, dyn.g)
+      val s = IMH(stat.s, dyn.s)
+      new GT_IM(g,s)
+    }
+    def apply(stat: Stat_GTI_IM, dyn: Dyn_GTI_IM): GTI_IM = {
+      val im = IMH(stat.im, dyn.im)
+      val tw = IMH(stat.twim, dyn.twim)
+      new GTI_IM(im,tw)
+    }
   }
-  case class GT_IM (g: IMH, s: IMH) extends IM
+
+
+  abstract class IM {
+    def gather(): IMHBase
+    def scatter(): IMHBase
+  }
+  abstract class IMFull extends IM{
+    def getDynIM() : DynIM
+    def getStatIM() : StatIM
+  }
+
+
+
+  case class GT_IM (g: IMH, s: IMH) extends IMFull
   {
     def getDynIM(): Dyn_GT_IM = new Dyn_GT_IM(g.getDynIMH(),s.getDynIMH())
     def getStatIM(): Stat_GT_IM = new Stat_GT_IM(g.getStatIMH(),s.getStatIMH())
     def gather() = g
     def scatter() = s
   }
-  case class GTI_IM(im: IMH, twim: IMH) extends IM
+  case class GTI_IM(im: IMH, twim: IMH) extends IMFull
   {
     def getDynIM(): Dyn_GTI_IM = new Dyn_GTI_IM(im.getDynIMH(), twim.getDynIMH())
     def getStatIM(): Stat_GTI_IM = new Stat_GTI_IM(im.getStatIMH(), twim.getStatIMH())
     def gather() = im
     def scatter() = im
   }
-  abstract class StatIM{
+  abstract class StatIM extends IM{
     def freshExps(): Vector[Exp[_]]
     def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]])
+    def toSig() = gather().genSig() + scatter().genSig()
+    def gather(): StatIMH
+    def scatter(): StatIMH
   }
   case class Stat_GT_IM(g: StatIMH, s: StatIMH) extends StatIM
   {
@@ -242,6 +288,8 @@ trait Header extends DFTData {
       val (c,d) = s.vec2t(b)
       (new Dyn_GT_IM(a,c),d)
     }
+    def gather() = g
+    def scatter() = s
   }
   case class Stat_GTI_IM( im: StatIMH, twim: StatIMH) extends StatIM
   {
@@ -251,42 +299,52 @@ trait Header extends DFTData {
       val (c,d) = twim.vec2t(b)
       (new Dyn_GTI_IM(a,c),d)
     }
+    def gather() = im
+    def scatter() = im
   }
 
 
-  abstract class DynIM
+
+  abstract class DynIM extends IM
   {
     def t2vec(): Vector[Exp[_]]
   }
   case class Dyn_GT_IM(g: DynIMH, s: DynIMH) extends DynIM
   {
     def t2vec(): Vector[Exp[_]] = g.t2vec() ++ s.t2vec()
+    def gather() = g
+    def scatter() = s
   }
   case class Dyn_GTI_IM(im: DynIMH, twim: DynIMH) extends DynIM
   {
     def t2vec(): Vector[Exp[_]] = im.t2vec() ++ twim.t2vec()
+    def gather() = im
+    def scatter() = im
   }
 
 
-  abstract class Base(n: AInt, lb: AInt, im: IM, v: AInt, tw: TwidBase)
+  abstract class Base(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
 
-  abstract class Header(n: AInt, lb: AInt, im: IM, v: AInt, tw: TwidHeader) extends Base(n,lb,im,v, tw) with RepSelector2{
+  abstract class Header(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(n,lb,im,v, tw) with RepSelector2{
     def getn() = repselect(n)
     def getlb() = repselect(lb)
-    def getim() = im
+    def getim(): IM = im
     def getv() = repselect(v)
+    def gettw(): Option[TwidHeader] = tw
   }
 
-  object Stat {
-
-  }
-  class Stat(n: AInt, lb: AInt, im: IM, v: AInt, tw: StatTwiddleScaling) extends Header(n,lb,im,v, tw) with StatSelector2{
+  class Stat(n: AInt, lb: AInt, im: StatIM, v: AInt, tw: Option[StatTwiddleScaling]) extends Header(n,lb,im,v, tw) with StatSelector2{
     def toSig():String = {
       "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig()
     }
+    override def getim(): StatIM = im
+    override def gettw(): Option[StatTwiddleScaling] = tw
   }
 
-  class Dyn(val x: Data, val y: Data, n: AInt, lb: AInt, im: IM, v: AInt, tw: DynTwiddleScaling) extends Header(n,lb,im,v, tw) with DynSelector2
+  class Dyn(val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(n,lb,im,v, tw) with DynSelector2{
+    override def getim(): DynIM = im
+    override def gettw(): Option[DynTwiddleScaling] = tw
+  }
 
 
   object Mix{
@@ -294,14 +352,14 @@ trait Header extends DFTData {
       val n: AInt = stat.getn().toOneEntry().getOrElse(dyn.getn().toOneEntry().get)
       val lb = stat.getlb().toOneEntry().getOrElse(dyn.getlb().toOneEntry().get)
       val v = stat.getv().toOneEntry().getOrElse(dyn.getv().toOneEntry().get)
-      val im = ???
-      val tw = ???
+      val im = IM(stat.getim(),dyn.getim())
+      val tw = TwiddleScaling(stat.gettw(),dyn.gettw())
       Mix(dyn.x,dyn.y,n,lb,im,v, tw)
     }
   }
-  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IM, v: AInt, tw: TwiddleScaling) extends Base(n,lb,im,v, tw) {
-    def getDyn(): Dyn = ???
-    def getStat(): Stat = ???
+  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling]) extends Base(n,lb,im,v, tw) {
+    def getDyn(): Dyn = new Dyn(x,y,n,lb, im.getDynIM(),v,tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
+    def getStat(): Stat = new Stat(n,lb,im.getStatIM(),v,tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())))
   }
 
 
@@ -313,19 +371,24 @@ trait Header extends DFTData {
         in.x.t2vec() ++ in.y.t2vec() ++
           OO2Exp(in.getn()) ++
           OO2Exp(in.getlb()) ++
-          in.getim().getDynIM().t2vec() ++
-          OO2Exp(in.getv())
+          in.getim().t2vec() ++
+          OO2Exp(in.getv()) ++ in.gettw().fold[Vector[Exp[_]]](Vector.empty)(fb => fb.t2vec())
       }
     }
   }
 
 
   abstract class TwidBase(n: AInt, d: AInt, k: AInt)
-  abstract class TwidHeader(n: AInt, d: AInt, k: AInt) extends TwidBase(n,d,k) with RepSelector2
+  abstract class TwidHeader(n: AInt, d: AInt, k: AInt) extends TwidBase(n,d,k) with RepSelector2 {
+    def getn() = repselect(n)
+    def getd() = repselect(d)
+    def getk() = repselect(k)
+
+  }
 
   case class TwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidBase(n,d,k) {
-    def getDynTwiddleScaling(): DynTwiddleScaling = ???
-    def getStatTwiddleScaling(): StatTwiddleScaling = ???
+    def getDynTwiddleScaling(): DynTwiddleScaling = new DynTwiddleScaling(n,d,k)
+    def getStatTwiddleScaling(): StatTwiddleScaling = new StatTwiddleScaling(n,d,k)
   }
 
   class StatTwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidHeader(n,d,k) with StatSelector2 {
@@ -337,10 +400,14 @@ trait Header extends DFTData {
   }
 
   object TwiddleScaling {
-    def apply(stat: StatTwiddleScaling, dyn: DynTwiddleScaling): TwiddleScaling = {
-      ???
+    def apply(statx: Option[StatTwiddleScaling], dynx: Option[DynTwiddleScaling]): Option[TwiddleScaling] = {
+      statx.fold[Option[TwiddleScaling]](None)(stat => dynx.fold[Option[TwiddleScaling]](None)(dyn => {
+        val n: AInt = stat.getn().toOneEntry().getOrElse(dyn.getn().toOneEntry().get)
+        val d = stat.getd().toOneEntry().getOrElse(dyn.getd().toOneEntry().get)
+        val k = stat.getk().toOneEntry().getOrElse(dyn.getk().toOneEntry().get)
+        Some(TwiddleScaling(n, d, k))
+      }))
     }
-
   }
 
 
