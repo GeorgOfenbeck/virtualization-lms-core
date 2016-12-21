@@ -36,12 +36,12 @@ trait Skeleton extends Spiral_DSL{
     def fromB[T: TypeRep](x: Rep[T]) = x
   }
 
-  trait IRep[T[_]] extends RepBase[T] //with Conditionals[T] with StagedNum[T] with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T]
+  trait IRep[T[_]] extends RepBase[T] with StagedNum[T] //with Conditionals[T]  with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T]
 
 
-  implicit object cRep extends IRep[Rep] with isRepBase //with RepNum with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff with RepBooleanOps
+  implicit object cRep extends IRep[Rep] with isRepBase with RepNum //with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff with RepBooleanOps
 
-  implicit object cNoRep extends IRep[NoRep] with noRepBase //with NoRepNum with NoRepConditionals with NoRepComparisons with NoRepRangeFold with NoRepChooseStuff with NoRepBooleanOps
+  implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum //with NoRepConditionals with NoRepComparisons with NoRepRangeFold with NoRepChooseStuff with NoRepBooleanOps
 
   trait RepBase[T[_]] {
     def isRep(): Boolean
@@ -94,6 +94,65 @@ trait Skeleton extends Spiral_DSL{
   }
 
 
+  trait StagedNum[T[_]] extends RepBase[T] {
+    implicit def mkNumericOps(lhs: T[Int]): Ops = new Ops(lhs)
+
+    class Ops(lhs: T[Int]) {
+
+      def +(rhs: T[Int]) = plus(lhs, rhs)
+
+      def -(rhs: T[Int]) = minus(lhs, rhs)
+
+      def /(rhs: T[Int]) = div(lhs, rhs)
+
+    }
+
+    def plus(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def minus(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def div(lhs: T[Int], rhs: T[Int]): T[Int]
+
+    def mod(lhs: T[Int], rhs: T[Int]): T[Int]
+
+
+
+  }
+
+  trait RepNum extends StagedNum[Rep] {
+
+
+    def plus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_plus(lhs, rhs)
+
+    def minus(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_minus(lhs, rhs)
+
+    def div(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_divide(lhs, rhs)
+
+    def mod(lhs: Rep[Int], rhs: Rep[Int]): Rep[Int] = int_mod(lhs, rhs)
+
+
+  }
+
+  trait NoRepNum extends StagedNum[NoRep] {
+    def gplus[T: Numeric: TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+      val ev = implicitly[Numeric[T]]
+      ev.plus(lhs,rhs)
+    }
+
+    def gtimes[T: Numeric: TypeRep](lhs: NoRep[T], rhs: NoRep[T]): NoRep[T] = {
+      val ev = implicitly[Numeric[T]]
+      ev.times(lhs,rhs)
+    }
+
+    def plus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs + rhs
+
+    def minus(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs - rhs
+
+    def div(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs / rhs
+
+    def mod(lhs: NoRep[Int], rhs: NoRep[Int]): NoRep[Int] = lhs % rhs
+
+  }
 
 
 

@@ -1,13 +1,17 @@
- package SpiralS2
+package SpiralS2
 
 trait Header extends Skeleton {
 
   implicit def mkDataEleOops(lhs: DataEle) = new DataEleOps(lhs)
-  class DataEleOps(lhs: DataEle){
-    def +(rhs: DataEle) = lhs.dplus(lhs,rhs)
-    def -(rhs: DataEle) = lhs.dminus(lhs,rhs)
-    def *(rhs: DataEle) = lhs.dtimes(lhs,rhs)
-    def /(rhs: DataEle) = lhs.ddiv(lhs,rhs)
+
+  class DataEleOps(lhs: DataEle) {
+    def +(rhs: DataEle) = lhs.dplus(lhs, rhs)
+
+    def -(rhs: DataEle) = lhs.dminus(lhs, rhs)
+
+    def *(rhs: DataEle) = lhs.dtimes(lhs, rhs)
+
+    def /(rhs: DataEle) = lhs.ddiv(lhs, rhs)
   }
 
   //this does not scale yet - hardcoded ComplexVector
@@ -22,45 +26,55 @@ trait Header extends Skeleton {
 
   abstract class DataEle {
     def dplus(x: DataEle, y: DataEle): DataEle = ???
+
     def dminus(x: DataEle, y: DataEle): DataEle = ???
+
     def dtimes(x: DataEle, y: DataEle): DataEle = ???
+
     def ddiv(x: DataEle, y: DataEle): DataEle = ???
   }
-  abstract class Data{
+
+  abstract class Data {
     def create(n: AInt): Data = ???
+
     def apply(i: AInt): DataEle
+
     def update(i: AInt, y: DataEle): Data = ???
+
     def t2vec(): Vector[Exp[_]]
   }
 
 
-
   case class SComplex(d: Exp[Complex]) extends DataEle {
-    def dplus(x: SComplex, y: SComplex):SComplex = SComplex(plus(x.d,y.d))
-    def dminus(x: SComplex, y: SComplex):SComplex = SComplex(minus(x.d,y.d))
-    def dtimes(x: SComplex, y: SComplex):SComplex = SComplex(times(x.d,y.d))
+    def dplus(x: SComplex, y: SComplex): SComplex = SComplex(plus(x.d, y.d))
+
+    def dminus(x: SComplex, y: SComplex): SComplex = SComplex(minus(x.d, y.d))
+
+    def dtimes(x: SComplex, y: SComplex): SComplex = SComplex(times(x.d, y.d))
   }
-  
-  case class SComplexVector(d: Exp[ComplexVector]) extends Data{
+
+  case class SComplexVector(d: Exp[ComplexVector]) extends Data {
     def apply(i: AInt): SComplex = {
       val t = i.ev.toRep(i.a)
-      SComplex(vecapply(d,t))
+      SComplex(vecapply(d, t))
     }
+
     def update(i: AInt, y: SComplex): Data = {
       val t = i.ev.toRep(i.a)
-      SComplexVector(vecupdate(d,t,y.d))
+      SComplexVector(vecupdate(d, t, y.d))
     }
+
     def t2vec(): Vector[Exp[_]] = Vector(d)
   }
-
-
 
 
   case class MaybeSFunction(f: Either[StagedFunction[Dyn, Data], Dyn => Data]) {
     def apply(dyn: Dyn): Data = f.fold(fa => fa(dyn), fb => fb(dyn))
   }
+
   object MaybeSFunction {
     def apply(f: StagedFunction[Dyn, Data]): MaybeSFunction = MaybeSFunction(Left(f))
+
     def apply(f: (Dyn => Data)): MaybeSFunction = MaybeSFunction(Right(f))
   }
 
@@ -68,7 +82,7 @@ trait Header extends Skeleton {
     oo.toOneEntry().map(p => p.ev.getRep(p.a).map(o => Vector(o)).getOrElse(Vector.empty)).getOrElse(Vector.empty)
   }
 
-  implicit def toOE[X: Numeric : TypeRep](x: X): OneEntry{type T = X} = {
+  implicit def toOE[X: Numeric : TypeRep](x: X): OneEntry {type T = X} = {
     new OneEntry {
       override type A[Y] = NoRep[Y]
       override type T = X
@@ -122,6 +136,7 @@ trait Header extends Skeleton {
       }
     }
   }
+
   abstract class OptionalEntry {
     self =>
     type T
@@ -133,7 +148,7 @@ trait Header extends Skeleton {
 
     def toSig(): String = a.fold("")(fb => fb.toString)
 
-    def toOneEntry(): Option[OneEntry{ type T = self.T}] = {
+    def toOneEntry(): Option[OneEntry {type T = self.T}] = {
       if (a.isDefined)
         Some(new OneEntry {
           override type A[X] = self.A[X]
@@ -148,7 +163,7 @@ trait Header extends Skeleton {
   }
 
   def sph(): AInt = {
-    new OneEntry{
+    new OneEntry {
       override type T = Int
       override type A[X] = Exp[X]
       override val evnum: Numeric[Int] = implicitly[Numeric[Int]]
@@ -157,8 +172,9 @@ trait Header extends Skeleton {
       override val a: this.A[this.T] = fresh[Int]
     }
   }
+
   def R2AInt(x: Exp[Int]): AInt = {
-    new OneEntry{
+    new OneEntry {
       override type T = Int
       override type A[X] = Exp[X]
       override val evnum: Numeric[Int] = implicitly[Numeric[Int]]
@@ -167,27 +183,66 @@ trait Header extends Skeleton {
       override val a: this.A[this.T] = x
     }
   }
-  type AInt = OneEntry{type T = Int  }
 
-  class AIntOps(lhs: AInt){
-    def +(rhs: AInt): AInt = ???
-    def -(rhs: AInt): AInt = ???
-    def *(rhs: AInt): AInt = ???
-    def /(rhs: AInt): AInt = ???
+  type AInt = OneEntry {type T = Int}
+
+
+  class AIntOps(lhs: AInt) {
+    def +(rhs: AInt): AInt = {
+      if (!(lhs.ev.isRep() && rhs.ev.isRep())) {
+        (lhs.a, rhs.a) match {
+          case (x: Int, y: Int) => toOE(x + y)
+          case _ => (R2AInt(int_plus(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+        }
+      } else {
+        (R2AInt(int_plus(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+      }
+    }
+
+    def -(rhs: AInt): AInt = {
+      if (!(lhs.ev.isRep() && rhs.ev.isRep())) {
+        (lhs.a, rhs.a) match {
+          case (x: Int, y: Int) => toOE(x - y)
+          case _ => (R2AInt(int_minus(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+        }
+      } else {
+        (R2AInt(int_minus(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+      }
+    }
+
+    def *(rhs: AInt): AInt = {
+      if (!(lhs.ev.isRep() && rhs.ev.isRep())) {
+        (lhs.a, rhs.a) match {
+          case (x: Int, y: Int) => toOE(x * y)
+          case _ => (R2AInt(int_times(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+        }
+      } else {
+        (R2AInt(int_times(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+      }
+    }
+
+    def /(rhs: AInt): AInt = {
+      if (!(lhs.ev.isRep() && rhs.ev.isRep())) {
+        (lhs.a, rhs.a) match {
+          case (x: Int, y: Int) => toOE(x / y)
+          case _ => (R2AInt(int_divide(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+        }
+      } else {
+        (R2AInt(int_divide(lhs.ev.toRep(lhs.a), rhs.ev.toRep(rhs.a))))
+      }
+    }
   }
 
   implicit def toAIntOps(lhs: AInt) = new AIntOps(lhs)
 
 
-
   trait RepSelector2 {
     val rrep: Boolean
 
-    def repselect[X](one: OneEntry{ type T = X}): OptionalEntry{ type T = X} =
+    def repselect[X](one: OneEntry {type T = X}): OptionalEntry {type T = X} =
       if (rrep) {
         if (one.ev.isRep()) one.makeSome(one) else one.makeNone(one)
       } else if (one.ev.isRep()) one.makeNone(one) else one.makeSome(one)
-
 
 
   }
@@ -201,202 +256,286 @@ trait Header extends Skeleton {
   }
 
   abstract class IMHBase(base: AInt, s0: AInt, s1: AInt)
-  abstract class IMHHeader(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base,s0, s1) with RepSelector2 {
+
+  abstract class IMHHeader(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base, s0, s1) with RepSelector2 {
     def getbase() = repselect(base)
+
     def gets0() = repselect(s0)
+
     def gets1() = repselect(s1)
   }
-  class StatIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base,s0, s1) with StatSelector2{
+
+  class StatIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base, s0, s1) with StatSelector2 {
     def freshExps(): Vector[Exp[_]] = base.ev.fresh() ++ s0.ev.fresh() ++ s1.ev.fresh()
+
     def vec2t(v: Vector[Exp[_]]): (DynIMH, Vector[Exp[_]]) = {
-      def help(a: AInt, v: Vector[Exp[_]]): (AInt,Vector[Exp[_]]) = if (a.ev.isRep()) (R2AInt(v.head.asInstanceOf[Exp[Int]]), v.tail) else (toOE(-1),v)
-      val(nb, ab) = help(base,v)
-      val(ns0, as0) = help(s0,ab)
-      val(ns1, as1) = help(s1,as0)
-      (new DynIMH(nb,ns0,ns1), as1)
+      def help(a: AInt, v: Vector[Exp[_]]): (AInt, Vector[Exp[_]]) = if (a.ev.isRep()) (R2AInt(v.head.asInstanceOf[Exp[Int]]), v.tail) else (toOE(-1), v)
+
+      val (nb, ab) = help(base, v)
+      val (ns0, as0) = help(s0, ab)
+      val (ns1, as1) = help(s1, as0)
+      (new DynIMH(nb, ns0, ns1), as1)
     }
+
     def genSig(): String = "b" + repselect(base).toSig() + "s0" + repselect(s0).toSig() + "s1" + repselect(s1).toSig()
   }
-  class DynIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base,s0,s1) with DynSelector2{
+
+  class DynIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base, s0, s1) with DynSelector2 {
     def t2vec(): Vector[Exp[_]] = OO2Exp(repselect(base)) ++ OO2Exp(repselect(s0)) ++ OO2Exp(repselect(s1))
   }
-  object IMH{
-    def apply (stat: StatIMH, dyn: DynIMH): IMH = {
+
+  object IMH {
+    def apply(stat: StatIMH, dyn: DynIMH): IMH = {
       val b = stat.getbase().toOneEntry().getOrElse(dyn.getbase().toOneEntry().get)
       val s0 = stat.gets0().toOneEntry().getOrElse(dyn.gets0().toOneEntry().get)
       val s1 = stat.gets1().toOneEntry().getOrElse(dyn.gets1().toOneEntry().get)
-      new IMH(b,s0,s1)
+      new IMH(b, s0, s1)
     }
   }
-  case class IMH(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base,s0,s1){
-    def getDynIMH(): DynIMH = ???
-    def getStatIMH(): StatIMH = ???
+
+  case class IMH(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base, s0, s1) {
+    def getDynIMH(): DynIMH = new DynIMH(base, s0, s1)
+
+    def getStatIMH(): StatIMH = new StatIMH(base, s0, s1)
   }
 
-  object IM{
+  object IM {
     def apply(stat: StatIM, dyn: DynIM): IMFull = ???
+
     def apply(stat: Stat_GT_IM, dyn: Dyn_GT_IM): GT_IM = {
       val g = IMH(stat.g, dyn.g)
       val s = IMH(stat.s, dyn.s)
-      new GT_IM(g,s)
+      new GT_IM(g, s)
     }
+
     def apply(stat: Stat_GTI_IM, dyn: Dyn_GTI_IM): GTI_IM = {
       val im = IMH(stat.im, dyn.im)
       val tw = IMH(stat.twim, dyn.twim)
-      new GTI_IM(im,tw)
+      new GTI_IM(im, tw)
     }
   }
 
 
   abstract class IM {
     def gather(): IMHBase
+
     def scatter(): IMHBase
   }
-  abstract class IMFull extends IM{
-    def getDynIM() : DynIM
-    def getStatIM() : StatIM
+
+  abstract class IMFull extends IM {
+    def getDynIM(): DynIM
+
+    def getStatIM(): StatIM
   }
 
 
+  case class GT_IM(g: IMH, s: IMH) extends IMFull {
+    def getDynIM(): Dyn_GT_IM = new Dyn_GT_IM(g.getDynIMH(), s.getDynIMH())
 
-  case class GT_IM (g: IMH, s: IMH) extends IMFull
-  {
-    def getDynIM(): Dyn_GT_IM = new Dyn_GT_IM(g.getDynIMH(),s.getDynIMH())
-    def getStatIM(): Stat_GT_IM = new Stat_GT_IM(g.getStatIMH(),s.getStatIMH())
+    def getStatIM(): Stat_GT_IM = new Stat_GT_IM(g.getStatIMH(), s.getStatIMH())
+
     def gather() = g
+
     def scatter() = s
   }
-  case class GTI_IM(im: IMH, twim: IMH) extends IMFull
-  {
+
+  case class GTI_IM(im: IMH, twim: IMH) extends IMFull {
     def getDynIM(): Dyn_GTI_IM = new Dyn_GTI_IM(im.getDynIMH(), twim.getDynIMH())
+
     def getStatIM(): Stat_GTI_IM = new Stat_GTI_IM(im.getStatIMH(), twim.getStatIMH())
+
     def gather() = im
+
     def scatter() = im
   }
-  abstract class StatIM extends IM{
+
+  abstract class StatIM extends IM {
     def freshExps(): Vector[Exp[_]]
+
     def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]])
+
     def toSig() = gather().genSig() + scatter().genSig()
+
     def gather(): StatIMH
+
     def scatter(): StatIMH
   }
-  case class Stat_GT_IM(g: StatIMH, s: StatIMH) extends StatIM
-  {
+
+  case class Stat_GT_IM(g: StatIMH, s: StatIMH) extends StatIM {
     def freshExps(): Vector[Exp[_]] = g.freshExps() ++ s.freshExps()
+
     def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]]) = {
-      val (a,b) = g.vec2t(v)
-      val (c,d) = s.vec2t(b)
-      (new Dyn_GT_IM(a,c),d)
+      val (a, b) = g.vec2t(v)
+      val (c, d) = s.vec2t(b)
+      (new Dyn_GT_IM(a, c), d)
     }
+
     def gather() = g
+
     def scatter() = s
   }
-  case class Stat_GTI_IM( im: StatIMH, twim: StatIMH) extends StatIM
-  {
+
+  case class Stat_GTI_IM(im: StatIMH, twim: StatIMH) extends StatIM {
     def freshExps(): Vector[Exp[_]] = im.freshExps() ++ twim.freshExps()
+
     def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]]) = {
-      val (a,b) = im.vec2t(v)
-      val (c,d) = twim.vec2t(b)
-      (new Dyn_GTI_IM(a,c),d)
+      val (a, b) = im.vec2t(v)
+      val (c, d) = twim.vec2t(b)
+      (new Dyn_GTI_IM(a, c), d)
     }
+
     def gather() = im
+
     def scatter() = im
   }
 
 
-
-  abstract class DynIM extends IM
-  {
+  abstract class DynIM extends IM {
     def t2vec(): Vector[Exp[_]]
   }
-  case class Dyn_GT_IM(g: DynIMH, s: DynIMH) extends DynIM
-  {
+
+  case class Dyn_GT_IM(g: DynIMH, s: DynIMH) extends DynIM {
     def t2vec(): Vector[Exp[_]] = g.t2vec() ++ s.t2vec()
+
     def gather() = g
+
     def scatter() = s
   }
-  case class Dyn_GTI_IM(im: DynIMH, twim: DynIMH) extends DynIM
-  {
+
+  case class Dyn_GTI_IM(im: DynIMH, twim: DynIMH) extends DynIM {
     def t2vec(): Vector[Exp[_]] = im.t2vec() ++ twim.t2vec()
+
     def gather() = im
+
     def scatter() = im
   }
 
 
   abstract class Base(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
 
-  abstract class Header(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(n,lb,im,v, tw) with RepSelector2{
+  abstract class Header(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(n, lb, im, v, tw) with RepSelector2 {
     def getn() = repselect(n)
+
     def getlb() = repselect(lb)
+
     def getim(): IM = im
+
     def getv() = repselect(v)
+
     def gettw(): Option[TwidHeader] = tw
   }
 
-  class Stat(n: AInt, lb: AInt, im: StatIM, v: AInt, tw: Option[StatTwiddleScaling]) extends Header(n,lb,im,v, tw) with StatSelector2{
-    def toSig():String = {
+  class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling]) extends Header(n, lb, im, v, tw) with StatSelector2 {
+    def toSig(): String = {
       "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig()
     }
+
     override def getim(): StatIM = im
+
     override def gettw(): Option[StatTwiddleScaling] = tw
   }
 
-  class Dyn(val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(n,lb,im,v, tw) with DynSelector2{
+  class Dyn(val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(n, lb, im, v, tw) with DynSelector2 {
     override def getim(): DynIM = im
+
     override def gettw(): Option[DynTwiddleScaling] = tw
   }
 
 
-  object Mix{
+  object Mix {
     def apply(stat: Stat, dyn: Dyn): Mix = {
       val n: AInt = stat.getn().toOneEntry().getOrElse(dyn.getn().toOneEntry().get)
       val lb = stat.getlb().toOneEntry().getOrElse(dyn.getlb().toOneEntry().get)
       val v = stat.getv().toOneEntry().getOrElse(dyn.getv().toOneEntry().get)
-      val im = IM(stat.getim(),dyn.getim())
-      val tw = TwiddleScaling(stat.gettw(),dyn.gettw())
-      Mix(dyn.x,dyn.y,n,lb,im,v, tw)
+      val im = IM(stat.getim(), dyn.getim())
+      val tw = TwiddleScaling(stat.gettw(), dyn.gettw())
+      Mix(dyn.x, dyn.y, n, lb, im, v, tw)
     }
   }
-  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling]) extends Base(n,lb,im,v, tw) {
-    def getDyn(): Dyn = new Dyn(x,y,n,lb, im.getDynIM(),v,tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
-    def getStat(): Stat = new Stat(n,lb,im.getStatIM(),v,tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())))
+
+  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling]) extends Base(n, lb, im, v, tw) {
+    def getDyn(): Dyn = new Dyn(x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
+
+    def getStat(): Stat = new Stat(n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())))
   }
 
+  def OR2AInt[T](op: Option[T]): AInt = op match {
+    case Some(x: Rep[Int]) => R2AInt(x)
+    case _ => toOE(-1)
+  }
 
   implicit def exposeDyn(stat: Stat): ExposeRep[Dyn] = {
     new ExposeRep[Dyn]() {
-      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => ???
-      val vec2t: Vector[Exp[_]] => Dyn = (in: Vector[Exp[_]]) => ???
+      val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
+        exposeData.freshExps() ++ exposeData.freshExps() ++ stat.n.ev.fresh() ++ stat.lb.ev.fresh() ++
+          stat.im.freshExps() ++ stat.v.ev.fresh() ++ stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
+      }
+      val vec2t: Vector[Exp[_]] => Dyn = (in: Vector[Exp[_]]) => {
+        def removeData(v: Vector[Exp[_]]): (Data, Vector[Exp[_]]) = {
+          val d = exposeData.vec2t(in)
+          val me = exposeData.t2vec(d)
+          (d, v.drop(me.size))
+        }
+
+        val (x, ax) = removeData(in)
+        val (y, ay) = removeData(ax)
+        val (an, on) = stat.n.ev.fetch[Int](ay)
+        val (alb, olb) = stat.lb.ev.fetch[Int](an)
+        val (im, aim) = stat.im.vec2t(alb)
+        val (av, ov) = stat.n.ev.fetch[Int](aim)
+        val (atw, otw) = stat.tw.fold[(Vector[Exp[_]], Option[DynTwiddleScaling])]((av, None))(fb => {
+          val (t0, t1) = fb.vec2t(av)
+          (t1, Some(t0))
+        })
+        val v: AInt = OR2AInt(ov)
+        val n: AInt = OR2AInt(on)
+        val lb: AInt = OR2AInt(olb)
+        new Dyn(x, y, n, lb, im, v, otw)
+      }
       val t2vec: Dyn => Vector[Exp[_]] = (in: Dyn) => {
         in.x.t2vec() ++ in.y.t2vec() ++
           OO2Exp(in.getn()) ++
           OO2Exp(in.getlb()) ++
           in.getim().t2vec() ++
-          OO2Exp(in.getv()) ++ in.gettw().fold[Vector[Exp[_]]](Vector.empty)(fb => fb.t2vec())
+          OO2Exp(in.getv()) ++ in.gettw().fold[Vector[Exp[_]]](Vector.empty)(fb => fb.t2vec(fb))
       }
     }
   }
 
 
   abstract class TwidBase(n: AInt, d: AInt, k: AInt)
-  abstract class TwidHeader(n: AInt, d: AInt, k: AInt) extends TwidBase(n,d,k) with RepSelector2 {
+
+  abstract class TwidHeader(n: AInt, d: AInt, k: AInt) extends TwidBase(n, d, k) with RepSelector2 {
     def getn() = repselect(n)
+
     def getd() = repselect(d)
+
     def getk() = repselect(k)
 
   }
 
-  case class TwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidBase(n,d,k) {
-    def getDynTwiddleScaling(): DynTwiddleScaling = new DynTwiddleScaling(n,d,k)
-    def getStatTwiddleScaling(): StatTwiddleScaling = new StatTwiddleScaling(n,d,k)
+  case class TwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidBase(n, d, k) {
+    def getDynTwiddleScaling(): DynTwiddleScaling = new DynTwiddleScaling(n, d, k)
+
+    def getStatTwiddleScaling(): StatTwiddleScaling = new StatTwiddleScaling(n, d, k)
   }
 
-  class StatTwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidHeader(n,d,k) with StatSelector2 {
-    def freshExps(): Vector[Exp[_]] = ???
-    def vec2t(v: Vector[Exp[_]]): (DynTwiddleScaling, Vector[Exp[_]]) = ???
+  class StatTwiddleScaling(val n: AInt, val d: AInt, val k: AInt) extends TwidHeader(n, d, k) with StatSelector2 {
+    def freshExps(): Vector[Exp[_]] = n.ev.fresh() ++ d.ev.fresh() ++ k.ev.fresh()
+
+    def vec2t(v: Vector[Exp[_]]): (DynTwiddleScaling, Vector[Exp[_]]) = {
+      val (an, on) = n.ev.fetch[Int](v)
+      val (ad, od) = d.ev.fetch[Int](an)
+      val (ak, ok) = k.ev.fetch[Int](ad)
+      val nx = OR2AInt(on)
+      val dx = OR2AInt(od)
+      val kx = OR2AInt(ok)
+      (new DynTwiddleScaling(nx, dx, kx), ad)
+    }
   }
-  case class DynTwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidHeader(n,d,k) with DynSelector2 {
-    def t2vec(): Vector[Exp[_]] = ???
+
+  case class DynTwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidHeader(n, d, k) with DynSelector2 {
+    def t2vec(in: DynTwiddleScaling): Vector[Exp[_]] = ???
   }
 
   object TwiddleScaling {
