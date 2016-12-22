@@ -255,7 +255,7 @@ trait Header extends Skeleton {
     val rrep: Boolean = false
   }
 
-  abstract class IMHBase(base: AInt, s0: AInt, s1: AInt)
+  abstract class IMHBase(val base: AInt, val s0: AInt, val s1: AInt)
 
   abstract class IMHHeader(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base, s0, s1) with RepSelector2 {
     def getbase() = repselect(base)
@@ -293,14 +293,20 @@ trait Header extends Skeleton {
     }
   }
 
-  case class IMH(base: AInt, s0: AInt, s1: AInt) extends IMHBase(base, s0, s1) {
+  case class IMH(override val base: AInt, override val s0: AInt, override val s1: AInt) extends IMHBase(base, s0, s1) {
     def getDynIMH(): DynIMH = new DynIMH(base, s0, s1)
 
     def getStatIMH(): StatIMH = new StatIMH(base, s0, s1)
   }
 
   object IM {
-    def apply(stat: StatIM, dyn: DynIM): IMFull = ???
+    def apply(statx: StatIM, dynx: DynIM): IMFull = {
+      (statx,dynx) match{
+        case (stat: Stat_GT_IM, dyn: Dyn_GT_IM) => apply(stat,dyn)
+        case (stat: Stat_GTI_IM, dyn: Dyn_GTI_IM) => apply(stat,dyn)
+        case _ => ???
+      }
+    }
 
     def apply(stat: Stat_GT_IM, dyn: Dyn_GT_IM): GT_IM = {
       val g = IMH(stat.g, dyn.g)
@@ -447,7 +453,9 @@ trait Header extends Skeleton {
       val n: AInt = stat.getn().toOneEntry().getOrElse(dyn.getn().toOneEntry().get)
       val lb = stat.getlb().toOneEntry().getOrElse(dyn.getlb().toOneEntry().get)
       val v = stat.getv().toOneEntry().getOrElse(dyn.getv().toOneEntry().get)
-      val im = IM(stat.getim(), dyn.getim())
+      val g = stat.getim()
+      val s = dyn.getim()
+      val im = IM(g, s)
       val tw = TwiddleScaling(stat.gettw(), dyn.gettw())
       Mix(dyn.x, dyn.y, n, lb, im, v, tw)
     }
@@ -467,8 +475,9 @@ trait Header extends Skeleton {
   implicit def exposeDyn(stat: Stat): ExposeRep[Dyn] = {
     new ExposeRep[Dyn]() {
       val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-        exposeData.freshExps() ++ exposeData.freshExps() ++ stat.n.ev.fresh() ++ stat.lb.ev.fresh() ++
-          stat.im.freshExps() ++ stat.v.ev.fresh() ++ stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
+        val t = exposeData.freshExps() ++ exposeData.freshExps() ++ stat.n.ev.fresh() ++ stat.lb.ev.fresh() ++
+          stat.v.ev.fresh() ++ stat.im.freshExps() ++  stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
+        t
       }
       val vec2t: Vector[Exp[_]] => Dyn = (in: Vector[Exp[_]]) => {
         def removeData(v: Vector[Exp[_]]): (Data, Vector[Exp[_]]) = {
@@ -476,13 +485,12 @@ trait Header extends Skeleton {
           val me = exposeData.t2vec(d)
           (d, v.drop(me.size))
         }
-
         val (x, ax) = removeData(in)
         val (y, ay) = removeData(ax)
         val (an, on) = stat.n.ev.fetch[Int](ay)
         val (alb, olb) = stat.lb.ev.fetch[Int](an)
-        val (im, aim) = stat.im.vec2t(alb)
-        val (av, ov) = stat.n.ev.fetch[Int](aim)
+        val (av, ov) = stat.v.ev.fetch[Int](alb)
+        val (im, aim) = stat.im.vec2t(av)
         val (atw, otw) = stat.tw.fold[(Vector[Exp[_]], Option[DynTwiddleScaling])]((av, None))(fb => {
           val (t0, t1) = fb.vec2t(av)
           (t1, Some(t0))
@@ -496,8 +504,9 @@ trait Header extends Skeleton {
         in.x.t2vec() ++ in.y.t2vec() ++
           OO2Exp(in.getn()) ++
           OO2Exp(in.getlb()) ++
+          OO2Exp(in.getv()) ++
           in.getim().t2vec() ++
-          OO2Exp(in.getv()) ++ in.gettw().fold[Vector[Exp[_]]](Vector.empty)(fb => fb.t2vec(fb))
+          in.gettw().fold[Vector[Exp[_]]](Vector.empty)(fb => fb.t2vec(fb))
       }
     }
   }

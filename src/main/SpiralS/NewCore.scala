@@ -443,7 +443,7 @@ class NewCore extends NewSkeleton {
 
   def codeexport() = {
     lazy val ingt = iniGTSkeleton(None)
-    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
+    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("F:\\Phd\\git\\code\\deleteme\\src\\main\\Test.scala"))
 
 
 
