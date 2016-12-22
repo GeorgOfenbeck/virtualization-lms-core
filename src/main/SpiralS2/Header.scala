@@ -25,27 +25,45 @@ trait Header extends Skeleton {
   }
 
   abstract class DataEle {
-    def dplus(x: DataEle, y: DataEle): DataEle = ???
+    def dplus(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
+      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case _ => ???
+    }
 
-    def dminus(x: DataEle, y: DataEle): DataEle = ???
+    def dminus(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
+      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case _ => ???
+    }
 
-    def dtimes(x: DataEle, y: DataEle): DataEle = ???
+    def dtimes(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
+      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case _ => ???
+    }
 
-    def ddiv(x: DataEle, y: DataEle): DataEle = ???
+    def ddiv(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
+      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case _ => ???
+    }
   }
 
   abstract class Data {
+    def getdata(): Exp[_]
+
     def create(n: AInt): Data = ???
 
     def apply(i: AInt): DataEle
 
-    def update(i: AInt, y: DataEle): Data = ???
+    def update(i: AInt, y: DataEle): Data = (this,y) match{
+      case (me: SComplexVector,e: SComplex) => me.updatex(i,e)
+      case _ => ???
+    }
 
     def t2vec(): Vector[Exp[_]]
   }
 
 
   case class SComplex(d: Exp[Complex]) extends DataEle {
+
     def dplus(x: SComplex, y: SComplex): SComplex = SComplex(plus(x.d, y.d))
 
     def dminus(x: SComplex, y: SComplex): SComplex = SComplex(minus(x.d, y.d))
@@ -54,12 +72,16 @@ trait Header extends Skeleton {
   }
 
   case class SComplexVector(d: Exp[ComplexVector]) extends Data {
+
+    override def create(n: AInt): SComplexVector = SComplexVector(veccreate( n.ev.toRep(n.a)))
+
+    override def getdata() = d
     def apply(i: AInt): SComplex = {
       val t = i.ev.toRep(i.a)
       SComplex(vecapply(d, t))
     }
 
-    def update(i: AInt, y: SComplex): Data = {
+    def updatex(i: AInt, y: SComplex): Data = {
       val t = i.ev.toRep(i.a)
       SComplexVector(vecupdate(d, t, y.d))
     }
@@ -266,7 +288,7 @@ trait Header extends Skeleton {
   }
 
   class StatIMH(base: AInt, s0: AInt, s1: AInt) extends IMHHeader(base, s0, s1) with StatSelector2 {
-    def freshExps(): Vector[Exp[_]] = base.ev.fresh() ++ s0.ev.fresh() ++ s1.ev.fresh()
+    def freshExps(): Vector[Exp[_]] = base.ev.fresh()(base.evtyp) ++ s0.ev.fresh()(s0.evtyp) ++ s1.ev.fresh()(s1.evtyp)
 
     def vec2t(v: Vector[Exp[_]]): (DynIMH, Vector[Exp[_]]) = {
       def help(a: AInt, v: Vector[Exp[_]]): (AInt, Vector[Exp[_]]) = if (a.ev.isRep()) (R2AInt(v.head.asInstanceOf[Exp[Int]]), v.tail) else (toOE(-1), v)
@@ -433,7 +455,8 @@ trait Header extends Skeleton {
 
   class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling]) extends Header(n, lb, im, v, tw) with StatSelector2 {
     def toSig(): String = {
-      "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig()
+      val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig()
+      t
     }
 
     override def getim(): StatIM = im
@@ -475,13 +498,13 @@ trait Header extends Skeleton {
   implicit def exposeDyn(stat: Stat): ExposeRep[Dyn] = {
     new ExposeRep[Dyn]() {
       val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-        val t = exposeData.freshExps() ++ exposeData.freshExps() ++ stat.n.ev.fresh() ++ stat.lb.ev.fresh() ++
-          stat.v.ev.fresh() ++ stat.im.freshExps() ++  stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
+        val t = exposeData.freshExps() ++ exposeData.freshExps() ++ stat.n.ev.fresh()(stat.n.evtyp) ++ stat.lb.ev.fresh()(stat.lb.evtyp) ++
+          stat.v.ev.fresh()(stat.v.evtyp) ++ stat.im.freshExps() ++  stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
         t
       }
       val vec2t: Vector[Exp[_]] => Dyn = (in: Vector[Exp[_]]) => {
         def removeData(v: Vector[Exp[_]]): (Data, Vector[Exp[_]]) = {
-          val d = exposeData.vec2t(in)
+          val d = exposeData.vec2t(v)
           val me = exposeData.t2vec(d)
           (d, v.drop(me.size))
         }

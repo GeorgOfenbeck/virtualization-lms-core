@@ -70,7 +70,10 @@ trait Skeleton extends Spiral_DSL{
 
     def getNoRep[A](x: Rep[A]): Option[A] = None
 
-    def fresh[A: TypeRep](): Vector[Rep[_]] = Vector(Arg[A])
+    def fresh[A: TypeRep](): Vector[Rep[_]] = {
+      val t = Vector(Arg[A])
+      t
+    }
 
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Some[Rep[A]]) = (x.tail, Some(x.head.asInstanceOf[Rep[A]]))
 

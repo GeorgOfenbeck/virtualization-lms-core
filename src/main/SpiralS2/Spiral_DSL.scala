@@ -110,6 +110,39 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
   case class SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
 
+  case class SumFoldX[R](till: Exp[Int], parllel: Boolean, ini: Exp[_], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
+
+  def sumFoldx[A,R](till: Rep[Int], parallel: Boolean, ini: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
+    val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
+    val newsyms = singleexpose.freshExps()
+    val looptuple = tupleexpose.freshExps()
+    val loopvar = looptuple.head.asInstanceOf[Exp[Int]]
+    val loopacc = looptuple.tail.head.asInstanceOf[Exp[ComplexVector]]
+    val sumloopnode = SumFoldX(till, parallel, ini, loopvar, loopacc, lambda.exp)
+    val sumnodeexp = toAtom(sumloopnode)
+
+    val returnNodes = if (newsyms.size > 1) {
+      newsyms.zipWithIndex.map(fsym => {
+        //had do to this ugly version since the compile time type is not know at this stage (of the return - Rep[_])
+        val otp = exp2tp(fsym._1)
+        val tag: TypeRep[Any] = otp.tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(sumnodeexp, fsym._1, fsym._2, true, newsyms.size == fsym._2 + 1)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    } else {
+      newsyms.zipWithIndex.map(fsym => {
+        val tag: TypeRep[Any] = exp2tp(fsym._1).tag.asInstanceOf[TypeRep[Any]]
+        val cc: Def[Any] = ReturnArg(sumnodeexp, fsym._1, fsym._2, false, true)
+        val newx = toAtom(cc)(tag, null)
+        newx
+      })
+    }
+    singleexpose.vec2t(returnNodes)
+  }
+
+
+
   def sumFold[A](till: Rep[Int], parallel: Boolean, ini: Single, body: ISingle => Single)(implicit tupleexpose: ExposeRep[ISingle], singleexpose: ExposeRep[Single]): Single = {
     val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
@@ -178,6 +211,41 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
 
       case SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
+        val bodylambda = exp2tp(body)
+        val rets: Vector[String] = bodylambda.rhs match {
+          case InternalLambda(tf, tx, ty, thot, targs, treturns) => Vector({
+            //val l1 = "val " + quote(tp) + " = ("+ quote(loopvar) + " <- 0 until "+ quote(till) + ").foldLeft(Vector.empty) {\n "
+            val helper = if (tx.size > 1) {
+              tx.zipWithIndex.map(a => {
+                val (tp, index) = a
+                val typ = remap(tp.tag.mf)
+                "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index, "", index == tx.size - 1)
+              }).mkString("\n")
+            } else {
+              //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+              "val " + quote(tx.head) + " : " + remap(tx.head.tag) + " = helper\n"
+            }
+            val argtuple = tupledeclarehelper(tx.map(a => remap(a.tag)), "")
+            val l1 = if (parllel)
+              "val " + quote(tp) + " = (0 until " + quote(till) + ").par.foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
+            else
+              "val " + quote(tp) + " = (0 until " + quote(till) + ").foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
+            val l10 = l1 + "\n" + helper + "\n"
+            val l2 = block_callback(ty, Vector(l10))
+            val trestuple: Vector[String] = ty.res.map(r => quote(r))
+            val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
+            val l4 = l3 + "\n})\n"
+            l4
+          })
+          case _ => {
+            assert(false, "got an SumLoop statment which does not contain a lambda")
+            Vector.empty
+          }
+        }
+        rets
+      }
+
+      case SumFoldX(till: Exp[Int], parllel: Boolean, ini: Exp[_], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
         val bodylambda = exp2tp(body)
         val rets: Vector[String] = bodylambda.rhs match {
           case InternalLambda(tf, tx, ty, thot, targs, treturns) => Vector({
