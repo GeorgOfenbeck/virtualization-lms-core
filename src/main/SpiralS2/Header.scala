@@ -31,17 +31,17 @@ trait Header extends Skeleton {
     }
 
     def dminus(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case (x: SComplex, y: SComplex) => x.dminus(x,y)
       case _ => ???
     }
 
     def dtimes(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case (x: SComplex, y: SComplex) => x.dtimes(x,y)
       case _ => ???
     }
 
     def ddiv(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.dplus(x,y)
+      case (x: SComplex, y: SComplex) => x.ddiv(x,y)
       case _ => ???
     }
   }
