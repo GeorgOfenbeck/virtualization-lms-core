@@ -89,12 +89,12 @@ class Core extends Header {
         val stage1mix: Mix = {
           val s1_gather: IMH = {
             val base = toOE(0)
-            val (s0, s1) = if (WHT) (k, toOE(1)) else (toOE(1), m)
+            val (s0, s1) = if (!WHT) (k, toOE(1)) else (toOE(1), m)
             val inner = IMH(base, s0, s1)
-            fuseIM(mix.im.gather(), inner, mix.v)
+            fuseIM(mix.im.gather(), inner, idata.i)
           }
           val s1_scatter: IMH = if (inplace) {
-            fuseIM(mix.im.scatter(), IMH(toOE(0), m, toOE(1)), mix.v)
+            fuseIM(mix.im.scatter(), IMH(toOE(0), m, toOE(1)), idata.i)
           } else IMH(toOE(0), toOE(1), m)
 
           val nim = GT_IM(s1_gather, s1_scatter)
@@ -104,9 +104,9 @@ class Core extends Header {
         val dataafterS1 = DFT(stage1mix.getStat())(stage1mix.getDyn())
         val stage2mix: Mix = {
           val s2_gather: IMH = IMH(toOE(0), m, toOE(1))
-          val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, mix.v)
+          val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
           val nim = if (inplace) GTI_IM(s2_scatter, s2_gather) else GT_IM(s2_gather, s2_scatter)
-          mix.copy(x = dataafterS1, y = mix.y, n = m, lb = k, im = nim, v = idata.i)
+          mix.copy(x = dataafterS1, y = mix.y, n = k, lb = m, im = nim, v = idata.i)
         }
         DFT(stage2mix.getStat())(stage2mix.getDyn())
 
@@ -143,7 +143,7 @@ class Core extends Header {
   def iniGTSkeleton(n: Option[Int]): Stat = {
     if (n.isEmpty) {
       val idIM: StatIMH = new StatIMH(0, 1, 0)
-      new Stat(sph(), 1, new Stat_GT_IM(idIM, idIM), 1, None)
+      new Stat(sph(), 1, new Stat_GT_IM(idIM, idIM), 0, None)
     } else ???
 
   }
