@@ -1,5 +1,7 @@
 package SpiralS2
 
+import org.scala_lang.virtualized.SourceContext
+
 
 trait Skeleton extends Spiral_DSL{
 
@@ -36,12 +38,12 @@ trait Skeleton extends Spiral_DSL{
     def fromB[T: TypeRep](x: Rep[T]) = x
   }
 
-  trait IRep[T[_]] extends RepBase[T] with StagedNum[T] //with Conditionals[T]  with Comparisons[T] with RangeFold[T] with ChooseStuff[T] with BooleanOps[T]
+  trait IRep[T[_]] extends RepBase[T] with StagedNum[T] with Conditionals[T]  with Comparisons[T] //with RangeFold[T] with ChooseStuff[T] with BooleanOps[T]
 
 
-  implicit object cRep extends IRep[Rep] with isRepBase with RepNum //with RepConditionals with RepComparisons with RepRangeFold with RepChooseStuff with RepBooleanOps
+  implicit object cRep extends IRep[Rep] with isRepBase with RepNum with RepConditionals with RepComparisons //with RepRangeFold with RepChooseStuff with RepBooleanOps
 
-  implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum //with NoRepConditionals with NoRepComparisons with NoRepRangeFold with NoRepChooseStuff with NoRepBooleanOps
+  implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons //with NoRepRangeFold with NoRepChooseStuff with NoRepBooleanOps
 
   trait RepBase[T[_]] {
     def isRep(): Boolean
@@ -94,6 +96,51 @@ trait Skeleton extends Spiral_DSL{
 
     def fetch[A: TypeRep](x: Vector[Rep[_]]): (Vector[Rep[_]], Option[NoRep[A]]) = (x, None)
 
+  }
+
+
+
+  trait Comparisons[T[_]] {
+    implicit def mkComparisonOps[A: Ordering : Manifest](lhs: T[A]): Ops[A] = new Ops[A](lhs)
+
+    class Ops[A: Ordering : Manifest](lhs: T[A]) {
+      def ==(rhs: T[A]): T[Boolean] = equiv(lhs, rhs)
+
+      def <(rhs: T[A]): T[Boolean] = less(lhs, rhs)
+    }
+
+    def equiv[A: Ordering : Manifest](lhs: T[A], rhs: T[A]): T[Boolean]
+
+    def less[A: Ordering : Manifest](lhs: T[A], rhs: T[A]): T[Boolean]
+  }
+
+
+
+
+  trait RepComparisons extends Comparisons[Rep] {
+    def equiv[T: Ordering : Manifest](lhs: Rep[T], rhs: Rep[T]): Rep[Boolean] = ordering_equiv(lhs, rhs)
+
+    def less[T: Ordering : Manifest](lhs: Rep[T], rhs: Rep[T]): Rep[Boolean] = ordering_lt(lhs, rhs)
+  }
+
+  trait NoRepComparisons extends Comparisons[NoRep] {
+    def equiv[T: Ordering : Manifest](lhs: NoRep[T], rhs: NoRep[T]): NoRep[Boolean] = lhs == rhs
+
+    def less[T: Ordering : Manifest](lhs: NoRep[T], rhs: NoRep[T]): NoRep[Boolean] = implicitly[Ordering[T]].lt(lhs, rhs)
+  }
+
+  trait Conditionals[T[_]] {
+    def _if[A](cond: T[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A
+  }
+
+
+  trait RepConditionals extends Conditionals[Rep] {
+    def _if[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = myifThenElse(cond, thenp, elsep)
+  }
+
+  trait NoRepConditionals extends Conditionals[NoRep] {
+
+    def _if[A](cond: NoRep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = if (cond) thenp else elsep
   }
 
 
