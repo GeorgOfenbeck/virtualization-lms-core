@@ -382,7 +382,7 @@ trait Header extends Skeleton {
 
     def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]])
 
-    def toSig() = gather().genSig() + scatter().genSig()
+    def toSig() = "g" + gather().genSig() + "s" + scatter().genSig()
 
     def gather(): StatIMH
 
@@ -404,6 +404,8 @@ trait Header extends Skeleton {
   }
 
   case class Stat_GTI_IM(im: StatIMH, twim: StatIMH) extends StatIM {
+    override def toSig() = "im" + im.genSig() + "tw" + twim.genSig()
+
     def freshExps(): Vector[Exp[_]] = im.freshExps() ++ twim.freshExps()
 
     def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]]) = {

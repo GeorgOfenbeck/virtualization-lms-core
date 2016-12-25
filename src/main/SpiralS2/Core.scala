@@ -18,7 +18,7 @@ class Core extends Header {
 
   val WHT = true
   //false
-  val inplace = false // true
+  val inplace = true //false // true
 
   def resolveH(h: IMHBase, i: AInt, v: AInt): AInt = h.base + (h.s0 * i) + (h.s1 * v)
 
@@ -94,7 +94,7 @@ class Core extends Header {
             fuseIM(mix.im.gather(), inner, idata.i)
           }
           val s1_scatter: IMH = if (inplace) {
-            fuseIM(mix.im.scatter(), IMH(toOE(0), m, toOE(1)), idata.i)
+            fuseIM(mix.im.scatter(), IMH(toOE(0), toOE(1), m), idata.i) //fuseIM(mix.im.scatter(), IMH(toOE(0), m, toOE(1)), idata.i)
           } else IMH(toOE(0), toOE(1), m)
 
           val nim = GT_IM(s1_gather, s1_scatter)
