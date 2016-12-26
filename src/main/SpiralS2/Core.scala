@@ -31,8 +31,32 @@ class Core extends Header {
 
   def chooseRadix(n: AInt): AInt = n / toOE(2)
 
+  def unroll(loopsize: AInt): Boolean = {
+    val t = (!loopsize.ev.isRep() )
+    val x = loopsize.ev.less(loopsize.a, loopsize.ev.const(basecase_size.getOrElse(0)))
+    x match {
+      case b: Boolean => b
+      case _ => false
+    }
+  }
+
   def sum[A](till: AInt, ini: Data, body: iData => Data): Data = {
-    sumFoldx(till.ev.toRep(till.a), false, ini.getdata(), body)
+    if (!unroll(till))    sumFoldx(till.ev.toRep(till.a), false, ini.getdata(), body)
+    else {
+      till.a match {
+        case x: Int => {
+          (0 until x).foldLeft(ini)( (acc,ele ) => {
+            acc match {
+              case sc: SComplexVector => body(iData(sc,ele))
+              case _ => ???
+            }
+            })
+
+        }
+        case _ => ??? //this should not be possible
+      }
+
+    }
   }
 
   case class iData(d: SComplexVector, i: AInt)
