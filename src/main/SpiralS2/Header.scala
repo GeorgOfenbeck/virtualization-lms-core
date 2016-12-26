@@ -92,6 +92,11 @@ trait Header extends Skeleton {
 
   case class MaybeSFunction(f: Either[StagedFunction[Dyn, Data], Dyn => Data]) {
     def apply(dyn: Dyn): Data = f.fold(fa => fa(dyn), fb => fb(dyn))
+    def mkfun(stat: Stat, dyn: Dyn): Data = f.fold(fa => fa(dyn), fb => {
+      val expose = exposeDyn(stat)
+      val t = doGlobalLambda(fb, Some("Base" + stat.toSig()), Some("Base" + stat.toSig()))(expose, exposeData)
+      t(dyn)
+    })
   }
 
   object MaybeSFunction {

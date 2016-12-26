@@ -16,9 +16,12 @@ class Core extends Header {
     val IR: self.type = self
   }
 
-  val WHT = true
-  //false
+  val WHT = true  //false
   val inplace = true //false // true
+  def inline(oe: OptionalEntry{type T = Int}): Boolean = oe.a match {
+      case Some(n: Int) => (n <= 8)
+      case _ => false
+  }
   val static_size: Option[Int] = None//Some(8)
   val basecase_size: Option[Int] = Some(9)
 
@@ -66,9 +69,10 @@ class Core extends Header {
       }
       })
     }
-    val t: StagedFunction[Dyn, Data] = doGlobalLambda(stageme, Some("F2" + stat.toSig()), Some("F2" + stat.toSig()))(expose, exposeData)
-    MaybeSFunction(t)
+    if(inline(stat.getn())) MaybeSFunction(stageme) else
+      MaybeSFunction(doGlobalLambda(stageme, Some("F2" + stat.toSig()), Some("F2" + stat.toSig()))(expose, exposeData))
   }
+
 
   //we always "uprank" r
   def fuseIM(r: IMHBase, s: IMHBase, lv: AInt): IMH = {
@@ -115,8 +119,7 @@ class Core extends Header {
       }
       })
     }
-    val t: StagedFunction[Dyn, Data] = doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, exposeData)
-    MaybeSFunction(t)
+    if(inline(stat.getn())) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, exposeData))
   }
 
 
@@ -125,10 +128,10 @@ class Core extends Header {
     if ((high - low) <= 1) {
       myifThenElse(check < Const(high), {
         val nmix = mix.copy(n = toOE(low))
-        DFT(nmix.getStat())(nmix.getDyn())
+        DFT(nmix.getStat()).mkfun(nmix.getStat(),nmix.getDyn())
       }, {
         val nmix = mix.copy(n = toOE(high))
-        DFT(nmix.getStat())(nmix.getDyn())
+        DFT(nmix.getStat()).mkfun(nmix.getStat(),nmix.getDyn())
       })    }
     else {
       myifThenElse(check < Const(mid), {
@@ -140,7 +143,7 @@ class Core extends Header {
   }
 
   def DFT_call(mix: Mix, stat: Stat, dyn: Dyn): Data = {
-    val bool = mix.n.ev.less(mix.n.a,mix.n.ev.const(3))
+    val bool = mix.n.ev.less(mix.n.a,mix.n.ev.const(4))
     mix.n.ev._if(bool, {
       F2(stat)(dyn)
     }, {
@@ -162,8 +165,7 @@ class Core extends Header {
       }
       else DFT_call(mix,stat,dyn)
     }
-    val t: StagedFunction[Dyn, Data] = doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toSig()))(expose, exposeData)
-    MaybeSFunction(t)
+    if(inline(stat.getn())) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toSig()))(expose, exposeData))
   }
 
   def ini(stat: Stat): (Dyn => Data) = {

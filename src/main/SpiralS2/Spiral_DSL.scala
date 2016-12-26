@@ -11,7 +11,7 @@ import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExp  with ImplicitOpsExp with ScalaCompile  {
+trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExpOpt  with ImplicitOpsExp with ScalaCompile  {
 
   case class ISingle(s: Single, i: Rep[Int])
 
