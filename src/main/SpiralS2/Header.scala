@@ -59,6 +59,9 @@ trait Header extends Skeleton {
     }
 
     def t2vec(): Vector[Exp[_]]
+
+    def same(x: Data, y: Data): Data
+
   }
 
 
@@ -72,6 +75,13 @@ trait Header extends Skeleton {
   }
 
   case class SComplexVector(d: Exp[ComplexVector]) extends Data {
+
+    def same(x: Data, y: Data): Data = {
+      (x,y) match{
+        case (sx: SComplexVector, sy: SComplexVector ) => new SComplexVector(vecsame(sx.d,sy.d))
+        case _ => ???
+    }
+    }
 
     override def create(n: AInt): SComplexVector = SComplexVector(veccreate( n.ev.toRep(n.a)))
 

@@ -91,6 +91,10 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def vecupdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]): Exp[ComplexVector] = VecUpdate(vec, i, y)
 
+  case class VecSame(x: Exp[ComplexVector],y: Exp[ComplexVector] ) extends Def[ComplexVector]
+
+  def vecsame(x: Exp[ComplexVector], y:  Exp[ComplexVector]): Exp[ComplexVector] = VecSame(x,y)
+
   case class Plus(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
 
   def plus(lhs: Exp[Complex], rhs: Exp[Complex]): Exp[Complex] = Plus(lhs, rhs)
@@ -192,6 +196,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
       case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(new Array[Complex](" + quote(n) + ")) //buffer creation"))
       case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
+      case VecSame(x: Exp[ComplexVector], y: Exp[ComplexVector]) => Vector(emitValDef(tp, "" + quote(x)))
       case VecUpdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]) => Vector(emitValDef(tp, "" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + ")"))
       case IVecAddStride(v: Exp[Vector[Int]], y: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(v) + ".dropRight(1) :+ " + quote(v) + ".last / " + quote(y) + "/// ADD STride " + quote(b)))
       case IVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "Vector.empty[Int] //creating vector with " + quote(n)))
