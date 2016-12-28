@@ -25,7 +25,7 @@ class Core extends Header {
   }
   val static_size: Option[Int] = None//Some(8)
   //val basecase_size: Option[Int] = None //Some(9)
-  val basecase_size: Option[Int] = Some(4)
+  val basecase_size: Option[Int] = None //Some(4)
   val parallel: Option[Int] = None
 
 
@@ -231,7 +231,7 @@ class Core extends Header {
 
   def codeexport() = {
     lazy val ingt = iniGTSkeleton(None)
-    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala"))
+    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala"))
     val call = if (static_size.isDefined) {
       "val res = t.apply(input, out) //, 0, instride, 0, instride, Vector.empty)"}
     else {"val res = t.apply(input, out, size) //, 0, instride, 0, instride, Vector.empty)"}
