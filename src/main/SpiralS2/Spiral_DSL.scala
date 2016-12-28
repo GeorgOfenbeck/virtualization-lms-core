@@ -114,15 +114,15 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
   case class SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
 
-  case class SumFoldX[R](till: Exp[Int], parllel: Boolean, ini: Exp[_], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
+  case class SumFoldX[R](till: Exp[Int], parllel: Option[Int], ini: Exp[_], out: Exp[_], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
-  def sumFoldx[A,R](till: Rep[Int], parallel: Boolean, ini: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
+  def sumFoldx[A,R](till: Rep[Int], parallel: Option[Int], ini: Exp[_], out: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
     val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     val looptuple = tupleexpose.freshExps()
     val loopvar = looptuple.head.asInstanceOf[Exp[Int]]
     val loopacc = looptuple.tail.head.asInstanceOf[Exp[ComplexVector]]
-    val sumloopnode = SumFoldX(till, parallel, ini, loopvar, loopacc, lambda.exp)
+    val sumloopnode = SumFoldX(till, parallel, ini, out, loopvar, loopacc, lambda.exp)
     val sumnodeexp = toAtom(sumloopnode)
 
     val returnNodes = if (newsyms.size > 1) {
@@ -250,7 +250,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
         rets
       }
 
-      case SumFoldX(till: Exp[Int], parllel: Boolean, ini: Exp[_], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
+      case SumFoldX(till: Exp[Int], parllel: Option[Int], ini: Exp[_], out: Exp[_], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
         val bodylambda = exp2tp(body)
         val rets: Vector[String] = bodylambda.rhs match {
           case InternalLambda(tf, tx, ty, thot, targs, treturns) => Vector({
@@ -266,10 +266,13 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
               "val " + quote(tx.head) + " : " + remap(tx.head.tag) + " = helper\n"
             }
             val argtuple = tupledeclarehelper(tx.map(a => remap(a.tag)), "")
-            val l1 = if (parllel)
-              "val " + quote(tp) + " = (0 until " + quote(till) + ").par.foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
-            else
-              "val " + quote(tp) + " = (0 until " + quote(till) + ").foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
+            val l1 = parllel.fold[String]("val " + quote(tp) + " = (0 until " + quote(till) + ").foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n")(nrthreads => {
+              //"val " + quote(tp) + " = (0 until " + quote(till) + ").par.foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
+              "val " + quote(tp) + " = Twiddle.parloop(" + quote(till) + "," + nrthreads + "," + quote(ini) + "," + quote(out) + ",(x: (SpiralS2.ComplexVector,Int)) => {\n        val helper = x\n "
+            })
+
+
+
             val l10 = l1 + "\n" + helper + "\n"
             val l2 = block_callback(ty, Vector(l10))
             val trestuple: Vector[String] = ty.res.map(r => quote(r))

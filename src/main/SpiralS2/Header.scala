@@ -470,9 +470,9 @@ trait Header extends Skeleton {
     def gettw(): Option[TwidHeader] = tw
   }
 
-  class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling]) extends Header(n, lb, im, v, tw) with StatSelector2 {
+  class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int]) extends Header(n, lb, im, v, tw) with StatSelector2 {
     def toSig(): String = {
-      val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig()
+      val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString)
       t
     }
 
@@ -497,14 +497,14 @@ trait Header extends Skeleton {
       val s = dyn.getim()
       val im = IM(g, s)
       val tw = TwiddleScaling(stat.gettw(), dyn.gettw())
-      Mix(dyn.x, dyn.y, n, lb, im, v, tw)
+      Mix(dyn.x, dyn.y, n, lb, im, v, tw, stat.par)
     }
   }
 
-  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling]) extends Base(n, lb, im, v, tw) {
+  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int]) extends Base(n, lb, im, v, tw) {
     def getDyn(): Dyn = new Dyn(x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
 
-    def getStat(): Stat = new Stat(n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())))
+    def getStat(): Stat = new Stat(n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par)
   }
 
   def OR2AInt[T](op: Option[T]): AInt = op match {
@@ -570,8 +570,10 @@ trait Header extends Skeleton {
   }
 
   class StatTwiddleScaling(val n: AInt, val d: AInt, val k: AInt) extends TwidHeader(n, d, k) with StatSelector2 {
-    def freshExps(): Vector[Exp[_]] = n.ev.fresh() ++ d.ev.fresh() ++ k.ev.fresh()
 
+    def genSig(): String = "n" + repselect(n).toSig() + "d" + repselect(d).toSig() + "k" + repselect(k).toSig()
+    def freshExps(): Vector[Exp[_]] = n.ev.fresh()(n.evtyp) ++ d.ev.fresh()(d.evtyp) ++ k.ev.fresh()(k.evtyp)
+//base.ev.fresh()(base.evtyp) ++ s0.ev.fresh()(s0.evtyp) ++ s1.ev.fresh()(s1.evtyp)
     def vec2t(v: Vector[Exp[_]]): (DynTwiddleScaling, Vector[Exp[_]]) = {
       val (an, on) = n.ev.fetch[Int](v)
       val (ad, od) = d.ev.fetch[Int](an)
@@ -584,7 +586,7 @@ trait Header extends Skeleton {
   }
 
   case class DynTwiddleScaling(n: AInt, d: AInt, k: AInt) extends TwidHeader(n, d, k) with DynSelector2 {
-    def t2vec(in: DynTwiddleScaling): Vector[Exp[_]] = ???
+    def t2vec(in: DynTwiddleScaling): Vector[Exp[_]] = OO2Exp(repselect(n)) ++ OO2Exp(repselect(d)) ++ OO2Exp(repselect(k))
   }
 
   object TwiddleScaling {
