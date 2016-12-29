@@ -1,9 +1,7 @@
 
 package SpiralS2
 
-class ComplexVector
 
-class Complex
 
 import scala.lms._
 import scala.lms.internal._
@@ -80,6 +78,10 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
   def twiddle_apply_index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index(n,d,k,i)
 
   case class VecCreate(s: Exp[Int]) extends Def[ComplexVector]
+
+  case class CompCreate(re: Exp[Double], im: Exp[Double]) extends Def[Complex]
+
+  def compcreate(re: Exp[Double], im: Exp[Double]): Exp[Complex] = CompCreate(re,im)
 
   def veccreate(i: Exp[Int]): Exp[ComplexVector] = VecCreate(i)
 
@@ -190,7 +192,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
-
+      case CompCreate(re: Exp[Double], im: Exp[Double]) => Vector(emitValDef(tp, "Complex(" + quote(re) + "," + quote(im) + ")"))
       case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
       case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " false //put prime factor check here"))
       //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
