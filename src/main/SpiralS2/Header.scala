@@ -470,7 +470,7 @@ trait Header extends Skeleton {
     def gettw(): Option[TwidHeader] = tw
   }
 
-  class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int]) extends Header(n, lb, im, v, tw) with StatSelector2 {
+  class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int], val precompute: Boolean) extends Header(n, lb, im, v, tw) with StatSelector2 {
     def toSig(): String = {
       val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString)
       t
@@ -497,14 +497,15 @@ trait Header extends Skeleton {
       val s = dyn.getim()
       val im = IM(g, s)
       val tw = TwiddleScaling(stat.gettw(), dyn.gettw())
-      Mix(dyn.x, dyn.y, n, lb, im, v, tw, stat.par)
+      Mix(dyn.x, dyn.y, n, lb, im, v, tw, stat.par, stat.precompute)
     }
   }
 
-  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int]) extends Base(n, lb, im, v, tw) {
+
+  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean) extends Base(n, lb, im, v, tw) {
     def getDyn(): Dyn = new Dyn(x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
 
-    def getStat(): Stat = new Stat(n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par)
+    def getStat(): Stat = new Stat(n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par, precompute)
   }
 
   def OR2AInt[T](op: Option[T]): AInt = op match {
