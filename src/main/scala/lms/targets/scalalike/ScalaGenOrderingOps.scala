@@ -16,7 +16,18 @@ trait ScalaGenOrderingOps extends ScalaCodegen {
       case OrderingLTEQ(a, b) => Vector(emitValDef(tp, src"$a <= $b"))
       case OrderingGT(a, b) => Vector(emitValDef(tp, src"$a > $b"))
       case OrderingGTEQ(a, b) => Vector(emitValDef(tp, src"$a >= $b"))
-      case OrderingEquiv(a, b) => Vector(emitValDef(tp, src"$a equiv $b"))
+      case c@OrderingEquiv(a, b) => c.mev match {
+        case m if m == Manifest.Int => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Long => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Double => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Float => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Boolean => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Byte => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Char => Vector(emitValDef(tp, src"$a == $b"))
+        case m if m == Manifest.Short => Vector(emitValDef(tp, src"$a == $b"))
+        case _ => Vector(emitValDef(tp, src"$a equiv $b"))
+
+      }
       case OrderingMax(a, b) => Vector(emitValDef(tp, src"$a max $b"))
       case OrderingMin(a, b) => Vector(emitValDef(tp, src"$a min $b"))
       case c@OrderingCompare(a, b) => c.mev match {
