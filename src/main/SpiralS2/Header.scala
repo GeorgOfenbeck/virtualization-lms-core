@@ -531,8 +531,9 @@ trait Header extends Skeleton {
         val (alb, olb) = stat.lb.ev.fetch[Int](an)
         val (av, ov) = stat.v.ev.fetch[Int](alb)
         val (im, aim) = stat.im.vec2t(av)
-        val (atw, otw) = stat.tw.fold[(Vector[Exp[_]], Option[DynTwiddleScaling])]((av, None))(fb => {
-          val (t0, t1) = fb.vec2t(av)
+
+        val (atw, otw) = stat.tw.fold[(Vector[Exp[_]], Option[DynTwiddleScaling])]((aim, None))(fb => {
+          val (t0, t1) = fb.vec2t(aim)
           (t1, Some(t0))
         })
         val v: AInt = OR2AInt(ov)
