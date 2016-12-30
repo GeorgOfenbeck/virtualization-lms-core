@@ -39,6 +39,11 @@ libraryDependencies += "com.sksamuel.scrimage" %% "scrimage-io-extra" % "2.1.7"
 
 libraryDependencies += "com.sksamuel.scrimage" %% "scrimage-filters" % "2.1.7"
 
+libraryDependencies += "org.tinyjee.jgraphx" % "jgraphx" % "3.4.1.3"
+
+libraryDependencies += "ch.epfl.lara" % "scife_2.11" % "1.2.9"
+
+
 
 // tests are not thread safe
 parallelExecution in Test := false
