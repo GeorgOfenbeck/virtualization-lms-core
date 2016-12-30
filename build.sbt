@@ -43,6 +43,8 @@ libraryDependencies += "org.tinyjee.jgraphx" % "jgraphx" % "3.4.1.3"
 
 libraryDependencies += "ch.epfl.lara" % "scife_2.11" % "1.2.9"
 
+libraryDependencies += "com.github.benhutchison" %% "scalaswingcontrib" % "1.7"
+
 
 
 // tests are not thread safe

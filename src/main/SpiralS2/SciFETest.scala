@@ -43,7 +43,7 @@ object BinarySearchTreeTest {
   }
 
   case object Leaf extends Tree
-  case class Node(l: Tree, v: Int, r: Tree) extends Tree {
+  case class Node(val l: Tree, val v: Int, val r: Tree) extends Tree {
     def this(v: Int) = this(Leaf, v, Leaf)
   }
 
