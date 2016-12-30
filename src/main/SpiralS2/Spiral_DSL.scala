@@ -15,9 +15,9 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class Single(y: Rep[ComplexVector])
 
-  case class Radix(n: Exp[Int]) extends Def[Int]
+  case class Radix(n: Exp[List[Int]]) extends Def[Int]
 
-  def choose_radix(n: Exp[Int]): Exp[Int] = Radix(n)
+  def choose_radix(n: Exp[List[Int]]): Exp[Int] = Radix(n)
 
   case class BaseCase(n: Exp[Int]) extends Def[Boolean]
 
@@ -225,7 +225,8 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Twiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.store(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Twiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.load()"))
-      case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
+      //case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
+      case Radix(l: Exp[List[Int]]) => Vector(emitValDef(tp, "Settings.decompchoice.getOrElse(" + quote(l) + ",2)"))
 
       case SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
         val bodylambda = exp2tp(body)

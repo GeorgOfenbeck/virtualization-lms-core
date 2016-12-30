@@ -10,7 +10,7 @@ object GenMain extends App {
 
   val dft64s = breakdown_enum(64)
 
-  val dsl = new Core
-  dsl.codeexport()
+  //val dsl = new Core
+  //dsl.codeexport()
 }
 

@@ -127,7 +127,17 @@ trait Header extends Skeleton {
       override val ev: Header.this.IRep[A] = cNoRep
       override val a: this.A[this.T] = x
       override val evtyp: Header.this.TypeRep[this.T] = implicitly[TypeRep[X]]
+    }
+  }
 
+  def toOEL[X: TypeRep](x: X): OneEntry {type T = X} = {
+    new OneEntry {
+      override type A[Y] = NoRep[Y]
+      override type T = X
+      override val evnum: scala.Numeric[X] = null //ugly!!!!
+      override val ev: Header.this.IRep[A] = cNoRep
+      override val a: this.A[this.T] = x
+      override val evtyp: Header.this.TypeRep[this.T] = implicitly[TypeRep[X]]
     }
   }
 
@@ -209,6 +219,16 @@ trait Header extends Skeleton {
       override val a: this.A[this.T] = fresh[Int]
     }
   }
+  def sph2(): LInt = {
+    new OneEntry {
+      override type T = List[Int]
+      override type A[X] = Exp[X]
+      override val evnum: Numeric[T] = null //ugly!!!!
+      override val ev: IRep[A] = cRep
+      override val evtyp: TypeRep[T] = manifest[List[Int]]
+      override val a: this.A[this.T] = fresh[List[Int]]
+    }
+  }
 
   def R2AInt(x: Exp[Int]): AInt = {
     new OneEntry {
@@ -221,8 +241,20 @@ trait Header extends Skeleton {
     }
   }
 
+  def R2LInt(x: Exp[List[Int]]): LInt = {
+    new OneEntry {
+      override type T = List[Int]
+      override type A[X] = Exp[X]
+      override val evnum: Numeric[T] = null //ugly!!!!!
+      override val ev: IRep[A] = cRep
+      override val evtyp: TypeRep[T] = manifest[List[Int]]
+      override val a: this.A[this.T] = x
+    }
+  }
   type AInt = OneEntry {type T = Int}
 
+
+  type LInt = OneEntry {type T = List[Int]}
 
   class AIntOps(lhs: AInt) {
     def +(rhs: AInt): AInt = {
@@ -456,9 +488,11 @@ trait Header extends Skeleton {
   }
 
 
-  abstract class Base(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
+  abstract class Base(pos: LInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
 
-  abstract class Header(n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(n, lb, im, v, tw) with RepSelector2 {
+  abstract class Header(pos: LInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(pos,n, lb, im, v, tw) with RepSelector2 {
+    def getpos() = repselect(pos)
+
     def getn() = repselect(n)
 
     def getlb() = repselect(lb)
@@ -470,18 +504,17 @@ trait Header extends Skeleton {
     def gettw(): Option[TwidHeader] = tw
   }
 
-  class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int], val precompute: Boolean) extends Header(n, lb, im, v, tw) with StatSelector2 {
+  class Stat(val pos: LInt, val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int], val precompute: Boolean) extends Header(pos, n, lb, im, v, tw) with StatSelector2 {
     def toSig(): String = {
-      val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString)
+      val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString) + "pos" + repselect(pos).toSig()
       t
     }
-
     override def getim(): StatIM = im
 
     override def gettw(): Option[StatTwiddleScaling] = tw
   }
 
-  class Dyn(val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(n, lb, im, v, tw) with DynSelector2 {
+  class Dyn(val pos: LInt, val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(pos, n, lb, im, v, tw) with DynSelector2 {
     override def getim(): DynIM = im
 
     override def gettw(): Option[DynTwiddleScaling] = tw
@@ -490,6 +523,7 @@ trait Header extends Skeleton {
 
   object Mix {
     def apply(stat: Stat, dyn: Dyn): Mix = {
+      val pos: LInt = stat.getpos().toOneEntry().getOrElse(dyn.getpos().toOneEntry().get)
       val n: AInt = stat.getn().toOneEntry().getOrElse(dyn.getn().toOneEntry().get)
       val lb = stat.getlb().toOneEntry().getOrElse(dyn.getlb().toOneEntry().get)
       val v = stat.getv().toOneEntry().getOrElse(dyn.getv().toOneEntry().get)
@@ -497,26 +531,30 @@ trait Header extends Skeleton {
       val s = dyn.getim()
       val im = IM(g, s)
       val tw = TwiddleScaling(stat.gettw(), dyn.gettw())
-      Mix(dyn.x, dyn.y, n, lb, im, v, tw, stat.par, stat.precompute)
+      Mix(pos,dyn.x, dyn.y, n, lb, im, v, tw, stat.par, stat.precompute)
     }
   }
 
 
-  case class Mix(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean) extends Base(n, lb, im, v, tw) {
-    def getDyn(): Dyn = new Dyn(x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
+  case class Mix(pos: LInt, x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean) extends Base(pos, n, lb, im, v, tw) {
+    def getDyn(): Dyn = new Dyn(pos, x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
 
-    def getStat(): Stat = new Stat(n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par, precompute)
+    def getStat(): Stat = new Stat(pos, n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par, precompute)
   }
 
   def OR2AInt[T](op: Option[T]): AInt = op match {
     case Some(x: Rep[Int]) => R2AInt(x)
     case _ => toOE(-1)
   }
+  def OR2LInt[T](op: Option[T]): LInt = op match {
+    case Some(x: Rep[List[Int]]) => R2LInt(x)
+    case _ => toOEL(List.empty)
+  }
 
   implicit def exposeDyn(stat: Stat): ExposeRep[Dyn] = {
     new ExposeRep[Dyn]() {
       val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-        val t = exposeData.freshExps() ++ exposeData.freshExps() ++ stat.n.ev.fresh()(stat.n.evtyp) ++ stat.lb.ev.fresh()(stat.lb.evtyp) ++
+        val t = exposeData.freshExps() ++ exposeData.freshExps() ++ stat.pos.ev.fresh()(stat.pos.evtyp) ++stat.n.ev.fresh()(stat.n.evtyp) ++ stat.lb.ev.fresh()(stat.lb.evtyp) ++
           stat.v.ev.fresh()(stat.v.evtyp) ++ stat.im.freshExps() ++  stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
         t
       }
@@ -528,7 +566,8 @@ trait Header extends Skeleton {
         }
         val (x, ax) = removeData(in)
         val (y, ay) = removeData(ax)
-        val (an, on) = stat.n.ev.fetch[Int](ay)
+        val (apos, opos) = stat.pos.ev.fetch[List[Int]](ay)
+        val (an, on) = stat.n.ev.fetch[Int](apos)
         val (alb, olb) = stat.lb.ev.fetch[Int](an)
         val (av, ov) = stat.v.ev.fetch[Int](alb)
         val (im, aim) = stat.im.vec2t(av)
@@ -537,13 +576,15 @@ trait Header extends Skeleton {
           val (t0, t1) = fb.vec2t(aim)
           (t1, Some(t0))
         })
+        val pos: LInt = OR2LInt(opos)
         val v: AInt = OR2AInt(ov)
         val n: AInt = OR2AInt(on)
         val lb: AInt = OR2AInt(olb)
-        new Dyn(x, y, n, lb, im, v, otw)
+        new Dyn(pos,x, y, n, lb, im, v, otw)
       }
       val t2vec: Dyn => Vector[Exp[_]] = (in: Dyn) => {
         in.x.t2vec() ++ in.y.t2vec() ++
+          OO2Exp(in.getpos()) ++
           OO2Exp(in.getn()) ++
           OO2Exp(in.getlb()) ++
           OO2Exp(in.getv()) ++
