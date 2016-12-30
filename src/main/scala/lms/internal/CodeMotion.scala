@@ -368,8 +368,7 @@ trait CodeMotion {
                 val res = binfo.map(b => {
                   val info = b._2
                   val id = rblock2level(b._1).treeid
-                  if (id == 4)
-                    println(info.childnodes.size)
+
                   val childstr = info.childnodes.map(n => {
                     val isroot = info.roots.contains(n.irdef)
                     emitPlainNode2(ir.id2tp(n.irdef), "cm", id, isroot)
@@ -397,8 +396,7 @@ trait CodeMotion {
 
                 val info = b._2
                 val id = rblock2level(b._1).treeid
-                if (id == 4)
-                  println(info.childnodes.size)
+
                 val childstr = info.childnodes.map(n => {
                   val isroot = info.roots.contains(n.irdef)
                   emitPlainNode2(ir.id2tp(n.irdef), "cm", id, false)
@@ -596,8 +594,6 @@ trait CodeMotion {
             else {
               val nodelevels = mmark(n)
               val nodelevel = nodelevels.filter(p => curr_level.allparents.contains(p))
-              if (nodelevel.size != 1)
-                println("bla")
               assert(nodelevel.size == 1, "we have it in more then one parent - should never happen")
               val nlevel = nodelevel.head
               if (nlevel > level) //its already at a lower level

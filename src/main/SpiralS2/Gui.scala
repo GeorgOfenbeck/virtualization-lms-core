@@ -25,11 +25,18 @@ object Bla {
 
 object BreakDown {
 
-  trait Tree {}
+  trait Tree {
+    def getsize(): Int
+  }
 
-  case object Leaf extends Tree
+  case object Leaf extends Tree {
+    override def getsize() = 2
+  }
 
-  case class Node(val l: Tree, val v: Int, val r: Tree) extends Tree
+  case class Node(val l: Tree, val v: Int, val r: Tree) extends Tree{
+    override def getsize() = v
+  }
+
 
 
   import scife.enumeration.dependent.Depend
@@ -84,6 +91,9 @@ object Gui extends SimpleSwingApplication {
   frame.setVisible(true)*/
 
   import ExampleData._
+
+
+
 
 
   case class BreakDownNode(private var nameVar: String, private val children: BreakDownNode*) {
@@ -224,6 +234,21 @@ object Gui extends SimpleSwingApplication {
     var cur_variant = dft_variants(0)
 
 
+    def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int],Int], parent: List[Int]): Map[List[Int],Int] = {
+      x match {
+        case BreakDown.Leaf => sofar
+        case BreakDown.Node(l,v,r) => {
+          val cur = parent :+ v
+          val nentry = sofar + (cur -> l.getsize())
+
+          val left = variant2Map(l,nentry,cur :+ -1)
+          val right = variant2Map(r,left,cur :+ 1)
+          right
+        }
+      }
+    }
+
+
 
     contents = new TabbedPane {
 
@@ -291,7 +316,9 @@ object Gui extends SimpleSwingApplication {
       val buttons =new FlowPanel {
         border = Swing.EmptyBorder(5, 5, 5, 5)
         contents += new Button(Action("Generate Code") {
-          val dsl = new Core(cur_variant, Map.empty)
+
+          val varmap = variant2Map(cur_variant,Map.empty,List.empty)
+          val dsl = new Core(cur_variant, varmap)
           dsl.codeexport()
         })
       }
