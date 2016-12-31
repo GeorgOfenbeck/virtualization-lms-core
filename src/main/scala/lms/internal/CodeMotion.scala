@@ -14,6 +14,8 @@ import scala.lms.util._
 object CodeMotion {
   val plot = false
 
+  val printstuff= false
+
   /** Takes a reified program as an input.
     * Traverses the resulting graph in reverse order (result to inputs). (which will result in DeadCode Elemination)
     * While doing so it stores also info such as reverse edges.
@@ -859,9 +861,9 @@ trait CodeMotion {
     val b2l: Map[Block, LevelInfo] = Map(lambda.y -> rlinfo)
     val lastcold: Map[Block, LevelInfo] = Map(lambda.y -> rlinfo)
     graphnr = 1000
-    println("starting nested3")
+    printlog("starting nested3")
     val r = visit_nested3(rlinfo, rlinfo, lambda.y, -1, n, nexts, Map.empty, Map.empty, Map.empty, Vector.empty, l2b, b2l, lastcold, Map.empty, rlinfo, Map(0 -> rlinfo), Set.empty)
-    println("finished nested3")
+    printlog("finished nested3")
     val rlevel2block = r.level2block
 
     //val check = r.pmark.filter(p => p.)
@@ -869,7 +871,7 @@ trait CodeMotion {
 
     val nrlevels = rlevel2block.size //we assume here that that levelids always go from 0 to n-1
 
-    println("starting converting pmark")
+    printlog("starting converting pmark")
     val em: Vector[Set[Int]] = (0 until nrlevels + 1).foldLeft(Vector.empty[Set[Int]]) {
       (a, e) => a :+ Set.empty[Int]
     }
@@ -997,13 +999,13 @@ trait CodeMotion {
     */
   lazy val (enriched_graph, block_cache3): (Map[Int, EnrichedGraphNode], IRBlockInfo3) = {
 
-    println("starting Code Motion")
+    printlog("starting Code Motion")
     TimeLog.timer("CodeMotion_getBlockInfo", true)
     val (fulldag, binfo, resglobals) = getBlockInfo3(reifiedIR.rootlambda)
     val entry = TP2EnrichedGraphNode(def2tp(reifiedIR.rootlambda))
     val r = IRBlockInfo3(reifiedIR.def2tp(reifiedIR.rootlambda), binfo, resglobals)
     TimeLog.timer("CodeMotion_getBlockInfo", false)
-    println("finished Code Motion")
+    printlog("finished Code Motion")
     (fulldag + (entry.irdef -> entry), r)
   }
 

@@ -33,10 +33,9 @@ object BreakDown {
     override def getsize() = 2
   }
 
-  case class Node(val l: Tree, val v: Int, val r: Tree) extends Tree{
+  case class Node(val l: Tree, val v: Int, val r: Tree) extends Tree {
     override def getsize() = v
   }
-
 
 
   import scife.enumeration.dependent.Depend
@@ -91,9 +90,6 @@ object Gui extends SimpleSwingApplication {
   frame.setVisible(true)*/
 
   import ExampleData._
-
-
-
 
 
   case class BreakDownNode(private var nameVar: String, private val children: BreakDownNode*) {
@@ -221,7 +217,6 @@ object Gui extends SimpleSwingApplication {
   }
 
 
-
   def top = new MainFrame {
     title = "DFT Decompositions"
 
@@ -230,39 +225,44 @@ object Gui extends SimpleSwingApplication {
     val breakdown_enum = getBreakdown()
     val default_dft_size = 8
 
-    var dft_variants = breakdown_enum(Math.pow(2,default_dft_size).toInt)
+    var dft_variants = breakdown_enum(Math.pow(2, default_dft_size).toInt)
     var cur_variant = dft_variants(0)
     var cur_dft_size = 8
 
+    var slidervarcopy: Slider = null
 
-    def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int],Int], parent: List[Int]): Map[List[Int],Int] = {
+    def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int], Int], parent: List[Int]): Map[List[Int], Int] = {
       x match {
         case BreakDown.Leaf => sofar
-        case BreakDown.Node(l,v,r) => {
+        case BreakDown.Node(l, v, r) => {
           val cur = parent :+ v
           val nentry = sofar + (cur -> r.getsize())
 
-          val left = variant2Map(l,nentry,cur :+ Constants.encode_left)
-          val right = variant2Map(r,left,cur :+ Constants.encode_right)
+          val left = variant2Map(l, nentry, cur :+ Constants.encode_left)
+          val right = variant2Map(r, left, cur :+ Constants.encode_right)
           right
         }
       }
     }
 
 
-
     contents = new TabbedPane {
 
       import TabbedPane.Page
       import BorderPanel.Position._
-
-
-
-
+      val slider_variant =
+        new Slider() {
+          min = 0
+          value = 0
+          max = dft_variants.size - 1
+          majorTickSpacing = (dft_variants.size - 1) / 10
+          paintLabels = true
+          paintTicks = true
+        }
 
       //Create the label.
       val variants = new BoxPanel(Orientation.Vertical) {
-        border = CompoundBorder(TitledBorder(EtchedBorder, "Variant"), EmptyBorder(5,5,5,10))
+        border = CompoundBorder(TitledBorder(EtchedBorder, "Variant"), EmptyBorder(5, 5, 5, 10))
         val sizelabel = new Label("DFT size 2^n")
         val dft_size =
           new Slider() {
@@ -274,30 +274,23 @@ object Gui extends SimpleSwingApplication {
             paintTicks = true
           }
         val variantlabel = new Label("Variant")
-        val slider_variant =
-          new Slider() {
-            min = 0
-            value = 0
-            max = dft_variants.size-1
-            majorTickSpacing = (dft_variants.size-1)/10
-            paintLabels = true
-            paintTicks = true
-          }
+
 
         contents += sizelabel
         contents += dft_size
         contents += variantlabel
         contents += slider_variant
+        slidervarcopy = slider_variant //to manipulate from outside
         listenTo(slider_variant)
         listenTo(dft_size)
         reactions += {
-          case ValueChanged(`dft_size` ) => {
-            dft_variants = breakdown_enum(Math.pow(2,dft_size.value).toInt)
-            slider_variant.max_=(dft_variants.size-1)
+          case ValueChanged(`dft_size`) => {
+            dft_variants = breakdown_enum(Math.pow(2, dft_size.value).toInt)
+            slider_variant.max_=(dft_variants.size - 1)
             slider_variant.paintLabels_=(false)
             slider_variant.paintTicks_=(false)
             slider_variant.majorTickSpacing_=(0)
-            slider_variant.majorTickSpacing_=((dft_variants.size-1)/10)
+            slider_variant.majorTickSpacing_=((dft_variants.size - 1) / 10)
             slider_variant.value_=(0)
             //slider_variant.revalidate()
             //slider_variant.repaint()
@@ -315,20 +308,36 @@ object Gui extends SimpleSwingApplication {
 
       val scpanel = new ScrollPane(displaytree)
 
-      val buttons =new FlowPanel {
+      val buttons = new FlowPanel {
         border = Swing.EmptyBorder(5, 5, 5, 5)
         contents += new Button(Action("Generate Code") {
-          val varmap = variant2Map(cur_variant,Map.empty,List.empty)
+          val varmap = variant2Map(cur_variant, Map.empty, List.empty)
           val dsl = new Core(cur_variant, varmap, cur_dft_size)
           dsl.codeexport()
         })
         contents += new Button(Action("Generate and Time Code") {
-          val varmap = variant2Map(cur_variant,Map.empty,List.empty)
+          val varmap = variant2Map(cur_variant, Map.empty, List.empty)
           val dsl = new Core(cur_variant, varmap, cur_dft_size)
           val f = dsl.compile()
           f();
-
         })
+        contents += new Button{
+          text = "Gen ALL"
+          reactions += {
+            case ButtonClicked(_) => {
+              for (i <- 0 until dft_variants.size) {
+                println("Variant " + i + " of " + dft_variants.size)
+                slider_variant.value_=(i)
+                val varmap = variant2Map(cur_variant, Map.empty, List.empty)
+                val dsl = new Core(cur_variant, varmap, cur_dft_size)
+                val f = dsl.compile()
+                f();
+              }
+            }
+          }
+        }
+
+
       }
 
       pages += new Page("Runtime Breakdown",

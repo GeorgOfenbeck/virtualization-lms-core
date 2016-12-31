@@ -4,7 +4,7 @@ package internal
 import java.io.PrintWriter
 
 
-trait Emit[C] {
+trait Emit[C] extends Logging{
   self =>
   val IR: BaseExp with FunctionsExp
 
@@ -60,21 +60,21 @@ trait Emit[C] {
     val reify = new ReifyPure {
       override val IR: self.IR.type = self.IR
     }
-    println("starting reify")
+    printlog("starting reify")
     val reification = reify.reifyProgram(f)(args, returns)
-    println("starting codemotion")
+    printlog("starting codemotion")
     val cm: specCM = CodeMotion(reification)
-    println("starting schedule")
+    printlog("starting schedule")
     val exposedScheduleChoice: specEsc = ExposeScheduleChoice(cm)
-    println("starting getting Iterator")
+    printlog("starting getting Iterator")
     val iteratable = schedule.getSchedulewithIterator(exposedScheduleChoice)
     def blockcallback (block: self.IR.Block, bstart: C): C = {
       val bit = iteratable.iterator(block)
       emitc(bstart,bit,blockcallback)
     }
-    println("starting iterating")
+    printlog("starting iterating")
     val acc = emitc(start,iteratable.iterator,blockcallback)
-    println("finished iterating")
+    printlog("finished iterating")
     (acc,exposedScheduleChoice)
   }
 

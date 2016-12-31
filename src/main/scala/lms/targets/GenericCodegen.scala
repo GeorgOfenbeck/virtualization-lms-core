@@ -56,24 +56,24 @@ trait GenericCodegen extends Emit[Vector[String]]{
       override val IR: self.IR.type = self.IR
     }
     stream.println("//bla!")
-    println("starting reify")
+    printlog("starting reify")
     val reification = reify.reifyProgram(f)(args, returns)
-    println("starting codemotion")
+    printlog("starting codemotion")
     val cm: specCM = CodeMotion(reification)
-    println("starting schedule")
+    printlog("starting schedule")
     val exposedScheduleChoice: specEsc = ExposeScheduleChoice(cm)
-    println("starting getting Iterator")
+    printlog("starting getting Iterator")
     val iteratable = schedule.getSchedulewithIterator(exposedScheduleChoice)
     def blockcallback (block: self.IR.Block, bstart: Vector[String]): Vector[String] = {
       val bit = iteratable.iterator(block)
       emitStream(stream,bstart,bit,blockcallback)
       Vector.empty
     }
-    println("starting iterating")
+    printlog("starting iterating")
     //emitStream(start,iteratable.iterator,blockcallback)
     emitStream(stream,start,iteratable.iterator,blockcallback)
     stream.println("//bla end!")
-    println("finished iterating")
+    printlog("finished iterating")
     exposedScheduleChoice
   }
 
