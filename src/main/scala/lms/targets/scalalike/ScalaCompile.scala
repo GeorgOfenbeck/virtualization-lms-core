@@ -16,7 +16,7 @@ trait ScalaCompile {
   var compiler: Global = _
   var reporter: ConsoleReporter = _
 
-  def setupCompiler() = {
+  def setupCompiler():Global = {
     /*
       output = new ByteArrayOutputStream()
       val writer = new PrintWriter(new OutputStreamWriter(output))
@@ -39,7 +39,7 @@ trait ScalaCompile {
     // -usejavacp needed on windows?
 
     reporter = new ConsoleReporter(settings, null, new PrintWriter(System.out))//writer
-    compiler = new Global(settings, reporter)
+    new Global(settings, reporter)
   }
 
 

@@ -373,6 +373,7 @@ trait Header extends Skeleton {
       (statx,dynx) match{
         case (stat: Stat_GT_IM, dyn: Dyn_GT_IM) => apply(stat,dyn)
         case (stat: Stat_GTI_IM, dyn: Dyn_GTI_IM) => apply(stat,dyn)
+        case (stat: Stat_GTT_IM, dyn: Dyn_GTT_IM) => apply(stat,dyn)
         case _ => ???
       }
     }
@@ -387,6 +388,12 @@ trait Header extends Skeleton {
       val im = IMH(stat.im, dyn.im)
       val tw = IMH(stat.twim, dyn.twim)
       new GTI_IM(im, tw)
+    }
+    def apply(stat: Stat_GTT_IM, dyn: Dyn_GTT_IM): GTT_IM = {
+      val g = IMH(stat.g, dyn.g)
+      val s = IMH(stat.s, dyn.s)
+      val tw = IMH(stat.twim, dyn.twim)
+      new GTT_IM(g,s, tw)
     }
   }
 
@@ -422,6 +429,16 @@ trait Header extends Skeleton {
     def gather() = im
 
     def scatter() = im
+  }
+
+  case class GTT_IM(g: IMH, s: IMH, twim: IMH) extends IMFull {
+    def getDynIM(): Dyn_GTT_IM = new Dyn_GTT_IM(g.getDynIMH(), s.getDynIMH(), twim.getDynIMH())
+
+    def getStatIM(): Stat_GTT_IM = new Stat_GTT_IM(g.getStatIMH(), s.getStatIMH(), twim.getStatIMH())
+
+    def gather() = g
+
+    def scatter() = s
   }
 
   abstract class StatIM extends IM {
@@ -466,6 +483,23 @@ trait Header extends Skeleton {
     def scatter() = im
   }
 
+  case class Stat_GTT_IM(g: StatIMH, s: StatIMH, twim: StatIMH) extends StatIM {
+    override def toSig() = "g" + g.genSig() + "s" + s.genSig() + "tw" + twim.genSig()
+
+    def freshExps(): Vector[Exp[_]] = g.freshExps() ++ s.freshExps() ++ twim.freshExps()
+
+    def vec2t(v: Vector[Exp[_]]): (DynIM, Vector[Exp[_]]) = {
+      val (a, b) = g.vec2t(v)
+      val (c, d) = s.vec2t(b)
+      val (e, f) = twim.vec2t(d)
+      (new Dyn_GTT_IM(a, c,e), f)
+    }
+
+    def gather() = g
+
+    def scatter() = s
+  }
+
 
   abstract class DynIM extends IM {
     def t2vec(): Vector[Exp[_]]
@@ -485,6 +519,14 @@ trait Header extends Skeleton {
     def gather() = im
 
     def scatter() = im
+  }
+
+  case class Dyn_GTT_IM(g: DynIMH, s: DynIMH, twim: DynIMH) extends DynIM {
+    def t2vec(): Vector[Exp[_]] = g.t2vec() ++ s.t2vec() ++ twim.t2vec()
+
+    def gather() = g
+
+    def scatter() = s
   }
 
 

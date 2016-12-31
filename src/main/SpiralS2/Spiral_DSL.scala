@@ -11,6 +11,10 @@ import scala.lms.targets.scalalike._
 
 trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExpOpt  with ImplicitOpsExp with ScalaCompile  {
 
+  case class ListAdd(l : Exp[List[Int]], i: Exp[Int])extends Def[List[Int]]
+
+  def listadd(l : Exp[List[Int]], i: Exp[Int]): Exp[List[Int]] = ListAdd(l,i)
+
   case class ISingle(s: Single, i: Rep[Int])
 
   case class Single(y: Rep[ComplexVector])
@@ -204,7 +208,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
       case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " false //put prime factor check here"))
       //case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](" + quote(n) + ") //buffer creation"))
-      case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new ComplexVector(new Array[Complex](" + quote(n) + ")) //buffer creation"))
+      case VecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new SpiralS2.ComplexVector(new Array[SpiralS2.Complex](" + quote(n) + ")) //buffer creation"))
       case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
       case VecSame(x: Exp[ComplexVector], y: Exp[ComplexVector]) => Vector(emitValDef(tp, "" + quote(x)))
       case VecUpdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]) => Vector(emitValDef(tp, "" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + ")"))
@@ -226,7 +230,8 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case Twiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.store(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Twiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.load()"))
       //case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
-      case Radix(l: Exp[List[Int]]) => Vector(emitValDef(tp, "Settings.decompchoice.getOrElse(" + quote(l) + ",2)"))
+      case Radix(l: Exp[List[Int]]) => Vector(emitValDef(tp, "SpiralS2.Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: Int = ???; \nt})"))
+      case ListAdd(l: Exp[List[Int]],i:Exp[Int]) => Vector(emitValDef(tp, quote(l) + ":+ " + quote(i)))
 
       case SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
         val bodylambda = exp2tp(body)

@@ -232,6 +232,7 @@ object Gui extends SimpleSwingApplication {
 
     var dft_variants = breakdown_enum(Math.pow(2,default_dft_size).toInt)
     var cur_variant = dft_variants(0)
+    var cur_dft_size = 8
 
 
     def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int],Int], parent: List[Int]): Map[List[Int],Int] = {
@@ -239,10 +240,10 @@ object Gui extends SimpleSwingApplication {
         case BreakDown.Leaf => sofar
         case BreakDown.Node(l,v,r) => {
           val cur = parent :+ v
-          val nentry = sofar + (cur -> l.getsize())
+          val nentry = sofar + (cur -> r.getsize())
 
-          val left = variant2Map(l,nentry,cur :+ -1)
-          val right = variant2Map(r,left,cur :+ 1)
+          val left = variant2Map(l,nentry,cur :+ Constants.encode_left)
+          val right = variant2Map(r,left,cur :+ Constants.encode_right)
           right
         }
       }
@@ -303,6 +304,7 @@ object Gui extends SimpleSwingApplication {
           }
           case ValueChanged(`slider_variant`) => {
             cur_variant = dft_variants(slider_variant.value)
+            cur_dft_size = dft_size.value
             val newtree = getInternalBreakdownTree(cur_variant)
             scpanel.viewportView_=(newtree)
           }
@@ -316,10 +318,16 @@ object Gui extends SimpleSwingApplication {
       val buttons =new FlowPanel {
         border = Swing.EmptyBorder(5, 5, 5, 5)
         contents += new Button(Action("Generate Code") {
-
           val varmap = variant2Map(cur_variant,Map.empty,List.empty)
-          val dsl = new Core(cur_variant, varmap)
+          val dsl = new Core(cur_variant, varmap, cur_dft_size)
           dsl.codeexport()
+        })
+        contents += new Button(Action("Generate and Time Code") {
+          val varmap = variant2Map(cur_variant,Map.empty,List.empty)
+          val dsl = new Core(cur_variant, varmap, cur_dft_size)
+          val f = dsl.compile()
+          f();
+
         })
       }
 
