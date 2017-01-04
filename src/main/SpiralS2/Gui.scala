@@ -27,13 +27,16 @@ object BreakDown {
 
   trait Tree {
     def getsize(): Int
+    val unroll: Boolean
+    val isbasecase: Boolean
   }
 
-  case object Leaf extends Tree {
+  case class Leaf(val unroll: Boolean) extends Tree {
     override def getsize() = 2
+    override val isbasecase: Boolean = true
   }
 
-  case class Node(val l: Tree, val v: Int, val r: Tree) extends Tree {
+  case class Node(val l: Tree, val v: Int, val r: Tree, val unroll: Boolean, val isbasecase: Boolean) extends Tree {
     override def getsize() = v
   }
 
@@ -51,12 +54,19 @@ object BreakDown {
   import Depend._
 
 
-  def getBreakdown() = {
-    val breakdown: DependFinite[Int, Tree] =
+  def getBreakdown(base_min: Int, base_max: Int) = {
+    val breakdown: DependFinite[ (Int, Tree] =
       rec[Int, Tree]({
         case (self, size) => {
-          if (size <= 2) Leaf
+          if (size <= 2) Leaf(true)
           else {
+
+            val baserange = base_min to base_max
+
+            val isbase: DependFinite[Int, Tree] = self ↓[Int] {
+              case (n) => ???
+            }
+
             val left: DependFinite[(Int, Int), Tree] =
               self ↓[(Int, Int)] {
                 case (l, r) => l
@@ -73,7 +83,7 @@ object BreakDown {
             val sofar: Finite[((Int, Int), (Tree, Tree))] = part1 ⊘ part2
             sofar ↑ {
               case ((l, r), (lTree, rTree)) =>
-                Node(lTree, l * r, rTree)
+                Node(lTree, l * r, rTree, true, true)
             }
           }
         }
@@ -115,16 +125,19 @@ object Gui extends SimpleSwingApplication {
     preferredSize = (100, 12)
   }
 
+  def node_unroll(x: BreakDown.Tree): BreakDownNode = BreakDownNode("Unroll = " + x.unroll)
+  def node_isbasecase(x: BreakDown.Tree): BreakDownNode = BreakDownNode("is Base Case = " + x.isbasecase)
+
   def tree2model(x: BreakDown.Tree): BreakDownNode = {
     x match {
-      case BreakDown.Node(l, v, r) => BreakDownNode("DFT" + v, tree2model(l), tree2model(r))
-      case BreakDown.Leaf => BreakDownNode("F2")
+      case BreakDown.Node(l, v, r,unroll,isbasecase) => BreakDownNode("DFT" + v,node_unroll(x), node_isbasecase(x),tree2model(l), tree2model(r) )
+      case BreakDown.Leaf(unroll) => BreakDownNode("F2", node_unroll(x), node_isbasecase(x))
     }
   }
 
   def getInternalBreakdownTree(x: BreakDown.Tree) = new Tree[BreakDownNode] {
     renderer = Renderer.labeled { f =>
-      val icon = folderIcon
+      val icon = if (f.getchildren.isEmpty) fileIcon else folderIcon
       (icon, f.name)
     }
     val modtree = tree2model(x)
@@ -222,19 +235,21 @@ object Gui extends SimpleSwingApplication {
 
     import BreakDown._
 
-    val breakdown_enum = getBreakdown()
+    val breakdown_enum = getBreakdown(basecase_min,basecase_max)
     val default_dft_size = 8
 
     var dft_variants = breakdown_enum(Math.pow(2, default_dft_size).toInt)
     var cur_variant = dft_variants(0)
     var cur_dft_size = 8
+    var basecase_min = 16
+    var basecase_max = 64
 
     var slidervarcopy: Slider = null
 
     def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int], Int], parent: List[Int]): Map[List[Int], Int] = {
       x match {
-        case BreakDown.Leaf => sofar
-        case BreakDown.Node(l, v, r) => {
+        case BreakDown.Leaf(unroll) => sofar
+        case BreakDown.Node(l, v, r,unroll,isbasecase) => {
           val cur = parent :+ v
           val nentry = sofar + (cur -> r.getsize())
 
@@ -260,6 +275,47 @@ object Gui extends SimpleSwingApplication {
           paintTicks = true
         }
 
+      val checkbox_ndynamic = new CheckBox("Dynamic input size")
+      val textfield_basecase_min = new TextField {
+        text = basecase_min.toString
+        horizontalAlignment = Alignment.Left
+      }
+      val textfield_basecase_max = new TextField {
+        text = basecase_max.toString
+        horizontalAlignment = Alignment.Left
+      }
+
+      val textfield_nr_thread = new TextField {
+        text = "4"
+        horizontalAlignment = Alignment.Left
+      }
+      val textfield_vector_length = new TextField {
+        text = "4"
+        horizontalAlignment = Alignment.Left
+      }
+
+      val boxpanel_basecase = new BoxPanel(Orientation.Vertical){
+        border = CompoundBorder(TitledBorder(EtchedBorder, "use Base Cases"), EmptyBorder(5, 5, 5, 10))
+        contents.append(new Label("always when < "),textfield_basecase_min, new Label("try when < "), textfield_basecase_max)
+      }
+      val boxpanel_parallel = new BoxPanel(Orientation.Vertical){
+        border = CompoundBorder(TitledBorder(EtchedBorder, "Parallelism"), EmptyBorder(5, 5, 5, 10))
+        contents.append(new Label("# Threads"),textfield_nr_thread, new Label("SIMD vector length"), textfield_vector_length)
+      }
+
+      val radio_twid_fly = new RadioButton("Always on-the-fly")
+      val radio_twid_pre = new RadioButton("Always pre-compute")
+      val radio_twid_mix = new RadioButton("Try mix - inline if possible")
+      val mutex_twiddle = new ButtonGroup(radio_twid_fly,radio_twid_pre,radio_twid_mix)
+
+
+      val boxpanel_twiddles = new BoxPanel(Orientation.Vertical){
+        border = CompoundBorder(TitledBorder(EtchedBorder, "Twiddle Factors"), EmptyBorder(5, 5, 5, 10))
+        contents ++= mutex_twiddle.buttons
+      }
+
+
+
       //Create the label.
       val variants = new BoxPanel(Orientation.Vertical) {
         border = CompoundBorder(TitledBorder(EtchedBorder, "Variant"), EmptyBorder(5, 5, 5, 10))
@@ -278,6 +334,10 @@ object Gui extends SimpleSwingApplication {
 
         contents += sizelabel
         contents += dft_size
+        contents += checkbox_ndynamic
+        contents += boxpanel_basecase
+        contents += boxpanel_twiddles
+        contents += boxpanel_parallel
         contents += variantlabel
         contents += slider_variant
         slidervarcopy = slider_variant //to manipulate from outside
@@ -312,12 +372,12 @@ object Gui extends SimpleSwingApplication {
         border = Swing.EmptyBorder(5, 5, 5, 5)
         contents += new Button(Action("Generate Code") {
           val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-          val dsl = new Core(cur_variant, varmap, cur_dft_size)
+          val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
           dsl.codeexport()
         })
         contents += new Button(Action("Generate and Time Code") {
           val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-          val dsl = new Core(cur_variant, varmap, cur_dft_size)
+          val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
           val f = dsl.compile()
           f();
         })
@@ -329,7 +389,7 @@ object Gui extends SimpleSwingApplication {
                 println("Variant " + i + " of " + dft_variants.size)
                 slider_variant.value_=(i)
                 val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-                val dsl = new Core(cur_variant, varmap, cur_dft_size)
+                val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
                 val f = dsl.compile()
                 f();
               }
