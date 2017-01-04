@@ -29,14 +29,15 @@ object BreakDown {
     def getsize(): Int
     val unroll: Boolean
     val isbasecase: Boolean
+    val twiddlecomp: Boolean
   }
 
-  case class Leaf(val unroll: Boolean) extends Tree {
+  case class Leaf(val unroll: Boolean, val twiddlecomp: Boolean) extends Tree {
     override def getsize() = 2
     override val isbasecase: Boolean = true
   }
 
-  case class Node(val l: Tree, val v: Int, val r: Tree, val unroll: Boolean, val isbasecase: Boolean) extends Tree {
+  case class Node(val l: Tree, val v: Int, val r: Tree, val unroll: Boolean, val isbasecase: Boolean, val twiddlecomp: Boolean) extends Tree {
     override def getsize() = v
   }
 
@@ -55,35 +56,38 @@ object BreakDown {
 
 
   def getBreakdown(base_min: Int, base_max: Int) = {
-    val breakdown: DependFinite[ (Int, Tree] =
-      rec[Int, Tree]({
-        case (self, size) => {
-          if (size <= 2) Leaf(true)
+    val breakdown: DependFinite[ (Int,Boolean), Tree] =
+      rec[(Int,Boolean), Tree]({
+        case (self, (size,isbase)) => {
+          if (size <= 2) Finite.colToEnum(Vector(Leaf(true,true),Leaf(true,false)))
           else {
 
-            val baserange = base_min to base_max
-
-            val isbase: DependFinite[Int, Tree] = self ↓[Int] {
-              case (n) => ???
-            }
-
-            val left: DependFinite[(Int, Int), Tree] =
-              self ↓[(Int, Int)] {
-                case (l, r) => l
+            val left: DependFinite[(Boolean,(Boolean,(Int, Int))), Tree] =
+              self ↓[(Boolean,(Boolean,(Int, Int)))] {
+                case (twiddle,(basecase,(l, r))) => (l,basecase)
               }
 
-            val right: DependFinite[(Int, Int), Tree] =
-              self ↓[(Int, Int)] {
-                case (l, r) => r
+            val right: DependFinite[(Boolean,(Boolean,(Int, Int))), Tree] =
+              self ↓[(Boolean,(Boolean,(Int, Int)))] {
+                case (twiddle,(basecase,(l, r))) => (r,basecase)
               }
 
             val divpairs: Vector[(Int, Int)] = Bla.DivisorPairs(size).toVector
+            val baserange: Vector[Boolean] = Set(size <= base_min, size <= base_max).toVector
+
+            val twiddle = Vector(true,false)
+
             val part1: Finite[(Int, Int)] = divpairs
-            val part2: DependFinite[(Int, Int), (Tree, Tree)] = (left ⊗ right)
-            val sofar: Finite[((Int, Int), (Tree, Tree))] = part1 ⊘ part2
+
+            val partb: Finite[(Boolean,(Int, Int))] = Finite.colToEnum(baserange) ⊗ part1 //base case
+
+            val parttwid: Finite[(Boolean,(Boolean,(Int, Int)))] = Finite.colToEnum(twiddle) ⊗ partb //base case
+
+            val part2: DependFinite[(Boolean,(Boolean,(Int, Int))), (Tree, Tree)] = (left ⊗ right)
+
+            val sofar: Finite[((Boolean,(Boolean,(Int, Int))), (Tree, Tree))] = parttwid ⊘ part2
             sofar ↑ {
-              case ((l, r), (lTree, rTree)) =>
-                Node(lTree, l * r, rTree, true, true)
+              case ((t,(b,(l, r))), (lTree, rTree)) =>  Node(lTree, l * r, rTree, true, (b || isbase),t)
             }
           }
         }
@@ -127,11 +131,13 @@ object Gui extends SimpleSwingApplication {
 
   def node_unroll(x: BreakDown.Tree): BreakDownNode = BreakDownNode("Unroll = " + x.unroll)
   def node_isbasecase(x: BreakDown.Tree): BreakDownNode = BreakDownNode("is Base Case = " + x.isbasecase)
+  def node_twiddle(x: BreakDown.Tree): BreakDownNode = if (x.isbasecase) BreakDownNode("Twiddles: inlined") else
+    if (x.twiddlecomp) BreakDownNode("Twiddles: on the fly") else BreakDownNode("Twiddles: precomputed")
 
   def tree2model(x: BreakDown.Tree): BreakDownNode = {
     x match {
-      case BreakDown.Node(l, v, r,unroll,isbasecase) => BreakDownNode("DFT" + v,node_unroll(x), node_isbasecase(x),tree2model(l), tree2model(r) )
-      case BreakDown.Leaf(unroll) => BreakDownNode("F2", node_unroll(x), node_isbasecase(x))
+      case BreakDown.Node(l, v, r,unroll,isbasecase,twiddlecomp) => BreakDownNode("DFT" + v,node_unroll(x), node_isbasecase(x), node_twiddle(x),tree2model(l), tree2model(r) )
+      case BreakDown.Leaf(unroll, twiddlecomp) => BreakDownNode("F2", node_unroll(x), node_isbasecase(x), node_twiddle(x))
     }
   }
 
@@ -234,24 +240,24 @@ object Gui extends SimpleSwingApplication {
     title = "DFT Decompositions"
 
     import BreakDown._
-
-    val breakdown_enum = getBreakdown(basecase_min,basecase_max)
-    val default_dft_size = 8
-
-    var dft_variants = breakdown_enum(Math.pow(2, default_dft_size).toInt)
-    var cur_variant = dft_variants(0)
-    var cur_dft_size = 8
     var basecase_min = 16
     var basecase_max = 64
+    val breakdown_enum = getBreakdown(basecase_min,basecase_max)
+    val default_dft_size = 6
+
+    var dft_variants = breakdown_enum((Math.pow(2, default_dft_size).toInt, false))
+    var cur_variant = dft_variants(0)
+    var cur_dft_size = default_dft_size
+
 
     var slidervarcopy: Slider = null
 
-    def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int], Int], parent: List[Int]): Map[List[Int], Int] = {
+    def variant2Map(x: BreakDown.Tree, sofar: Map[List[Int], (Int,Boolean,Boolean)], parent: List[Int]): Map[List[Int], (Int,Boolean,Boolean)] = {
       x match {
-        case BreakDown.Leaf(unroll) => sofar
-        case BreakDown.Node(l, v, r,unroll,isbasecase) => {
+        case BreakDown.Leaf(unroll,twid) => sofar
+        case BreakDown.Node(l, v, r,unroll,isbasecase,twid) => {
           val cur = parent :+ v
-          val nentry = sofar + (cur -> r.getsize())
+          val nentry = sofar + (cur -> (r.getsize(),isbasecase,twid))
 
           val left = variant2Map(l, nentry, cur :+ Constants.encode_left)
           val right = variant2Map(r, left, cur :+ Constants.encode_right)
@@ -276,6 +282,7 @@ object Gui extends SimpleSwingApplication {
         }
 
       val checkbox_ndynamic = new CheckBox("Dynamic input size")
+      checkbox_ndynamic.selected = true
       val textfield_basecase_min = new TextField {
         text = basecase_min.toString
         horizontalAlignment = Alignment.Left
@@ -345,7 +352,7 @@ object Gui extends SimpleSwingApplication {
         listenTo(dft_size)
         reactions += {
           case ValueChanged(`dft_size`) => {
-            dft_variants = breakdown_enum(Math.pow(2, dft_size.value).toInt)
+            dft_variants = breakdown_enum(Math.pow(2, dft_size.value).toInt, false)
             slider_variant.max_=(dft_variants.size - 1)
             slider_variant.paintLabels_=(false)
             slider_variant.paintTicks_=(false)

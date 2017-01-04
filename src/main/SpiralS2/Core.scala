@@ -8,7 +8,7 @@ object Constants {
   val encode_left = -1
 }
 
-class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], Int], val testsize: Int) extends Header {
+class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Boolean)], val testsize: Int) extends Header {
   self =>
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
@@ -57,7 +57,17 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], Int], val testsiz
     R2AInt(choose_radix(l.ev.toRep(l.a)))
   } else {
     toOE(l.a match {
-      case ll: List[Int] => lookup.getOrElse(ll, 2)
+      case ll: List[Int] => { lookup.getOrElse(ll, (2,false,false))._1 }
+      case _ => ???
+    })
+  }
+
+
+  def chooseTwiddle(l: LInt): AInt = if (l.ev.isRep()) {
+    R2AInt(choose_twid(l.ev.toRep(l.a)))
+  } else {
+    toOE(l.a match {
+      case ll: List[Int] => { lookup.getOrElse(ll, (2,false,true))._3 }
       case _ => ???
     })
   }
