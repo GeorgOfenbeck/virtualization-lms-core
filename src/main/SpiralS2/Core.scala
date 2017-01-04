@@ -67,7 +67,9 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
     R2AInt(choose_twid(l.ev.toRep(l.a)))
   } else {
     toOE(l.a match {
-      case ll: List[Int] => { lookup.getOrElse(ll, (2,false,true))._3 }
+      case ll: List[Int] => { val t=  lookup.getOrElse(ll, (2,false,true))._3
+      if (t) 1 else 0
+      }
       case _ => ???
     })
   }
