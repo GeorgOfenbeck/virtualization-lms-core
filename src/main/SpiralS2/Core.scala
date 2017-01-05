@@ -8,7 +8,7 @@ object Constants {
   val encode_left = -1
 }
 
-class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Boolean)], val testsize: Int) extends Header {
+class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Boolean)], val testsize: Int) extends Header {
   self =>
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
@@ -18,7 +18,9 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
   }
 
   val WHT = false
+
   def inplace: Boolean = if (WHT) true else false
+
   val doinline = false //true
 
   def inline(oe: OptionalEntry {type T = Int}): Boolean = oe.a match {
@@ -28,11 +30,15 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
 
   val validate = true
   val static_size: Option[Int] = None
-  val basecase_size: Option[Int] = Some(4) //Some(8)
-  val parallel: Option[Int] = None//Some(8)
-  val twid_inline = false //true
+  val basecase_size: Option[Int] = None //Some(4)
+  //Some(4) //Some(8)
+  val parallel: Option[Int] = None
+  //Some(8)
+  val twid_inline = true
+  //true
   val twid_precomp = false
-  val interleaved = true
+  //false
+  val interleaved = false //true
 
 
   def resolveH(h: IMHBase, i: AInt, v: AInt): AInt = h.base + (h.s0 * i) + (h.s1 * v)
@@ -49,19 +55,26 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
       }
     } else {
       val (nr, dr, kr, ir): (Rep[Int], Rep[Int], Rep[Int], Rep[Int]) = (n.ev.toRep(n.a), d.ev.toRep(d.a), k.ev.toRep(k.a), i.ev.toRep(i.a))
-      if (mix.precompute)  {
-
-        sample.create(dtwiddle_apply_index_store(nr, dr, kr, ir,true), dtwiddle_apply_index_store(nr, dr, kr, ir, false)) }else {
-        if (twid_precomp) {          sample.create(dtwiddle_load(ir),dtwiddle_load(ir)) }
-        else { sample.create(dtwiddle_apply_index(nr, dr, kr, ir,true),dtwiddle_apply_index(nr, dr, kr, ir,false))
-        }      }    }
+      if (mix.precompute) {
+        sample.create(dtwiddle_apply_index_store(nr, dr, kr, ir, true), dtwiddle_apply_index_store(nr, dr, kr, ir, false))
+      } else {
+        if (twid_precomp) {
+          sample.create(dtwiddle_load(ir), dtwiddle_load(ir))
+        }
+        else {
+          sample.create(dtwiddle_apply_index(nr, dr, kr, ir, true), dtwiddle_apply_index(nr, dr, kr, ir, false))
+        }
+      }
+    }
   }
 
   def chooseRadix(n: AInt, l: LInt): AInt = if (l.ev.isRep()) {
     R2AInt(choose_radix(l.ev.toRep(l.a)))
   } else {
     toOE(l.a match {
-      case ll: List[Int] => { lookup.getOrElse(ll, (2,false,false))._1 }
+      case ll: List[Int] => {
+        lookup.getOrElse(ll, (2, false, false))._1
+      }
       case _ => ???
     })
   }
@@ -71,8 +84,9 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
     R2AInt(choose_twid(l.ev.toRep(l.a)))
   } else {
     toOE(l.a match {
-      case ll: List[Int] => { val t=  lookup.getOrElse(ll, (2,false,true))._3
-      if (t) 1 else 0
+      case ll: List[Int] => {
+        val t = lookup.getOrElse(ll, (2, false, true))._3
+        if (t) 1 else 0
       }
       case _ => ???
     })
@@ -89,7 +103,7 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
 
   def loop[A](mix: Mix, ini: Data, par: Option[Int], body: iData => Data): Data = {
     val till = mix.lb
-    if (!unroll(mix)) sumFoldx(till.ev.toRep(till.a), par, ini.getdata(), mix.y.getdata(), body) (exposeiData(mix.expdata),mix.expdata)
+    if (!unroll(mix)) sumFoldx(till.ev.toRep(till.a), par, ini.getdata(), mix.y.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
     else {
       till.a match {
         case x: Int => {
@@ -113,7 +127,7 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
 
   def exposeiData(expdata: ExposeRep[Data]) = new ExposeRep[iData]() {
 
-    val freshExps = (u: Unit) => expdata.freshExps() ++ Vector( Arg[Int])
+    val freshExps = (u: Unit) => expdata.freshExps() ++ Vector(Arg[Int])
     val vec2t: Vector[Exp[_]] => iData = (in: Vector[Exp[_]]) => {
       val t = in(1).asInstanceOf[Rep[Int]]
       val s = expdata.vec2t(in)
@@ -137,12 +151,12 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
           case im_git: GT_IM => (t01, t02)
           case im_gtt: GTT_IM => if (WHT) (t01, t02) else mix.tw.fold[(DataEle, DataEle)]((t01, t02))(
             fb => (
-              (resolveTwid(t01,mix, fb.n, fb.d, fb.k, resolveH(im_gtt.twim, toOE(0), idata.i)) * t01),
-              (resolveTwid(t01,mix, fb.n, fb.d, fb.k, resolveH(im_gtt.twim, toOE(1), idata.i)) * t02)))
+              (resolveTwid(t01, mix, fb.n, fb.d, fb.k, resolveH(im_gtt.twim, toOE(0), idata.i)) * t01),
+              (resolveTwid(t01, mix, fb.n, fb.d, fb.k, resolveH(im_gtt.twim, toOE(1), idata.i)) * t02)))
           case im_gti: GTI_IM => if (WHT) (t01, t02) else mix.tw.fold[(DataEle, DataEle)]((t01, t02))(
             fb => (
-              (resolveTwid(t01,mix, fb.n, fb.d, fb.k, resolveH(im_gti.twim, toOE(0), idata.i)) * t01),
-              (resolveTwid(t01,mix, fb.n, fb.d, fb.k, resolveH(im_gti.twim, toOE(1), idata.i)) * t02)))
+              (resolveTwid(t01, mix, fb.n, fb.d, fb.k, resolveH(im_gti.twim, toOE(0), idata.i)) * t01),
+              (resolveTwid(t01, mix, fb.n, fb.d, fb.k, resolveH(im_gti.twim, toOE(1), idata.i)) * t02)))
         }
         mix.y.update(resolveH(mix.im.scatter(), toOE(0), idata.i), (t1 + t2)).update(resolveH(mix.im.scatter(), toOE(1), idata.i), (t1 - t2))
       }
@@ -213,7 +227,11 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int,Boolean,Bool
         DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
       })
     }
-    else  myifThenElse(check < Const(mid), { binsearch(mix, check, low, mid)}, { binsearch(mix, check, mid, high) })
+    else myifThenElse(check < Const(mid), {
+      binsearch(mix, check, low, mid)
+    }, {
+      binsearch(mix, check, mid, high)
+    })
   }
 
   def DFT_placeholder(stat: Stat): MaybeSFunction = {
