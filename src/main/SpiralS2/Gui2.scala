@@ -21,36 +21,39 @@ import scife.enumeration.dependent.Depend
 import scife.enumeration.{dependent, memoization}
 import dependent._
 import memoization._
-
+import org.jfree.chart.ChartPanel
+import org.jfree.chart.axis.NumberAxis
+import org.jfree.chart.renderer.xy.{XYLineAndShapeRenderer, XYSplineRenderer}
 
 import scala.swing.TabbedPane.Page
 import TabbedPane.Page
 import BorderPanel.Position._
+
 /**
   * Created by rayda on 05-Jan-17.
   */
 object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
 
+  object SmallEnum {
 
-  object SmallEnum{
-
-    var  basecase_min = 4
-    var  basecase_max = 8
-    var  basecase_default = 4
-    val default_dft_size = 4 //2^n
+    var basecase_min = 4
+    var basecase_max = 8
+    var basecase_default = 4
+    val default_dft_size = 4
+    //2^n
     val cur_dft_size = default_dft_size
 
-    var breakdown_enum = BreakDown.getBreakdown(Some(basecase_min,basecase_max),basecase_default, None)
+    var breakdown_enum = BreakDown.getBreakdown(Some(basecase_min, basecase_max), basecase_default, None)
     var dft_variants = breakdown_enum((Math.pow(2, default_dft_size).toInt, false))
     var cur_variant = dft_variants(0)
 
 
     val radio_dft = new RadioButton("DFT")
     val radio_wht = new RadioButton("WHT")
-    val mutex_transformtype = new ButtonGroup(radio_dft,radio_wht)
+    val mutex_transformtype = new ButtonGroup(radio_dft, radio_wht)
 
-    val boxpanel_transformtype = new BoxPanel(Orientation.Horizontal){
+    val boxpanel_transformtype = new BoxPanel(Orientation.Horizontal) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Transform type"), EmptyBorder(5, 5, 5, 10))
       contents ++= mutex_transformtype.buttons
     }
@@ -58,7 +61,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     val checkbox_threading = new CheckBox("Threading")
     val checkbox_vectorization = new CheckBox("Vectorization")
 
-    val boxpanel_parallelism = new BoxPanel(Orientation.Horizontal){
+    val boxpanel_parallelism = new BoxPanel(Orientation.Horizontal) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Parallelism"), EmptyBorder(5, 5, 5, 10))
       contents += checkbox_vectorization
       contents += checkbox_threading
@@ -68,10 +71,10 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     val radio_format_complex = new RadioButton("Complex Class")
     val radio_format_interleaved = new RadioButton("Interleaved Complex")
     val radio_format_splitcomplex = new RadioButton("Split Complex")
-    val mutex_dataformat = new ButtonGroup(radio_format_complex,radio_format_interleaved,radio_format_splitcomplex)
+    val mutex_dataformat = new ButtonGroup(radio_format_complex, radio_format_interleaved, radio_format_splitcomplex)
 
 
-    val boxpanel_dataformat = new BoxPanel(Orientation.Horizontal){
+    val boxpanel_dataformat = new BoxPanel(Orientation.Horizontal) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Data layout"), EmptyBorder(5, 5, 5, 10))
       contents ++= mutex_dataformat.buttons
     }
@@ -79,18 +82,13 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     val radio_stat_size = new RadioButton("Static Input size")
     val radio_dyn_size = new RadioButton("General Input size")
-    val mutex_size = new ButtonGroup(radio_stat_size,radio_dyn_size)
+    val mutex_size = new ButtonGroup(radio_stat_size, radio_dyn_size)
 
 
-    val boxpanel_statvdyn = new BoxPanel(Orientation.Horizontal){
+    val boxpanel_statvdyn = new BoxPanel(Orientation.Horizontal) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Fixed vs general sized input"), EmptyBorder(5, 5, 5, 10))
       contents ++= mutex_size.buttons
     }
-
-
-
-
-
 
 
     val radio_basecase_default = new RadioButton("Use default base case size")
@@ -105,24 +103,23 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
       text = basecase_max.toString
       horizontalAlignment = Alignment.Left
     }
-    val boxpanel_basecase_pernode = new BoxPanel(Orientation.Vertical){
+    val boxpanel_basecase_pernode = new BoxPanel(Orientation.Vertical) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "per Node Search space"), EmptyBorder(5, 5, 5, 10))
-      contents.append(radio_basecase_pernode, new Label("Base case always when < "),textfield_basecase_min, new Label("try when < "), textfield_basecase_max)
+      contents.append(radio_basecase_pernode, new Label("Base case always when < "), textfield_basecase_min, new Label("try when < "), textfield_basecase_max)
     }
     val textfield_basecase_default = new TextField {
       text = basecase_default.toString
       horizontalAlignment = Alignment.Left
     }
-    val boxpanel_basecase_default = new BoxPanel(Orientation.Vertical){
+    val boxpanel_basecase_default = new BoxPanel(Orientation.Vertical) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Default base case size / Fallback @ per Node"), EmptyBorder(5, 5, 5, 10))
-      contents.append(radio_basecase_default, new Label("Default / fallback "),textfield_basecase_default)
+      contents.append(radio_basecase_default, new Label("Default / fallback "), textfield_basecase_default)
     }
 
-    val boxpanel_basecase = new BoxPanel(Orientation.Horizontal){
+    val boxpanel_basecase = new BoxPanel(Orientation.Horizontal) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Base case config"), EmptyBorder(5, 5, 5, 10))
       contents.append(boxpanel_basecase_default, boxpanel_basecase_pernode)
     }
-
 
 
     val radio_twiddle_default = new RadioButton("Use default twiddle config")
@@ -136,32 +133,32 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     val checkbox_twiddle_inline = new CheckBox("Inline Twiddles @ unrolled code")
 
-    val boxpanel_twiddle_default = new BoxPanel(Orientation.Vertical){
+    val boxpanel_twiddle_default = new BoxPanel(Orientation.Vertical) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Default Twiddle policy"), EmptyBorder(5, 5, 5, 10))
       contents.append(checkbox_twiddle_inline)
       contents ++= mutex_twiddle_default.buttons
     }
 
 
-    val boxpanel_twiddle = new BoxPanel(Orientation.Horizontal){
+    val boxpanel_twiddle = new BoxPanel(Orientation.Horizontal) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Twiddle config"), EmptyBorder(5, 5, 5, 10))
       contents.append(radio_twiddle_default, radio_twiddle_pernode, boxpanel_twiddle_default)
     }
 
 
-    val checkbox_validate= new CheckBox("Validate Code (part of the timed code) ")
+    val checkbox_validate = new CheckBox("Validate Code (part of the timed code) ")
 
-    val leftconfig = new BoxPanel(Orientation.Horizontal){
-      contents.append(boxpanel_statvdyn,boxpanel_transformtype,boxpanel_dataformat,boxpanel_parallelism, checkbox_validate)
+    val leftconfig = new BoxPanel(Orientation.Horizontal) {
+      contents.append(boxpanel_statvdyn, boxpanel_transformtype, boxpanel_dataformat, boxpanel_parallelism, checkbox_validate)
     }
 
-    val rightconfig = new BoxPanel(Orientation.Horizontal){
+    val rightconfig = new BoxPanel(Orientation.Horizontal) {
       contents.append(boxpanel_basecase, boxpanel_twiddle)
     }
 
-    val config = new BoxPanel(Orientation.Vertical){
+    val config = new BoxPanel(Orientation.Vertical) {
       border = CompoundBorder(TitledBorder(EtchedBorder, "Config"), EmptyBorder(5, 5, 5, 10))
-      contents.append( leftconfig,rightconfig)
+      contents.append(leftconfig, rightconfig)
     }
 
     //-------------------------------------------------Variants
@@ -182,37 +179,28 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     scpanel.preferredSize_=((200, 768): Dimension)
 
 
-
-    val data = for (i <- 1 to 5) yield (i,i)
+    val data = for (i <- 1 to 5) yield (i, i)
     val chart = XYLineChart(data)
 
 
-    val plotting = new BoxPanel(Orientation.Horizontal){
+    val plotting = new BoxPanel(Orientation.Horizontal) {
       contents.append(scpanel)
       contents.append(chart.toComponent)
     }
 
 
-
-
-
-    val variants = new BoxPanel(Orientation.Vertical){
+    val variants = new BoxPanel(Orientation.Vertical) {
       contents.append(slider_variant)
       contents.append(plotting)
     }
 
 
-
-
-
-
-
     //-----------------------------------------------Buttons
 
-    def makecode():CorewGlue = {
+    def makecode(): CorewGlue = {
       val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-      new CorewGlue(cur_variant, varmap, cur_dft_size,radio_wht.selected,
-        if(radio_dyn_size.selected) None else Some((Math.pow(2, default_dft_size).toInt)),
+      new CorewGlue(cur_variant, varmap, cur_dft_size, radio_wht.selected,
+        if (radio_dyn_size.selected) None else Some((Math.pow(2, default_dft_size).toInt)),
         radio_format_interleaved.selected,
         checkbox_threading.selected,
         textfield_basecase_default.text.toInt,
@@ -233,7 +221,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         val f = dsl.compile()
         f();
       })
-      contents += new Button{
+      contents += new Button {
         text = "Gen ALL"
         reactions += {
           case ButtonClicked(_) => {
@@ -264,18 +252,18 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
 
     //Refresh the tree
-    breakdown_enum = if (radio_basecase_default.selected) BreakDown.getBreakdown(None,basecase_default,None) else BreakDown.getBreakdown(Some(basecase_min,basecase_max),basecase_default,None)
+    breakdown_enum = if (radio_basecase_default.selected) BreakDown.getBreakdown(None, basecase_default, None) else BreakDown.getBreakdown(Some(basecase_min, basecase_max), basecase_default, None)
     dft_variants = breakdown_enum((Math.pow(2, default_dft_size).toInt, false))
     cur_variant = dft_variants(0)
     scpanel.viewportView_=(getInternalBreakdownTree(cur_variant))
 
     slider_variant.max_=(dft_variants.size - 1)
-    if (dft_variants.size < 20){
-      slider_variant.majorTickSpacing_=( if ( (dft_variants.size -1) < 5) dft_variants.size-1 else 5)
-      slider_variant.minorTickSpacing_=( 1)
+    if (dft_variants.size < 20) {
+      slider_variant.majorTickSpacing_=(if ((dft_variants.size - 1) < 5) dft_variants.size - 1 else 5)
+      slider_variant.minorTickSpacing_=(1)
     } else {
-      slider_variant.majorTickSpacing_=( (dft_variants.size - 1) / 10)
-      slider_variant.minorTickSpacing_=( (dft_variants.size - 1) / 5)
+      slider_variant.majorTickSpacing_=((dft_variants.size - 1) / 10)
+      slider_variant.minorTickSpacing_=((dft_variants.size - 1) / 5)
     }
 
     slider_variant.paintLabels_=(true)
@@ -305,22 +293,190 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
   }
 
 
+  object Heuristic {
+    //val data = for (i <- 1 to 5) yield (i,i)
+    //val chart = XYLineChart(data)
+    import org.scalameter._
 
+    val standardConfig = config(
+      Key.exec.minWarmupRuns -> 100,
+      Key.exec.maxWarmupRuns -> 1000,
+      Key.exec.benchRuns -> 1000,
+      Key.verbose -> false
+    ) withWarmer (new Warmer.Default)
+
+    import org.scalameter._
+
+    import java.awt.Color;
+
+    val series: XYSeries = new XYSeries("jtransform")
+    val series2: XYSeries = new XYSeries("jtransform scalameter")
+
+    jtransform2()
+    jtransform()
+
+
+
+    val xAxis: NumberAxis = new NumberAxis("x Axis")
+    val yAxis: NumberAxis = new NumberAxis("y Axis")
+    //val renderer:XYSplineRenderer = new XYSplineRenderer();
+    val renderer = new XYLineAndShapeRenderer();
+
+    val dataset: XYSeriesCollection = new XYSeriesCollection()
+    dataset.addSeries(series)
+    dataset.addSeries(series2)
+
+    val plot: XYPlot = new XYPlot(dataset, xAxis, yAxis, renderer)
+    plot.setBackgroundPaint(Color.lightGray);
+    plot.setDomainGridlinePaint(Color.white);
+    plot.setRangeGridlinePaint(Color.white);
+    plot.setAxisOffset(new RectangleInsets(4, 4, 4, 4));
+
+    val chart = new JFreeChart(plot)
+    val chartPanel = new ChartPanel(chart)
+
+
+    def jtransform(): Unit = {
+      import org.jtransforms.fft.DoubleFFT_1D
+      import org.jtransforms.utils.{CommonUtils, IOUtils}
+
+
+      var sizes1D: Array[Long] = (2 until 20).foldLeft(Array.empty[Long])((acc, ele) => {
+        acc :+ Math.pow(2, ele).toLong
+      })
+      var nsize: Int = sizes1D.size
+      var niter: Int = 100;
+      var x: Array[Double] = null
+      val doWarmup: Boolean = true
+      val times_without_constructor = new Array[Double](nsize)
+      val times_with_constructor = new Array[Double](nsize)
+      var i = 0
+      while (i < nsize) {
+        {
+          System.out.println("Complex forward FFT 1D of size " + sizes1D(i))
+          if (doWarmup) {
+            // call the transform twice to warm up
+            val fft = new DoubleFFT_1D(sizes1D(i))
+            x = new Array[Double]((2 * sizes1D(i)).toInt)
+            IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+            fft.complexForward(x)
+            IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+            fft.complexForward(x)
+          }
+          var elapsedTime = System.nanoTime
+          var fft = new DoubleFFT_1D(sizes1D(i))
+          times_with_constructor(i) = (System.nanoTime - elapsedTime) / 1000000.0
+          x = new Array[Double]((2 * sizes1D(i)).toInt)
+          var min_time: Double = Double.MaxValue
+          var j = 0
+          while (j < niter) {
+            {
+              IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+              elapsedTime = System.nanoTime
+              fft.complexForward(x)
+              elapsedTime = System.nanoTime - elapsedTime
+              if (elapsedTime < min_time) min_time = elapsedTime
+            }
+            {
+              j += 1;
+              j - 1
+            }
+          }
+          times_without_constructor(i) = min_time.toDouble / 1000000.0
+          times_with_constructor(i) += times_without_constructor(i)
+          System.out.println("\tBest execution time without constructor: " + times_without_constructor(i) + " msec")
+          System.out.println("\tBest execution time with constructor: " + times_with_constructor(i) + " msec")
+          val n = sizes1D(i)
+          val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
+          val y: Double = ((flops / min_time))
+          println("adding flops" + flops + " -> " + i + " / " + y)
+          series.add(i + 2.toDouble, y)
+
+          x = null
+          fft = null
+          System.gc()
+          CommonUtils.sleep(5000)
+        }
+        {
+          i += 1;
+          i - 1
+        }
+      }
+      //IOUtils.writeFFTBenchmarkResultsToFile("benchmarkDoubleComplexForwardFFT_1D.txt", nthread, niter, doWarmup, doScaling, sizes1D, times_without_constructor, times_with_constructor)
+    }
+
+    def jtransform2(): Unit = {
+      import org.jtransforms.fft.DoubleFFT_1D
+      import org.jtransforms.utils.{CommonUtils, IOUtils}
+
+
+      var sizes1D: Array[Long] = (2 until 15).foldLeft(Array.empty[Long])((acc, ele) => {
+        acc :+ Math.pow(2, ele).toLong
+      })
+      var nsize: Int = sizes1D.size
+      var niter: Int = 100;
+      var x: Array[Double] = null
+      val doWarmup: Boolean = true
+      val times_without_constructor = new Array[Double](nsize)
+      val times_with_constructor = new Array[Double](nsize)
+      var i = 0
+      while (i < nsize) {
+
+          System.out.println("Complex forward FFT 1D of size " + sizes1D(i))
+
+          var elapsedTime = System.nanoTime
+          var fft = new DoubleFFT_1D(sizes1D(i))
+          x = new Array[Double]((2 * sizes1D(i)).toInt)
+          IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+          val min_time = standardConfig measure {
+
+            //times_with_constructor(i) = (System.nanoTime - elapsedTime) / 1000000.0
+
+
+            fft.complexForward(x)
+
+
+          }
+
+
+          val n = sizes1D(i)
+          val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
+          val y: Double = ((flops / (min_time * 1000000)))
+          println("adding flops" + flops + " -> " + i + " / " + y)
+          series2.add(i + 2.toDouble, y)
+
+          x = null
+          fft = null
+          System.gc()
+          CommonUtils.sleep(5000)
+          i = i + 1
+        
+      }
+    }
+
+    //IOUtils.writeFFTBenchmarkResultsToFile("benchmarkDoubleComplexForwardFFT_1D.txt", nthread, niter, doWarmup, doScaling, sizes1D, times_without_constructor, times_with_constructor)
+
+
+    val heuristic = new Page("Heuristic vs JTransform",
+      new BoxPanel(Orientation.Vertical) {
+        contents.append(Component.wrap(chartPanel))
+      }
+
+    )
+  }
+
+  //Heuristic.jtransform()
 
 
   def top = new MainFrame {
     title = "SpiralS"
-    size = (2*1024, 2*768): Dimension
+    size = (2 * 1024, 2 * 768): Dimension
 
     contents = new TabbedPane {
+      pages += Heuristic.heuristic
       pages += SmallEnum.smallenum
-
-
     }
   }
-
-
-
 
 
 }

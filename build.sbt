@@ -51,6 +51,8 @@ libraryDependencies += "com.itextpdf" % "itextpdf" % "5.5.6"
 
 libraryDependencies += "org.jfree" % "jfreesvg" % "3.0"
 
+libraryDependencies += "com.github.wendykierp" % "JTransforms" % "3.1"
+
 // tests are not thread safe
 parallelExecution in Test := false
 
