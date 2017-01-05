@@ -29,7 +29,7 @@ class CorewGlue (variant: BreakDown.Tree, lookup: Map[List[Int], (Int,Boolean,Bo
   }
 
 
-  def compile(): (Unit => Unit) = {
+  def compile(): (Unit => Double) = {
     import scala.tools.nsc._
     import scala.tools.nsc.util._
     import scala.tools.nsc.reporters._
@@ -114,12 +114,15 @@ class CorewGlue (variant: BreakDown.Tree, lookup: Map[List[Int], (Int,Boolean,Bo
     loader.loadClass("SpiralS2.PreCompute")*/
     //val cons = cls.getCon//cls.getConstructor()
 
-    val main = cls.getMethod("main", classOf[Array[String]])
+    //val main = cls.getMethod("main", classOf[Array[String]])
+    val time = cls.getMethod("time")
 
     //val obj: Unit => Unit = cons.newInstance().asInstanceOf[Unit => Unit]
-    val f: Unit => Unit = (u: Unit) => {
+    val f: Unit => Double = (u: Unit) => {
+      var res: Double = 0.0
       try {
-        main.invoke(null, Array.empty[String])
+        val t= time.invoke(null)
+        res =t.asInstanceOf[Double]
       }
       catch {
         case e: InvocationTargetException => {
@@ -132,9 +135,13 @@ class CorewGlue (variant: BreakDown.Tree, lookup: Map[List[Int], (Int,Boolean,Bo
             }
           }
         }
+        case e: Exception => {
+          println(e)
+        }
         case _ => ???
 
       }
+      res
     }
 
     f
