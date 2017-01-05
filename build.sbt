@@ -45,7 +45,11 @@ libraryDependencies += "ch.epfl.lara" % "scife_2.11" % "1.2.9"
 
 libraryDependencies += "com.github.benhutchison" %% "scalaswingcontrib" % "1.7"
 
+libraryDependencies += "com.github.wookietreiber" %% "scala-chart" % "latest.integration"
 
+libraryDependencies += "com.itextpdf" % "itextpdf" % "5.5.6"
+
+libraryDependencies += "org.jfree" % "jfreesvg" % "3.0"
 
 // tests are not thread safe
 parallelExecution in Test := false

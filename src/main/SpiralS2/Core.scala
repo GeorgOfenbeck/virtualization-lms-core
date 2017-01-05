@@ -8,7 +8,17 @@ object Constants {
   val encode_left = -1
 }
 
-class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Boolean)], val testsize: Int) extends Header {
+class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Boolean)], val testsize: Int,
+           val WHT: Boolean = true,
+           val static_size: Option[Int] = None,
+           val interleaved: Boolean = false,
+           val thread: Boolean = false,
+           val base_default: Int = 0,
+           val twid_inline: Boolean = true,
+           val twid_default_precomp: Boolean = true,
+           val inplace: Boolean = false,
+           val inline:Boolean = true
+          ) extends Header {
   self =>
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
@@ -17,29 +27,14 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
     val IR: self.type = self
   }
 
-  val WHT = false
 
-  def inplace: Boolean = if (WHT) true else false
 
-  val doinline = false //true
+  val basecase_size: Option[Int] = if (base_default == 0) None else Some(base_default)
 
   def inline(oe: OptionalEntry {type T = Int}): Boolean = oe.a match {
-    case Some(n: Int) => doinline && basecase_size.fold(false)(fb => n <= fb)
+    case Some(n: Int) => inline && basecase_size.fold(false)(fb => n <= fb)
     case _ => false
   }
-
-  val validate = true
-  val static_size: Option[Int] = None
-  val basecase_size: Option[Int] = None //Some(4)
-  //Some(4) //Some(8)
-  val parallel: Option[Int] = None
-  //Some(8)
-  val twid_inline = true
-  //true
-  val twid_precomp = false
-  //false
-  val interleaved = false //true
-
 
   def resolveH(h: IMHBase, i: AInt, v: AInt): AInt = h.base + (h.s0 * i) + (h.s1 * v)
 
@@ -58,7 +53,7 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
       if (mix.precompute) {
         sample.create(dtwiddle_apply_index_store(nr, dr, kr, ir, true), dtwiddle_apply_index_store(nr, dr, kr, ir, false))
       } else {
-        if (twid_precomp) {
+        if (twid_default_precomp) {
           sample.create(dtwiddle_load(ir), dtwiddle_load(ir))
         }
         else {

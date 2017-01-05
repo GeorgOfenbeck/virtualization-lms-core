@@ -17,81 +17,7 @@ import scala.swing.event._
 import scala.swing.Swing._
 import scala.swing.ListView._
 
-object Bla {
-  def DivisorPairs(n: Int): List[(Int, Int)] = {
-    (2 to Math.sqrt(n).toInt).filter(n % _ == 0).flatMap(x => (if (n / x == x) List(x) else List(n / x, x))).toList.sortWith(_ > _).map(x => (n / x, x))
-  }
-}
 
-object BreakDown {
-
-  trait Tree {
-    def getsize(): Int
-    val unroll: Boolean
-    val isbasecase: Boolean
-  }
-
-  case class Leaf(val unroll: Boolean, val twiddlecomp: Boolean) extends Tree {
-    override def getsize() = 2
-    override val isbasecase: Boolean = true
-  }
-
-  case class Node(val l: Tree, val v: Int, val r: Tree, val unroll: Boolean, val isbasecase: Boolean) extends Tree {
-    override def getsize() = v
-  }
-
-
-  import scife.enumeration.dependent.Depend
-  import scife.enumeration.{dependent, memoization}
-  import dependent._
-  import memoization._
-  import scife.util._
-
-  import scife.{enumeration => e}
-  // DSL
-  import e._
-  import Enum._
-  import Depend._
-
-
-  def getBreakdown(base_min: Int, base_max: Int) = {
-    val breakdown: DependFinite[ (Int,Boolean), Tree] =
-      rec[(Int,Boolean), Tree]({
-        case (self, (size,isbase)) => {
-          if (size <= 2) Finite.colToEnum(Vector(Leaf(true,true),Leaf(true,false)))
-          else {
-
-            val left: DependFinite[(Boolean,(Int, Int)), Tree] =
-              self ↓[(Boolean,(Int, Int))] {
-                case ((basecase,(l, r))) => (l,basecase)
-              }
-
-            val right: DependFinite[(Boolean,(Int, Int)), Tree] =
-              self ↓[(Boolean,(Int, Int))] {
-                case ((basecase,(l, r))) => (r,basecase)
-              }
-
-            val divpairs: Vector[(Int, Int)] = Bla.DivisorPairs(size).toVector
-            val baserange: Vector[Boolean] = Set(size <= base_min, size <= base_max).toVector
-
-            val twiddle = Vector(true,false)
-
-            val part1: Finite[(Int, Int)] = divpairs
-
-            val partb: Finite[(Boolean,(Int, Int))] = Finite.colToEnum(baserange) ⊗ part1 //base case
-
-            val part2: DependFinite[(Boolean,(Int, Int)), (Tree, Tree)] = (left ⊗ right)
-
-            val sofar: Finite[((Boolean,(Int, Int)), (Tree, Tree))] = partb ⊘ part2
-            sofar ↑ {
-              case ((b,(l, r)), (lTree, rTree)) =>  Node(lTree, l * r, rTree, true, (b || isbase))
-            }
-          }
-        }
-      })
-    breakdown
-  }
-}
 
 
 object Gui extends SimpleSwingApplication {
@@ -239,7 +165,7 @@ object Gui extends SimpleSwingApplication {
     import BreakDown._
     var basecase_min = 16
     var basecase_max = 64
-    val breakdown_enum = getBreakdown(basecase_min,basecase_max)
+    val breakdown_enum : scife.enumeration.dependent.DependFinite[ (Int,Boolean), BreakDown.Tree] = ??? //getBreakdown(basecase_min,basecase_max)
     val default_dft_size = 4
 
     var dft_variants = breakdown_enum((Math.pow(2, default_dft_size).toInt, false))
