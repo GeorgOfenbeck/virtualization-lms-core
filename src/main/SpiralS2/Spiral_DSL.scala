@@ -81,6 +81,8 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def twiddle_apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]): Exp[ComplexVector] = Twiddle_Apply(vec,size,n,d,k)
 
+
+
   case class Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) extends Def[Complex]
 
   def twiddle_apply_index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index(n,d,k,i)
@@ -93,13 +95,39 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def twiddle_apply_index_store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index_Store(n,d,k,i)
 
+
+  case class DTwiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
+
+  def dtwiddle_apply_index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re:Boolean): Exp[Double] = DTwiddle_Apply_Index(n,d,k,i,re)
+
+  case class DTwiddle_Load(i: Exp[Int] ) extends Def[Double]
+
+  def dtwiddle_load( i: Exp[Int]): Exp[Double] = DTwiddle_Load(i)
+
+  case class DTwiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
+
+  def dtwiddle_apply_index_store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean): Exp[Double] = DTwiddle_Apply_Index_Store(n,d,k,i,re)
+
+
+
+
+
   case class VecCreate(s: Exp[Int]) extends Def[ComplexVector]
+
+  def veccreate(i: Exp[Int]): Exp[ComplexVector] = VecCreate(i)
+
+  case class DVecCreate(s: Exp[Int]) extends Def[Array[Double]]
+
+  def dveccreate(i: Exp[Int]): Exp[Array[Double]] = DVecCreate(i)
 
   case class CompCreate(re: Exp[Double], im: Exp[Double]) extends Def[Complex]
 
   def compcreate(re: Exp[Double], im: Exp[Double]): Exp[Complex] = CompCreate(re,im)
 
-  def veccreate(i: Exp[Int]): Exp[ComplexVector] = VecCreate(i)
+
+  case class DVecApply(vec: Exp[Array[Double]], i: Exp[Int]) extends Def[Double]
+
+  def dvecapply(vec: Exp[Array[Double]], i: Exp[Int]): Exp[Double] = DVecApply(vec, i)
 
   case class VecApply(vec: Exp[ComplexVector], i: Exp[Int]) extends Def[Complex]
 
@@ -109,9 +137,17 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def vecupdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]): Exp[ComplexVector] = VecUpdate(vec, i, y)
 
+  case class DVecUpdate(vec: Exp[Array[Double]], i: Exp[Int], y: Exp[Double]) extends Def[Array[Double]]
+
+  def dvecupdate(vec: Exp[Array[Double]], i: Exp[Int], y: Exp[Double]): Exp[Array[Double]] = DVecUpdate(vec, i, y)
+
   case class VecSame(x: Exp[ComplexVector],y: Exp[ComplexVector] ) extends Def[ComplexVector]
 
   def vecsame(x: Exp[ComplexVector], y:  Exp[ComplexVector]): Exp[ComplexVector] = VecSame(x,y)
+
+  case class DVecSame(x: Exp[Array[Double]], y:  Exp[Array[Double]]) extends Def[Array[Double]]
+
+  def dvecsame(x: Exp[Array[Double]], y:  Exp[Array[Double]]): Exp[Array[Double]] = DVecSame(x,y)
 
   case class Plus(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
 
@@ -216,6 +252,11 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case VecApply(vec: Exp[ComplexVector], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
       case VecSame(x: Exp[ComplexVector], y: Exp[ComplexVector]) => Vector(emitValDef(tp, "" + quote(x)))
       case VecUpdate(vec: Exp[ComplexVector], i: Exp[Int], y: Exp[Complex]) => Vector(emitValDef(tp, "" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + ")"))
+
+      case DVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](2*" + quote(n) + ") //buffer creation"))
+      case DVecApply(vec: Exp[Array[Double]], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
+      case DVecSame(x: Exp[Array[Double]], y: Exp[Array[Double]]) => Vector(emitValDef(tp, "" + quote(x)))
+      case DVecUpdate(vec: Exp[Array[Double]], i: Exp[Int], y: Exp[Double]) => Vector(emitValDef(tp, "{" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + "); "+quote(vec)+ "}"))
       case IVecAddStride(v: Exp[Vector[Int]], y: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(v) + ".dropRight(1) :+ " + quote(v) + ".last / " + quote(y) + "/// ADD STride " + quote(b)))
       case IVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "Vector.empty[Int] //creating vector with " + quote(n)))
       case IVecAppend(v: Exp[Vector[Int]], y: Exp[Int]) => Vector(emitValDef(tp, quote(v) + " :+ " + quote(y)))
@@ -233,8 +274,19 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Twiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.store(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Twiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.load()"))
+
+      case DTwiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int],re: Boolean) => {
+        val t = if(re){ ".re"} else {".im"}
+        Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")" + t ))
+      }
+      case DTwiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int],re: Boolean) => { Vector(emitValDef(tp, " Twiddle.dstore(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + "," + re + ")" ))}
+
+
+      case DTwiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.dload()"))
+
+
       //case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
-      case Radix(l: Exp[List[Int]]) => Vector(emitValDef(tp, "Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = ???; \nt})._1"))
+      case Radix(l: Exp[List[Int]]) => Vector(emitValDef(tp, "Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = (16,false,false); \nt})._1"))
       case Twid(l: Exp[List[Int]]) => Vector(emitValDef(tp, "{val t = Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = ???; \nt})._3\nif(t) 1 else 0}\n"))
       case ListAdd(l: Exp[List[Int]],i:Exp[Int]) => Vector(emitValDef(tp, quote(l) + ":+ " + quote(i)))
 
