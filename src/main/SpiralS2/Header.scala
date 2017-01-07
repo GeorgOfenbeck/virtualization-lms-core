@@ -71,12 +71,13 @@ trait Header extends Skeleton {
     def update(i: AInt, y: DataEle): Data = (this,y) match{
       case (me: SComplexVector,e: SComplex) => me.updatex(i,e)
       case (me: InterleavedComplexVector,e: InterleavedComplex) => me.updatex(i,e)
+      case (me: ScalarVector,e: InterleavedComplex) => me.updatex(i,e)
       case _ => ???
     }
 
     def t2vec(): Vector[Exp[_]]
 
-    def same(x: Data, y: Data): Data
+
 
   }
 
@@ -93,12 +94,6 @@ trait Header extends Skeleton {
 
   case class SComplexVector(d: Exp[ComplexVector]) extends Data {
 
-    def same(x: Data, y: Data): Data = {
-      (x,y) match{
-        case (sx: SComplexVector, sy: SComplexVector ) => new SComplexVector(vecsame(sx.d,sy.d))
-        case _ => ???
-    }
-    }
 
     override def create(n: AInt): SComplexVector = SComplexVector(veccreate( n.ev.toRep(n.a)))
 
@@ -129,12 +124,7 @@ trait Header extends Skeleton {
   }
 
   case class InterleavedComplexVector( d: Exp[Array[Double]]) extends Data {
-    def same(x: Data, y: Data): Data = {
-      (x,y) match{
-        case (sx: InterleavedComplexVector, sy: InterleavedComplexVector ) => new InterleavedComplexVector(dvecsame(sx.d,sy.d))
-        case _ => ???
-      }
-    }
+
     override def create(n: AInt): InterleavedComplexVector = InterleavedComplexVector( dveccreate( n.ev.toRep(n.a)))
 
     override def getdata() = d
@@ -154,6 +144,39 @@ trait Header extends Skeleton {
 
     def t2vec(): Vector[Exp[_]] = Vector(d)
   }
+
+
+  case class ScalarVector( d: Array[Exp[Double]]) extends Data {
+
+
+    override def create(n: AInt): ScalarVector = n.ev.fold[Int,ScalarVector](n.a,
+      fa=> {      ??? /* this should not occur */   }, fb => {
+        ScalarVector(new Array[Exp[Double]](fb * 2))
+      })
+
+    override def getdata() = ???
+    def apply(n: AInt): InterleavedComplex =
+      n.ev.fold[Int,InterleavedComplex ](n.a,
+        fa=> {      ??? /* this should not occur */   }, i => {
+          val t = i
+          val re =d(2*t)
+          val im = d((2*t)+1)
+          InterleavedComplex(re,im)
+        })
+
+    def updatex(i: AInt, y: InterleavedComplex): Data =
+      i.ev.fold[Int,Data ](i.a,
+        fa=> {      ??? /* this should not occur */   }, fb => {
+          val t = fb
+          val re = d.update((2*t),y.re)
+          val im = d.update((2*t+1),y.im)
+          this
+        })
+
+
+    def t2vec(): Vector[Exp[_]] = d.toVector
+  }
+
 
 
 
@@ -250,7 +273,12 @@ trait Header extends Skeleton {
     val evnum: Numeric[T]
     val evtyp: TypeRep[T]
 
-    def toSig(): String = a.fold("")(fb => fb.toString)
+    def toSig(): String = a.fold("")(fb => fb match {
+      case lis: List[Int] => lis.mkString("_")
+      case _ => fb.toString
+    }
+    )
+
 
     def toOneEntry(): Option[OneEntry {type T = self.T}] = {
       if (a.isDefined)
@@ -587,9 +615,9 @@ trait Header extends Skeleton {
   }
 
 
-  abstract class Base(pos: LInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
+  abstract class Base(pos: AInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
 
-  abstract class Header(pos: LInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(pos,n, lb, im, v, tw) with RepSelector2 {
+  abstract class Header(pos: AInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(pos,n, lb, im, v, tw) with RepSelector2 {
     def getpos() = repselect(pos)
 
     def getn() = repselect(n)
@@ -603,7 +631,7 @@ trait Header extends Skeleton {
     def gettw(): Option[TwidHeader] = tw
   }
 
-  class Stat(val pos: LInt, val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int], val precompute: Boolean, val expdata: ExposeRep[Data]) extends Header(pos, n, lb, im, v, tw) with StatSelector2 {
+  class Stat(val pos: AInt, val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int], val precompute: Boolean, val expdata: ExposeRep[Data]) extends Header(pos, n, lb, im, v, tw) with StatSelector2 {
     def toSig(): String = {
       val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString) + "pos" + repselect(pos).toSig()
       t
@@ -613,7 +641,7 @@ trait Header extends Skeleton {
     override def gettw(): Option[StatTwiddleScaling] = tw
   }
 
-  class Dyn(val pos: LInt, val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(pos, n, lb, im, v, tw) with DynSelector2 {
+  class Dyn(val pos: AInt, val x: Data, val y: Data, n: AInt, lb: AInt, im: DynIM, v: AInt, tw: Option[DynTwiddleScaling]) extends Header(pos, n, lb, im, v, tw) with DynSelector2 {
     override def getim(): DynIM = im
 
     override def gettw(): Option[DynTwiddleScaling] = tw
@@ -622,7 +650,7 @@ trait Header extends Skeleton {
 
   object Mix {
     def apply(stat: Stat, dyn: Dyn): Mix = {
-      val pos: LInt = stat.getpos().toOneEntry().getOrElse(dyn.getpos().toOneEntry().get)
+      val pos: AInt = stat.getpos().toOneEntry().getOrElse(dyn.getpos().toOneEntry().get)
       val n: AInt = stat.getn().toOneEntry().getOrElse(dyn.getn().toOneEntry().get)
       val lb = stat.getlb().toOneEntry().getOrElse(dyn.getlb().toOneEntry().get)
       val v = stat.getv().toOneEntry().getOrElse(dyn.getv().toOneEntry().get)
@@ -635,7 +663,7 @@ trait Header extends Skeleton {
   }
 
 
-  case class Mix(pos: LInt, x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean, expdata: ExposeRep[Data]) extends Base(pos, n, lb, im, v, tw) {
+  case class Mix(pos: AInt, x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean, expdata: ExposeRep[Data]) extends Base(pos, n, lb, im, v, tw) {
     def getDyn(): Dyn = new Dyn(pos, x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
 
     def getStat(): Stat = new Stat(pos, n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par, precompute, expdata)

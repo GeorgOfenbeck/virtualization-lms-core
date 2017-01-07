@@ -46,6 +46,12 @@ trait Skeleton extends Spiral_DSL{
   implicit object cNoRep extends IRep[NoRep] with noRepBase with NoRepNum with NoRepConditionals with NoRepComparisons //with NoRepRangeFold with NoRepChooseStuff with NoRepBooleanOps
 
   trait RepBase[T[_]] {
+
+    def fold[A: TypeRep, X](ele: T[A], fa: Rep[A] => X, fb: A => X): X = toEither(ele).fold[X](fa,fb)
+    def toEither[A: TypeRep](ele: T[A]): Either[Rep[A],A] = {
+      if (isRep()) Left(getRep(ele).get) else Right(getNoRep(ele).get)
+    }
+
     def isRep(): Boolean
 
     def const[A: TypeRep](x: A): T[A]

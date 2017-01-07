@@ -8,7 +8,7 @@ object Constants {
   val encode_left = -1
 }
 
-class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Boolean)], val testsize: Int,
+class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
            val WHT: Boolean = true,
            val static_size: Option[Int] = None,
            val interleaved: Boolean = false,
@@ -17,7 +17,7 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
            val twid_inline: Boolean = true,
            val twid_default_precomp: Boolean = true,
            val inplace: Boolean = false,
-           val inline:Boolean = true
+           val inline: Boolean = true
           ) extends Header {
   self =>
   val emitGraph = new GraphVizExport {
@@ -26,7 +26,6 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
   override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse with ScalaGenOrderingOps {
     val IR: self.type = self
   }
-
 
 
   val basecase_size: Option[Int] = if (base_default == 0) None else Some(base_default)
@@ -96,42 +95,66 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
     }
   }
 
-  def loop[A](mix: Mix, ini: Data, par: Option[Int], body: iData => Data): Data = {
+
+  var hack: Boolean = false
+
+  def loop[A](mix: Mix, in: Data, out: Data, par: Option[Int], body: iData => Data): Data = {
     val till = mix.lb
-    if (!unroll(mix)) sumFoldx(till.ev.toRep(till.a), par, ini.getdata(), mix.y.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
+    //if (true) sumFoldx(till.ev.toRep(till.a), par, ini.getdata(), mix.y.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
+    //if (!unroll(mix)) sumFoldx(till.ev.toRep(till.a), par, ini.getdata(), mix.y.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
+    if (!unroll(mix)) {
+      sigmaLoop(till.ev.toRep(till.a), par, in.getdata(), out.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
+    }
+    //if (true) sigmaLoop(till.ev.toRep(till.a), par, in.getdata(), out.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
     else {
       till.a match {
         case x: Int => {
-          val partial = (0 until x).map(ele => {
-            ini match {
-              case sc: SComplexVector => body(iData(sc, ele))
-              case ic: InterleavedComplexVector => body(iData(ic, ele))
-              case _ => ???
+          val beforehack = hack
+          if (!hack) hack = true
+          val finalresult: (Data,Data) = (0 until x).foldLeft(in, out) {
+            (acc, ele) => {
+              val (input, output) = acc
+              val returndata: Data = body(iData(input,output,ele))
+              /*val returndata: Data = (input, output) match {
+                case (scin: SComplexVector, scout: SComplexVector) => {
+                  val tt = iData(scin, scout, ele)
+                  body(tt)
+                }
+                case (ic: InterleavedComplexVector, oc: InterleavedComplexVector) => body(iData(ic, oc, ele))
+                case (isv: ScalarVector, osv: ScalarVector) => body(iData(isv, osv, ele))
+                case _ => {
+                  ???
+                }
+              }*/
+              (input, returndata)
             }
-          })
-          partial.reduce((x, y) => x.same(x, y))
-
+          }
+          hack = beforehack
+          finalresult._2
         }
         case _ => ??? //this should not be possible
       }
-
     }
   }
 
-  case class iData(d: Data, i: AInt)
+  case class iData(in: Data, out: Data, i: AInt)
 
   def exposeiData(expdata: ExposeRep[Data]) = new ExposeRep[iData]() {
 
-    val freshExps = (u: Unit) => expdata.freshExps() ++ Vector(Arg[Int])
+    val freshExps = (u: Unit) => Vector(Arg[Int]) ++ expdata.freshExps() ++ expdata.freshExps()
     val vec2t: Vector[Exp[_]] => iData = (in: Vector[Exp[_]]) => {
-      val t = in(1).asInstanceOf[Rep[Int]]
-      val s = expdata.vec2t(in)
-      iData(s, R2AInt(t))
+      val t = in(0).asInstanceOf[Rep[Int]]
+      val input = expdata.vec2t(in.tail)
+      val vecs = expdata.t2vec(input)
+      val rest = in.tail.drop(vecs.size)
+      val output = expdata.vec2t(rest)
+      iData(input, output, R2AInt(t))
     }
     val t2vec: iData => Vector[Exp[_]] = (in: iData) => {
-      val t: Vector[Exp[_]] = expdata.t2vec(in.d)
-      val s = Vector(in.i.ev.toRep(in.i.a))
-      t ++ s
+      val t = Vector(in.i.ev.toRep(in.i.a))
+      val input: Vector[Exp[_]] = expdata.t2vec(in.in)
+      val output: Vector[Exp[_]] = expdata.t2vec(in.out)
+      t ++ input ++ output
     }
   }
 
@@ -139,9 +162,9 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix = Mix(stat, dyn)
-      loop(mix, mix.x, None, { idata => {
-        val t01 = dyn.x.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
-        val t02 = dyn.x.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
+      loop(mix, mix.x, mix.y, None, { idata => {
+        val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
+        val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
         val (t1, t2): (DataEle, DataEle) = mix.im match {
           case im_git: GT_IM => (t01, t02)
           case im_gtt: GTT_IM => if (WHT) (t01, t02) else mix.tw.fold[(DataEle, DataEle)]((t01, t02))(
@@ -153,7 +176,11 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
               (resolveTwid(t01, mix, fb.n, fb.d, fb.k, resolveH(im_gti.twim, toOE(0), idata.i)) * t01),
               (resolveTwid(t01, mix, fb.n, fb.d, fb.k, resolveH(im_gti.twim, toOE(1), idata.i)) * t02)))
         }
-        mix.y.update(resolveH(mix.im.scatter(), toOE(0), idata.i), (t1 + t2)).update(resolveH(mix.im.scatter(), toOE(1), idata.i), (t1 - t2))
+        val idx0 = resolveH(mix.im.scatter(), toOE(0), idata.i)
+        val val1 = idata.out.update(idx0, (t1 + t2))
+        val idx1 = resolveH(mix.im.scatter(), toOE(1), idata.i)
+        val val2 = val1.update(idx1, (t1 - t2))
+        val2
       }
       })
     }
@@ -163,6 +190,18 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
 
   //we always "uprank" r
   def fuseIM(r: IMHBase, s: IMHBase, lv: AInt): IMH = IMH((r.base + (r.s0 * s.base)) + r.s1 * lv, r.s0 * s.s0, (toOE(0) + (r.s0 * s.s1)))
+
+  def addtoList(mix: Mix, direction: AInt): LInt = {
+    if (mix.pos.ev.isRep()) R2LInt(listadd(mix.pos.ev.toRep(mix.pos.a), direction.ev.toRep(direction.a)))
+    else {
+      //clean me up!
+      val l = mix.pos.a.asInstanceOf[List[Int]]
+      val d = direction.a.asInstanceOf[Int]
+      val t = l :+ d
+      toOEL(t)
+    }
+  }
+
 
   def DFT_CT(stat: Stat): MaybeSFunction = {
     val expose = exposeDyn(stat)
@@ -174,12 +213,12 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
       })
       val m = chooseRadix(mix.n, mix.pos)
       val k = mix.n / m
-      loop(mix, mix.x, parx, { idata => {
+      loop(mix, mix.x, mix.y, parx, { idata => {
         val stage1mix: Mix = {
           val (s0, s1) = if (!WHT) (k, toOE(1)) else (toOE(1), m)
           val inner = IMH(toOE(0), s0, s1)
           val s1_gather: IMH = fuseIM(mix.im.gather(), inner, idata.i)
-          val s1_scatter: IMH = if (inplace) {
+          val s1_scatter: IMH = if (inplace && !hack) {
             fuseIM(mix.im.scatter(), IMH(toOE(0), toOE(1), m), idata.i) //fuseIM(mix.im.scatter(), IMH(toOE(0), m, toOE(1)), idata.i)
           } else IMH(toOE(0), toOE(1), m)
           val nim = mix.im match {
@@ -187,20 +226,31 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
             case gti: GTI_IM => GTT_IM(s1_gather, s1_scatter, fuseIM(gti.twim, inner, idata.i))
             case gtt: GTT_IM => GTT_IM(s1_gather, s1_scatter, fuseIM(gtt.twim, inner, idata.i))
           }
-          val stage1_target = if (inplace) mix.y else mix.y.create(mix.n)
-          val npos = R2LInt(listadd(mix.pos.ev.toRep(mix.pos.a), Const(Constants.encode_right)))
-          mix.copy(x = mix.x, y = stage1_target, n = m, lb = k, im = nim, v = idata.i, pos = npos)
+          val stage1_target: Data = {
+            if (hack) {
+              mix.n.ev.fold[Int,ScalarVector](mix.n.a, fa => {
+                ???
+              }, fb => {
+                ScalarVector(new Array[Exp[Double]](fb * 2))
+              })
+            } else {
+              if (inplace) idata.out else mix.y.create(mix.n)
+            }
+          }
+          val npos = addtoList(mix, Constants.encode_right)
+          mix.copy(x = idata.in, y = stage1_target, n = m, lb = k, im = nim, v = idata.i, pos = npos)
         }
         val dataafterS1 = DFT(stage1mix.getStat())(stage1mix.getDyn())
         val stage2mix: Mix = {
           val twid = TwiddleScaling(mix.n, m, toOE(1))
           val s2_gather: IMH = IMH(toOE(0), m, toOE(1))
           val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
-          val nim = if (inplace) GTI_IM(s2_scatter, s2_gather) else if (WHT) GT_IM(s2_gather, s2_scatter) else {
+          val nim = if (inplace && !hack) GTI_IM(s2_scatter, s2_gather) else if (WHT) GT_IM(s2_gather, s2_scatter) else {
             GTT_IM(s2_gather, s2_scatter, s2_gather)
           }
-          val npos = R2LInt(listadd(mix.pos.ev.toRep(mix.pos.a), Const(Constants.encode_left)))
-          mix.copy(x = dataafterS1, y = mix.y, n = k, lb = m, im = nim, v = idata.i, tw = Some(twid), pos = npos)
+          //val npos = R2LInt(listadd(mix.pos.ev.toRep(mix.pos.a), Const(Constants.encode_left)))
+          val npos = addtoList(mix, Constants.encode_left)
+          mix.copy(x = dataafterS1, y = idata.out, n = k, lb = m, im = nim, v = idata.i, tw = Some(twid), pos = npos)
         }
         DFT(stage2mix.getStat())(stage2mix.getDyn())
       }
@@ -209,8 +259,25 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
     if (inline(stat.getn())) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, stat.expdata))
   }
 
+  def binsearch2pow(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
+    val mid = low + (high - low) / 2
+    implicit val expose = mix.expdata
 
-  def binsearch(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
+    myifThenElse(ordering_equiv(check, Const(high)), {
+      val nmix = mix.copy(n = toOE(high))
+      DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
+    }, {
+      if (high == 2) {
+        val nmix = mix.copy(n = toOE(high))
+        DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
+      }
+      else
+        binsearch2pow(mix, check, low, high / 2)
+    })
+  }
+
+
+  /*def binsearch(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
     val mid = low + (high - low) / 2
     implicit val expose = mix.expdata
     if ((high - low) <= 1) {
@@ -227,7 +294,7 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
     }, {
       binsearch(mix, check, mid, high)
     })
-  }
+  }*/
 
   def DFT_placeholder(stat: Stat): MaybeSFunction = {
     val expose = exposeDyn(stat)
@@ -236,31 +303,32 @@ class Core(variant: BreakDown.Tree, val lookup: Map[List[Int], (Int, Boolean, Bo
   }
 
   def DFT_call(mix: Mix, stat: Stat, dyn: Dyn): Data = {
-    val dftct = mix.n.ev.equiv(mix.n.ev.mod(mix.n.a, mix.n.ev.const(2)), mix.n.ev.const(0))
+    //val dftct = mix.n.ev.equiv(mix.n.ev.mod(mix.n.a, mix.n.ev.const(2)), mix.n.ev.const(0))
     implicit val expose = mix.expdata
-    mix.n.ev._if(dftct, {
-      val bool = mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2))
-      mix.n.ev._if(bool, {
-        F2(stat)(dyn)
-      }, {
-        DFT_CT(stat)(dyn)
-      })
+    //mix.n.ev._if(dftct, {
+    val bool = mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2))
+    mix.n.ev._if(bool, {
+      F2(stat)(dyn)
     }, {
-      DFT_placeholder(stat)(dyn)
+      DFT_CT(stat)(dyn)
     })
+    /*    }, {
+          DFT_placeholder(stat)(dyn)
+        })*/
   }
 
   def DFT(stat: Stat): MaybeSFunction = {
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix2 = Mix(stat, dyn)
-      val nl = listadd(mix2.pos.ev.toRep(mix2.pos.a), mix2.n.ev.toRep(mix2.n.a))
-      val mix = mix2.copy(pos = R2LInt(nl))
+      val nl = addtoList(mix2, mix2.n)
+      //listadd(mix2.pos.ev.toRep(mix2.pos.a), mix2.n.ev.toRep(mix2.n.a))
+      val mix = mix2.copy(pos = nl)
       implicit val exposedata = mix.expdata
       if (basecase_size.isDefined && mix.n.ev.isRep()) {
         val isbasecase = mix.n.ev.less(mix.n.a, mix.n.ev.const(basecase_size.get + 1))
         mix.n.ev._if(isbasecase, {
-          binsearch(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get)
+          binsearch2pow(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get)
         }, {
           DFT_call(mix, mix.getStat(), mix.getDyn())
         })

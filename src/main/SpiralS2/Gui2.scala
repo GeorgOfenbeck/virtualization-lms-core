@@ -26,6 +26,7 @@ import memoization._
 import org.jfree.chart.{ChartFactory, ChartPanel}
 import org.jfree.chart.axis.NumberAxis
 import org.jfree.chart.event.{ChartChangeListener, ChartProgressEvent, ChartProgressListener}
+import org.jfree.chart.plot.PlotOrientation
 import org.jfree.chart.renderer.xy.{XYLineAndShapeRenderer, XYSplineRenderer}
 
 import scala.swing.TabbedPane.Page
@@ -43,7 +44,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     var basecase_min = 4
     var basecase_max = 8
-    var basecase_default = 4
+    var basecase_default = 0
     val default_dft_size = 4
     //2^n
     val cur_dft_size = default_dft_size
@@ -151,9 +152,10 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
 
     val checkbox_validate = new CheckBox("Validate Code (part of the timed code) ")
+    val checkbox_inplace = new CheckBox("Inplace")
 
     val leftconfig = new BoxPanel(Orientation.Horizontal) {
-      contents.append(boxpanel_statvdyn, boxpanel_transformtype, boxpanel_dataformat, boxpanel_parallelism, checkbox_validate)
+      contents.append(boxpanel_statvdyn, boxpanel_transformtype, boxpanel_dataformat, boxpanel_parallelism, checkbox_validate, checkbox_inplace)
     }
 
     val rightconfig = new BoxPanel(Orientation.Horizontal) {
@@ -183,13 +185,16 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     scpanel.preferredSize_=((200, 768): Dimension)
 
 
-    val data = for (i <- 1 to 5) yield (i, i)
-    val chart = XYLineChart(data)
+    //val data = for (i <- 1 to 5) yield (i, i)
+    //val chart = XYLineChart(data)
+
+    val variantplot = new VariantPanel()
+
 
 
     val plotting = new BoxPanel(Orientation.Horizontal) {
       contents.append(scpanel)
-      contents.append(chart.toComponent)
+      contents.append(variantplot)
     }
 
 
@@ -201,16 +206,73 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     //-----------------------------------------------Buttons
 
+    def jtransform2(): Double = {
+      import org.jtransforms.fft.DoubleFFT_1D
+      import org.jtransforms.utils.{CommonUtils, IOUtils}
+      import org.scalameter._
+
+      var sizes1D: Array[Long] = Array(Math.pow(2, cur_dft_size).toLong)
+      var nsize: Int = sizes1D.size
+      var niter: Int = 100;
+      var x: Array[Double] = null
+      val doWarmup: Boolean = true
+      val times_without_constructor = new Array[Double](nsize)
+      val times_with_constructor = new Array[Double](nsize)
+
+      var fft = new DoubleFFT_1D(sizes1D(0))
+      val i = 0
+      val t = for (j <- 0 until 10) yield {
+        val repeats: Int = 10000
+
+        val standardConfig = org.scalameter.config(
+          Key.exec.minWarmupRuns -> 100,
+          Key.exec.maxWarmupRuns -> 1000,
+          Key.exec.benchRuns -> repeats, //(1000*1000/sizes1D(i)).toLong,
+          Key.verbose -> false
+        ) withWarmer (new Warmer.Default)
+        println("starting measurment")
+
+        var elapsedTime = System.nanoTime
+
+        x = new Array[Double]((2 * sizes1D(i)).toInt)
+        IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+        var min_time = standardConfig measure {
+          fft.complexForward(x)
+        }
+        IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+
+
+        val n = sizes1D(i)
+        val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
+        val y: Double = ((flops / (min_time * 1000000)))
+        println("adding flops" + flops + " -> " + i + " / " + y)
+
+
+        x = null
+        y
+      }
+      t.max
+    }
+
+    def ms2gflops(d: Double): Double = {
+      val n = Math.pow(2,cur_dft_size)
+      val flops = 5 * n * (Math.log10(n)/Math.log10(2))
+      val y: Double = ((flops / (d * 1000000)))
+      y
+    }
+
     def makecode(): CorewGlue = {
       val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-      new CorewGlue(cur_variant, varmap, cur_dft_size, radio_wht.selected,
+      val varmap2 = variant2Map3(cur_variant,BRMaps(Map.empty,Map.empty,Map.empty, Map.empty))
+      new CorewGlue(cur_variant, varmap2._1, cur_dft_size, radio_wht.selected,
         if (radio_dyn_size.selected) None else Some((Math.pow(2, default_dft_size).toInt)),
         radio_format_interleaved.selected,
         checkbox_threading.selected,
         textfield_basecase_default.text.toInt,
         checkbox_twiddle_inline.selected,
         radio_twiddle_precompute.selected,
-        checkbox_validate.selected
+        checkbox_validate.selected,
+        checkbox_inplace.selected
       )
     }
 
@@ -220,29 +282,46 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         val dsl = makecode()
         dsl.codeexport()
       })
+      contents += new Button(Action("Time JTransform") {
+        val t = new Thread(new Runnable {
+          def run() {
+            val gflops = jtransform2()
+            variantplot.series.add(0.0,gflops)
+          }
+        })
+        t.start()
+
+      })
       contents += new Button(Action("Generate and Time Code") {
         val t = new Thread(new Runnable {
           def run() {
             val dsl = makecode()
             val f = dsl.compile()
-            f();
+            val perf = f();
+            variantplot.series.add(-1.0,ms2gflops(perf))
           }
         })
         t.start()
 
       })
       contents += new Button {
-        text = "Gen ALL"
+        text = "Gen and time all"
         reactions += {
           case ButtonClicked(_) => {
-            for (i <- 0 until dft_variants.size) {
-              println("Variant " + i + " of " + dft_variants.size)
-              slider_variant.value_=(i)
-              val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-              val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
-              val f = dsl.compile()
-              f();
-            }
+            val t = new Thread(new Runnable {
+              def run() {
+                for (i <- 0 until dft_variants.size) {
+                  println("Variant " + i + " of " + dft_variants.size)
+                  slider_variant.value_=(i)
+                  val varmap = variant2Map(cur_variant, Map.empty, List.empty)
+                  val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
+                  val f = dsl.compile()
+                  val perf = f();
+                  variantplot.series.add(i,ms2gflops(perf))
+                }
+              }
+            })
+            t.start()
           }
         }
       }
@@ -250,15 +329,20 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     }
 
+    ///////////////////////////////////// DEFAULT Config
+
     radio_dyn_size.selected_=(true)
     radio_wht.selected_=(true)
-    radio_format_complex.selected_=(true)
+    radio_format_complex.selected_=(false); radio_format_interleaved.selected_=(true)
+
     checkbox_validate.selected_=(true)
-    textfield_basecase_default.text_=("0")
+    checkbox_inplace.selected_=(true)
+    textfield_basecase_default.text_=("4")//textfield_basecase_default.text_=("0")
     radio_basecase_default.selected_=(true)
     radio_twiddle_default.selected_=(true)
     checkbox_twiddle_inline.selected_=(true)
     radio_twiddle_onthefly.selected_=(true)
+
 
 
     //Refresh the tree
@@ -301,6 +385,17 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
 
   }
+
+
+  /*
+
+
+            val nlogn = size * Math.log10(size) / Math.log10(size)
+
+            val perf: Double = nlogn/endtime
+
+            println(s"GFlops: $perf")
+   */
 
 
   object Heuristic {
@@ -509,119 +604,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
   }
 
 
-  object Testit {
 
-    class MyPanel extends scala.swing.BoxPanel(Orientation.Vertical) with ChangeListener with ChartProgressListener with ChartChangeListener {
-      self =>
-
-      import java.awt.Color;
-      val xAxis: NumberAxis = new NumberAxis("x Axis")
-      val yAxis: NumberAxis = new NumberAxis("y Axis")
-      //val renderer:XYSplineRenderer = new XYSplineRenderer();
-      val renderer = new XYLineAndShapeRenderer();
-
-      val dataset: XYSeriesCollection = new XYSeriesCollection()
-
-      val series: XYSeries = new XYSeries("jtransform")
-
-      for (i <- 0 until 10) series.add(i, i + 1)
-
-      dataset.addSeries(series)
-
-
-      implicit val theme: ChartTheme = ChartTheme.Default
-      val chartold = XYLineChart(dataset)
-
-      //val chart = scalax.chart.XYChart(plot, title = "", legend = true)
-
-      //val ui = chart.toComponent
-
-      val chart1 = ChartFactory.createTimeSeriesChart(
-        "Crosshair Demo 1",
-        "Time of Day",
-        "Value",
-        dataset,
-        true,
-        true,
-        false
-      );
-
-
-
-
-      //val plot: XYPlot = new XYPlot(dataset, xAxis, yAxis, renderer)
-      val plot = chart1.getPlot().asInstanceOf[XYPlot];
-
-      plot.setBackgroundPaint(Color.lightGray);
-      plot.setDomainGridlinePaint(Color.white);
-      plot.setRangeGridlinePaint(Color.white);
-
-      plot.setDomainCrosshairVisible(true)
-      plot.setRangeCrosshairVisible(true)
-      plot.setAxisOffset(new RectangleInsets(4, 4, 4, 4));
-
-      //val chart = scalax.chart.XYChart(plot, title = "", legend = true)
-
-
-      chart1.addChangeListener(this)
-      chart1.addProgressListener(this)
-
-      val chartpanel = new ChartPanel(chart1)
-      val label = new Label("nothing smart yet")
-      //override val contents = Vector(chartpanel).toSeq
-      contents.append(Component.wrap(chartpanel))
-      contents.append(label)
-
-      def stateChanged(ev: javax.swing.event.ChangeEvent): Unit = {
-        println(ev)
-      }
-
-      def chartChanged(ev: org.jfree.chart.event.ChartChangeEvent): Unit = {
-        println(ev)
-        //update something
-        /*val xx = plot.getDomainCrosshairValue()
-        val yy = plot.getRangeCrosshairValue()
-        label.text_=(s"x = $xx y = $yy")*/
-      }
-
-      def chartProgress(event: ChartProgressEvent): Unit = {
-        if (event.getType() != ChartProgressEvent.DRAWING_FINISHED) {
-          return;
-        } else {
-          //update something
-          val xx = plot.getDomainCrosshairValue()
-          val yy = plot.getRangeCrosshairValue()
-          label.text_=(s"x = $xx y = $yy")
-        }
-      }
-
-    }
-
-
-    /*chart.listenTo(ui)
-    chart.reactions += {
-      case event: ChartProgressEvent => chartProgress(event)
-      case event: Event => {
-        val xx = plot.getDomainCrosshairValue()
-        val yy = plot.getRangeCrosshairValue()
-        label.text_=(s"x = $xx y = $yy")
-        println(event)
-      }
-
-    }*/
-
-
-    val bpanel = new BoxPanel(Orientation.Vertical) {
-      //contents.append(label)
-      contents.append(new MyPanel())
-    }
-
-    val heuristic = new Page("Locktest",
-      bpanel
-
-    )
-
-  }
 
   //Heuristic.jtransform()
 
@@ -631,7 +614,6 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     size = (2 * 1024, 2 * 768): Dimension
 
     contents = new TabbedPane {
-      pages += Testit.heuristic
       pages += SmallEnum.smallenum
       pages += Heuristic.heuristic
 
