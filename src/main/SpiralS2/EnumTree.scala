@@ -130,13 +130,14 @@ abstract class EnumTree extends SimpleSwingApplication {
       x match {
         case BreakDown.Leaf(unroll, twid) => {
           import brmaps._
-          val nid2ids = id2ids.get(-1).fold(id2ids)(fb => id2ids + (-1 -> (-1, -1)))
+          /*val nid2ids = id2ids.get(-1).fold(id2ids)(fb => id2ids + (-1 -> (-1, -1)))
           val nids2id = ids2id.get((-1, -1)).fold(ids2id)(fb => ids2id + ((-1, -1) -> -1))
           //val nid2radix = id2radix.get(-1).fold(id2radix)(fb => id2radix + ( -1 -> (-1,-1,-1)))
           //val nradix2id = radix2id.get((-1,-1,-1)).fold(radix2id)(fb => radix2id + ( (-1,-1,-1) -> -1))
           val nid2radix = id2radix.get(-1).fold(id2radix)(fb => id2radix + (-1 -> -1))
           //(BRMaps(nid2ids, nids2id,nid2radix,nradix2id), -1)
-          (BRMaps(nid2ids, nids2id, nid2radix, size2id, id2size), -1)
+          (BRMaps(nid2ids, nids2id, nid2radix, size2id, id2size), -1)*/
+          (brmaps, -1)
         }
         case BreakDown.Node(l, v, r, unroll, isbasecase) => {
 

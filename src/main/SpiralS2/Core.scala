@@ -230,7 +230,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
         case _ => (mix_b.copy(par = None), Some(p))
       })
 
-      val (lid, rid) = getChildIDs(mix.pos)
+      val ( rid,lid) = getChildIDs(mix.pos) //flipped because of radix
 
       val k = chooseRadix(mix.n, mix.pos)
       val m = mix.n / k
@@ -292,7 +292,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
         (nmix.pos.a, nmix.n.a) match {
           case (ipos: Int,in: Int) => { //We check combinations that can never occur and would then yield inifnite code - workaround
             val realsize = lookup.id2size(ipos)
-            if (realsize != in)
+            if (realsize != in && in != 2)
               nmix.x
             else
               DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
