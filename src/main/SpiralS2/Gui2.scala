@@ -45,7 +45,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     var basecase_min = 4
     var basecase_max = 8
     var basecase_default = 0
-    val default_dft_size = 4
+    val default_dft_size = 3
     //2^n
     val cur_dft_size = default_dft_size
 
@@ -263,7 +263,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     def makecode(): CorewGlue = {
       val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-      val varmap2 = variant2Map3(cur_variant,BRMaps(Map.empty,Map.empty,Map.empty, Map.empty))
+      val varmap2 = variant2Map3(cur_variant,BRMaps(Map.empty,Map.empty,Map.empty, Map.empty, Map.empty))
       new CorewGlue(cur_variant, varmap2._1, cur_dft_size, radio_wht.selected,
         if (radio_dyn_size.selected) None else Some((Math.pow(2, default_dft_size).toInt)),
         radio_format_interleaved.selected,
@@ -313,8 +313,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
                 for (i <- 0 until dft_variants.size) {
                   println("Variant " + i + " of " + dft_variants.size)
                   slider_variant.value_=(i)
-                  val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-                  val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
+                  val dsl = makecode()
                   val f = dsl.compile()
                   val perf = f();
                   variantplot.series.add(i,ms2gflops(perf))

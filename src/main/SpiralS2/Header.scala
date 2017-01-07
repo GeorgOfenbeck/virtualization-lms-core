@@ -274,7 +274,7 @@ trait Header extends Skeleton {
     val evtyp: TypeRep[T]
 
     def toSig(): String = a.fold("")(fb => fb match {
-      case lis: List[Int] => lis.mkString("_")
+      case lis: Int => if (lis < 0) s"neg${Math.abs(lis)}" else lis.toString
       case _ => fb.toString
     }
     )
@@ -703,7 +703,7 @@ trait Header extends Skeleton {
           val (t0, t1) = fb.vec2t(aim)
           (t1, Some(t0))
         })
-        val pos: LInt = OR2LInt(opos)
+        val pos: AInt = OR2AInt(opos)
         val v: AInt = OR2AInt(ov)
         val n: AInt = OR2AInt(on)
         val lb: AInt = OR2AInt(olb)

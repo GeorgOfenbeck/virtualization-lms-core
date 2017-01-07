@@ -1,3 +1,4 @@
+/*
 package SpiralS2
 
 import java.io._
@@ -305,12 +306,12 @@ object Gui extends SimpleSwingApplication {
         border = Swing.EmptyBorder(5, 5, 5, 5)
         contents += new Button(Action("Generate Code") {
           val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-          val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
+          val dsl = new CorewGlue(cur_variant, ???, cur_dft_size)
           dsl.codeexport()
         })
         contents += new Button(Action("Generate and Time Code") {
           val varmap = variant2Map(cur_variant, Map.empty, List.empty)
-          val dsl = new CorewGlue(cur_variant, varmap, cur_dft_size)
+          val dsl = new CorewGlue(cur_variant, ???, cur_dft_size)
           val f = dsl.compile()
           f();
         })
@@ -449,3 +450,4 @@ object Gui extends SimpleSwingApplication {
 
 
 
+*/

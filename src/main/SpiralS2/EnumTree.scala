@@ -114,7 +114,7 @@ object BreakDown {
     breakdown
   }
 }
-case class BRMaps(id2ids: Map[Int, (Int, Int)], ids2id: Map[(Int, Int), Int], id2radix: Map[Int, Int], size2id: Map[Int, Int])
+case class BRMaps(id2ids: Map[Int, (Int, Int)], ids2id: Map[(Int, Int), Int], id2radix: Map[Int, Int], size2id: Map[Int, Int], id2size: Map[Int, Int])
 
 abstract class EnumTree extends SimpleSwingApplication {
 
@@ -136,7 +136,7 @@ abstract class EnumTree extends SimpleSwingApplication {
           //val nradix2id = radix2id.get((-1,-1,-1)).fold(radix2id)(fb => radix2id + ( (-1,-1,-1) -> -1))
           val nid2radix = id2radix.get(-1).fold(id2radix)(fb => id2radix + (-1 -> -1))
           //(BRMaps(nid2ids, nids2id,nid2radix,nradix2id), -1)
-          (BRMaps(nid2ids, nids2id, nid2radix, size2id), -1)
+          (BRMaps(nid2ids, nids2id, nid2radix, size2id, id2size), -1)
         }
         case BreakDown.Node(l, v, r, unroll, isbasecase) => {
 
@@ -149,9 +149,10 @@ abstract class EnumTree extends SimpleSwingApplication {
             val nid2ids = rmaps.id2ids + (idcount -> (lid, rid))
             val nids2id = rmaps.ids2id + ((lid, rid) -> idcount)
             val nid2radix = rmaps.id2radix + (idcount -> r.getsize())
-            val nsize2id = rmaps.id2radix + (v -> idcount)
+            val nsize2id = rmaps.size2id + (v -> idcount)
+            val nid2size = rmaps.id2size + (idcount -> v)
             idcount = idcount + 1
-            (BRMaps(nid2ids, nids2id, nid2radix,nsize2id), idcount - 1)
+            (BRMaps(nid2ids, nids2id, nid2radix,nsize2id, nid2size), idcount - 1)
           })(preid => (rmaps, preid))
         }
       }

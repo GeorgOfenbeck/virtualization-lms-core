@@ -19,13 +19,26 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class Single(y: Rep[ComplexVector])
 
+  case class Lookupsize2id(n: Exp[Int]) extends Def[Int]
+
+  def lookupsize2id(n: Exp[Int]): Exp[Int] = Lookupsize2id(n)
+
+  case class Lookupid2lid(n: Exp[Int]) extends Def[Int]
+
+  def lookupid2lid(n: Exp[Int]): Exp[Int] = Lookupid2lid(n)
+
+  case class Lookupid2rid(n: Exp[Int]) extends Def[Int]
+
+  def lookupid2rid(n: Exp[Int]): Exp[Int] = Lookupid2rid(n)
+
+
   case class Twid(n: Exp[List[Int]]) extends Def[Int]
 
   def choose_twid(n: Exp[List[Int]]): Exp[Int] = Twid(n)
 
-  case class Radix(n: Exp[List[Int]]) extends Def[Int]
+  case class Radix(n: Exp[Int]) extends Def[Int]
 
-  def choose_radix(n: Exp[List[Int]]): Exp[Int] = Radix(n)
+  def choose_radix(n: Exp[Int]): Exp[Int] = Radix(n)
 
   case class BaseCase(n: Exp[Int]) extends Def[Boolean]
 
@@ -320,7 +333,11 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
 
 
       //case Radix(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " / 2 //stupid radix choice placeholder"))
-      case Radix(l: Exp[List[Int]]) => Vector(emitValDef(tp, "Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = (2,false,false); \nt})._1"))
+      case Lookupid2lid(n: Exp[Int]) => Vector(emitValDef(tp, s"Settings.id2ids.getOrElse(${quote(n)},(-99,-99))._1"))
+      case Lookupid2rid(n: Exp[Int]) => Vector(emitValDef(tp, s"Settings.id2ids.getOrElse(${quote(n)},(-99,-99))._2"))
+      case Lookupsize2id(n: Exp[Int]) => Vector(emitValDef(tp, s"Settings.size2id.getOrElse(${quote(n)},-99)"))
+      case Radix(l: Exp[Int]) => Vector(emitValDef(tp, "Settings.id2radix.getOrElse(" + quote(l) + ",2)"))
+
       case Twid(l: Exp[List[Int]]) => Vector(emitValDef(tp, "{val t = Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = ???; \nt})._3\nif(t) 1 else 0}\n"))
       case ListAdd(l: Exp[List[Int]],i:Exp[Int]) => Vector(emitValDef(tp, quote(l) + ":+ " + quote(i)))
 
