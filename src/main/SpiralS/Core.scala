@@ -1,3 +1,4 @@
+/*
 
 
 package SpiralS
@@ -384,4 +385,5 @@ class Core extends Skeleton {
 }
 
 
+*/
 */

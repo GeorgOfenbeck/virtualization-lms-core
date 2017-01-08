@@ -45,7 +45,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     var basecase_min = 4
     var basecase_max = 8
     var basecase_default = 0
-    val default_dft_size = 7
+    val default_dft_size = 2
     //2^n
     val cur_dft_size = default_dft_size
 
