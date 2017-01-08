@@ -50,10 +50,13 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     } else {
       val (nr, dr, kr, ir): (Rep[Int], Rep[Int], Rep[Int], Rep[Int]) = (n.ev.toRep(n.a), d.ev.toRep(d.a), k.ev.toRep(k.a), i.ev.toRep(i.a))
       if (mix.precompute) {
-        sample.create(dtwiddle_apply_index_store(nr, dr, kr, ir, true), dtwiddle_apply_index_store(nr, dr, kr, ir, false))
+        sample.create(dtwiddle_apply_index(nr, dr, kr, ir, true), dtwiddle_apply_index(nr, dr, kr, ir, false))
+        //sample.create(dtwiddle_apply_index_store(nr, dr, kr, ir, true), dtwiddle_apply_index_store(nr, dr, kr, ir, false))
       } else {
         if (twid_default_precomp) {
-          sample.create(dtwiddle_load(ir), dtwiddle_load(ir))
+          //sample.create(dtwiddle_apply_index(nr, dr, kr, ir, true), dtwiddle_apply_index(nr, dr, kr, ir, false))
+          sample.create(dtwiddle_apply_index_load(nr, dr, kr, ir, true), dtwiddle_apply_index_load(nr, dr, kr, ir, false))
+          //sample.create(dtwiddle_load(ir), dtwiddle_load(ir))
         }
         else {
           sample.create(dtwiddle_apply_index(nr, dr, kr, ir, true), dtwiddle_apply_index(nr, dr, kr, ir, false))

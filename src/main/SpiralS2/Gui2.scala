@@ -172,7 +172,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
       new Slider() {
         min = 1
         value = default_dft_size
-        max = 14
+        max = 18
         majorTickSpacing = 1
         paintLabels = true
         paintTicks = true
@@ -257,7 +257,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         val n = sizes1D(i)
         val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
         val y: Double = ((flops / (min_time * 1000000)))
-        println("adding flops" + flops + " -> " + i + " / " + y)
+        println("adding flops" + flops +  "/ " + min_time + " -> " + y)
 
 
         x = null

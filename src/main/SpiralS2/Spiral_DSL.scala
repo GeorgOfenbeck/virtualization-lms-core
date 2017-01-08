@@ -119,6 +119,10 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def dtwiddle_apply_index_store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean): Exp[Double] = DTwiddle_Apply_Index_Store(n, d, k, i, re)
 
+  case class DTwiddle_Apply_Index_Load(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
+
+  def dtwiddle_apply_index_load(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean): Exp[Double] = DTwiddle_Apply_Index_Load(n, d, k, i, re)
+
 
   case class VecCreate(s: Exp[Int]) extends Def[ComplexVector]
 
@@ -334,6 +338,9 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
         Vector(emitValDef(tp, " Twiddle.dstore(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + "," + re + ")"))
       }
 
+      case DTwiddle_Apply_Index_Load(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) => {
+        Vector(emitValDef(tp, " Twiddle.dload(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + "," + (if(re) "0" else "1") + ")"))
+      }
 
       case DTwiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.dload()"))
 
@@ -483,3 +490,6 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
         ma
     }
   }
+
+
+trait JavaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadInternalFunctionAsClass  */
