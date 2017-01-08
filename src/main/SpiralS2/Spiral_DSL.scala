@@ -132,6 +132,13 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def compcreate(re: Exp[Double], im: Exp[Double]): Exp[Complex] = CompCreate(re, im)
 
+  case class CompRe(x: Exp[Complex]) extends Def[Double]
+
+  def compre(x: Exp[Complex]): Exp[Double] = CompRe(x)
+
+  case class CompIm(x: Exp[Complex]) extends Def[Double]
+
+  def compim(x: Exp[Complex]): Exp[Double] = CompIm(x)
 
   case class DVecApply(vec: Exp[Array[Double]], i: Exp[Int]) extends Def[Double]
 
@@ -282,6 +289,8 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
   override def emitNode(tp: TP[_], acc: Vector[String],
                         block_callback: (Block, Vector[String]) => Vector[String]): Vector[String] = {
     val ma = tp.rhs match {
+      case CompRe(x: Exp[Complex]) => Vector(emitValDef(tp, s"${quote(x)}.re"))
+      case CompIm(x: Exp[Complex]) => Vector(emitValDef(tp, s"${quote(x)}.im"))
       case CompCreate(re: Exp[Double], im: Exp[Double]) => Vector(emitValDef(tp, "Complex(" + quote(re) + "," + quote(im) + ")"))
       case BaseCase(n: Exp[Int]) => Vector(emitValDef(tp, quote(n) + " == 2 //check for base case"))
       case IsPrime(n: Exp[Int]) => Vector(emitValDef(tp, " false //put prime factor check here"))

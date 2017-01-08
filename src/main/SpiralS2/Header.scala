@@ -34,29 +34,34 @@ trait Header extends Skeleton {
 
   abstract class DataEle {
 
+    def im(): Exp[Double]
+
+    def re(): Exp[Double]
+
+
     def create(re: Exp[Double], im: Exp[Double]): DataEle
 
-    def dplus(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.dplus(x,y)
-      case (x: InterleavedComplex, y: InterleavedComplex) => x.dplus(x,y)
+    def dplus(x1: DataEle, y1: DataEle): DataEle = (x1, y1) match {
+      case (x: SComplex, y: SComplex) => x.dplus(x, y)
+      case (x: InterleavedComplex, y: InterleavedComplex) => x.dplus(x, y)
       case _ => ???
     }
 
-    def dminus(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.dminus(x,y)
-      case (x: InterleavedComplex, y: InterleavedComplex) => x.dminus(x,y)
+    def dminus(x1: DataEle, y1: DataEle): DataEle = (x1, y1) match {
+      case (x: SComplex, y: SComplex) => x.dminus(x, y)
+      case (x: InterleavedComplex, y: InterleavedComplex) => x.dminus(x, y)
       case _ => ???
     }
 
-    def dtimes(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.dtimes(x,y)
-      case (x: InterleavedComplex, y: InterleavedComplex) => x.dtimes(x,y)
+    def dtimes(x1: DataEle, y1: DataEle): DataEle = (x1, y1) match {
+      case (x: SComplex, y: SComplex) => x.dtimes(x, y)
+      case (x: InterleavedComplex, y: InterleavedComplex) => x.dtimes(x, y)
       case _ => ???
     }
 
-    def ddiv(x1: DataEle, y1: DataEle): DataEle = (x1,y1) match {
-      case (x: SComplex, y: SComplex) => x.ddiv(x,y)
-      case (x: InterleavedComplex, y: InterleavedComplex) => x.ddiv(x,y)
+    def ddiv(x1: DataEle, y1: DataEle): DataEle = (x1, y1) match {
+      case (x: SComplex, y: SComplex) => x.ddiv(x, y)
+      case (x: InterleavedComplex, y: InterleavedComplex) => x.ddiv(x, y)
       case _ => ???
     }
   }
@@ -68,15 +73,18 @@ trait Header extends Skeleton {
 
     def apply(i: AInt): DataEle
 
-    def update(i: AInt, y: DataEle): Data = (this,y) match{
-      case (me: SComplexVector,e: SComplex) => me.updatex(i,e)
-      case (me: InterleavedComplexVector,e: InterleavedComplex) => me.updatex(i,e)
-      case (me: ScalarVector,e: InterleavedComplex) => me.updatex(i,e)
-      case _ => ???
+    def update(i: AInt, y: DataEle): Data = (this, y) match {
+      case (me: SComplexVector, e: SComplex) => me.updatex(i, e)
+      case (me: InterleavedComplexVector, e: InterleavedComplex) => me.updatex(i, e)
+      case (me: ScalarVector, e: InterleavedComplex) => me.updatex(i, e)
+      case (me: SComplexVector, e: InterleavedComplex) => me.updatex(i, new SComplex(compcreate(e.re, e.im)))
+      case (me: ScalarVector, e: SComplex) => me.update(i, new InterleavedComplex(e.re(),e.im()))
+      case _ => {
+        ???
+      }
     }
 
     def t2vec(): Vector[Exp[_]]
-
 
 
   }
@@ -84,7 +92,12 @@ trait Header extends Skeleton {
 
   case class SComplex(d: Exp[Complex]) extends DataEle {
 
-    def create(re: Exp[Double], im: Exp[Double]): SComplex = new SComplex(compcreate(re,im))
+    def re(): Exp[Double] = compre(d)
+
+    def im(): Exp[Double] = compim(d)
+
+    def create(re: Exp[Double], im: Exp[Double]): SComplex = new SComplex(compcreate(re, im))
+
     def dplus(x: SComplex, y: SComplex): SComplex = SComplex(plus(x.d, y.d))
 
     def dminus(x: SComplex, y: SComplex): SComplex = SComplex(minus(x.d, y.d))
@@ -95,9 +108,10 @@ trait Header extends Skeleton {
   case class SComplexVector(d: Exp[ComplexVector]) extends Data {
 
 
-    override def create(n: AInt): SComplexVector = SComplexVector(veccreate( n.ev.toRep(n.a)))
+    override def create(n: AInt): SComplexVector = SComplexVector(veccreate(n.ev.toRep(n.a)))
 
     override def getdata() = d
+
     def apply(i: AInt): SComplex = {
       val t = i.ev.toRep(i.a)
       SComplex(vecapply(d, t))
@@ -114,31 +128,34 @@ trait Header extends Skeleton {
 
   case class InterleavedComplex(re: Exp[Double], im: Exp[Double]) extends DataEle {
 
-    def create(re: Exp[Double], im: Exp[Double]): InterleavedComplex = InterleavedComplex(re,im)
 
-    def dplus(x: InterleavedComplex, y: InterleavedComplex): InterleavedComplex = InterleavedComplex(x.re + y.re,x.im + y.im)
 
-    def dminus(x: InterleavedComplex, y: InterleavedComplex): InterleavedComplex = InterleavedComplex(x.re - y.re,x.im - y.im)
+    def create(re: Exp[Double], im: Exp[Double]): InterleavedComplex = InterleavedComplex(re, im)
+
+    def dplus(x: InterleavedComplex, y: InterleavedComplex): InterleavedComplex = InterleavedComplex(x.re + y.re, x.im + y.im)
+
+    def dminus(x: InterleavedComplex, y: InterleavedComplex): InterleavedComplex = InterleavedComplex(x.re - y.re, x.im - y.im)
 
     def dtimes(x: InterleavedComplex, y: InterleavedComplex): InterleavedComplex = InterleavedComplex(x.re * y.re - x.im * y.im, x.re * y.im + x.im * y.re)
   }
 
-  case class InterleavedComplexVector( d: Exp[Array[Double]]) extends Data {
+  case class InterleavedComplexVector(d: Exp[Array[Double]]) extends Data {
 
-    override def create(n: AInt): InterleavedComplexVector = InterleavedComplexVector( dveccreate( n.ev.toRep(n.a)))
+    override def create(n: AInt): InterleavedComplexVector = InterleavedComplexVector(dveccreate(n.ev.toRep(n.a)))
 
     override def getdata() = d
+
     def apply(i: AInt): InterleavedComplex = {
       val t = i.ev.toRep(i.a)
-      val re = dvecapply(d,2*t)
-      val im = dvecapply(d,(2*t)+1)
-      InterleavedComplex(re,im)
+      val re = dvecapply(d, 2 * t)
+      val im = dvecapply(d, (2 * t) + 1)
+      InterleavedComplex(re, im)
     }
 
     def updatex(i: AInt, y: InterleavedComplex): Data = {
       val t = i.ev.toRep(i.a)
-      val re = dvecupdate(d,(2*t),y.re)
-      val im = dvecupdate(re,(2*t+1),y.im)
+      val re = dvecupdate(d, (2 * t), y.re)
+      val im = dvecupdate(re, (2 * t + 1), y.im)
       InterleavedComplexVector(im)
     }
 
@@ -146,30 +163,37 @@ trait Header extends Skeleton {
   }
 
 
-  case class ScalarVector( d: Array[Exp[Double]]) extends Data {
+  case class ScalarVector(d: Array[Exp[Double]]) extends Data {
 
 
-    override def create(n: AInt): ScalarVector = n.ev.fold[Int,ScalarVector](n.a,
-      fa=> {      ??? /* this should not occur */   }, fb => {
+    override def create(n: AInt): ScalarVector = n.ev.fold[Int, ScalarVector](n.a,
+      fa => {
+        ??? /* this should not occur */
+      }, fb => {
         ScalarVector(new Array[Exp[Double]](fb * 2))
       })
 
     override def getdata() = ???
+
     def apply(n: AInt): InterleavedComplex =
-      n.ev.fold[Int,InterleavedComplex ](n.a,
-        fa=> {      ??? /* this should not occur */   }, i => {
+      n.ev.fold[Int, InterleavedComplex](n.a,
+        fa => {
+          ??? /* this should not occur */
+        }, i => {
           val t = i
-          val re =d(2*t)
-          val im = d((2*t)+1)
-          InterleavedComplex(re,im)
+          val re = d(2 * t)
+          val im = d((2 * t) + 1)
+          InterleavedComplex(re, im)
         })
 
     def updatex(i: AInt, y: InterleavedComplex): Data =
-      i.ev.fold[Int,Data ](i.a,
-        fa=> {      ??? /* this should not occur */   }, fb => {
+      i.ev.fold[Int, Data](i.a,
+        fa => {
+          ??? /* this should not occur */
+        }, fb => {
           val t = fb
-          val re = d.update((2*t),y.re)
-          val im = d.update((2*t+1),y.im)
+          val re = d.update((2 * t), y.re)
+          val im = d.update((2 * t + 1), y.im)
           this
         })
 
@@ -178,10 +202,9 @@ trait Header extends Skeleton {
   }
 
 
-
-
   case class MaybeSFunction(f: Either[StagedFunction[Dyn, Data], Dyn => Data]) {
     def apply(dyn: Dyn): Data = f.fold(fa => fa(dyn), fb => fb(dyn))
+
     def mkfun(stat: Stat, dyn: Dyn): Data = f.fold(fa => fa(dyn), fb => {
       val expose = exposeDyn(stat)
       val t = doGlobalLambda(fb, Some("Base" + stat.toSig()), Some("Base" + stat.toSig()))(expose, stat.expdata)
@@ -214,7 +237,8 @@ trait Header extends Skeleton {
     new OneEntry {
       override type A[Y] = NoRep[Y]
       override type T = X
-      override val evnum: scala.Numeric[X] = null //ugly!!!!
+      override val evnum: scala.Numeric[X] = null
+      //ugly!!!!
       override val ev: Header.this.IRep[A] = cNoRep
       override val a: this.A[this.T] = x
       override val evtyp: Header.this.TypeRep[this.T] = implicitly[TypeRep[X]]
@@ -304,11 +328,13 @@ trait Header extends Skeleton {
       override val a: this.A[this.T] = fresh[Int]
     }
   }
+
   def sph2(): LInt = {
     new OneEntry {
       override type T = List[Int]
       override type A[X] = Exp[X]
-      override val evnum: Numeric[T] = null //ugly!!!!
+      override val evnum: Numeric[T] = null
+      //ugly!!!!
       override val ev: IRep[A] = cRep
       override val evtyp: TypeRep[T] = manifest[List[Int]]
       override val a: this.A[this.T] = fresh[List[Int]]
@@ -330,12 +356,14 @@ trait Header extends Skeleton {
     new OneEntry {
       override type T = List[Int]
       override type A[X] = Exp[X]
-      override val evnum: Numeric[T] = null //ugly!!!!!
+      override val evnum: Numeric[T] = null
+      //ugly!!!!!
       override val ev: IRep[A] = cRep
       override val evtyp: TypeRep[T] = manifest[List[Int]]
       override val a: this.A[this.T] = x
     }
   }
+
   type AInt = OneEntry {type T = Int}
 
 
@@ -455,10 +483,10 @@ trait Header extends Skeleton {
 
   object IM {
     def apply(statx: StatIM, dynx: DynIM): IMFull = {
-      (statx,dynx) match{
-        case (stat: Stat_GT_IM, dyn: Dyn_GT_IM) => apply(stat,dyn)
-        case (stat: Stat_GTI_IM, dyn: Dyn_GTI_IM) => apply(stat,dyn)
-        case (stat: Stat_GTT_IM, dyn: Dyn_GTT_IM) => apply(stat,dyn)
+      (statx, dynx) match {
+        case (stat: Stat_GT_IM, dyn: Dyn_GT_IM) => apply(stat, dyn)
+        case (stat: Stat_GTI_IM, dyn: Dyn_GTI_IM) => apply(stat, dyn)
+        case (stat: Stat_GTT_IM, dyn: Dyn_GTT_IM) => apply(stat, dyn)
         case _ => ???
       }
     }
@@ -474,11 +502,12 @@ trait Header extends Skeleton {
       val tw = IMH(stat.twim, dyn.twim)
       new GTI_IM(im, tw)
     }
+
     def apply(stat: Stat_GTT_IM, dyn: Dyn_GTT_IM): GTT_IM = {
       val g = IMH(stat.g, dyn.g)
       val s = IMH(stat.s, dyn.s)
       val tw = IMH(stat.twim, dyn.twim)
-      new GTT_IM(g,s, tw)
+      new GTT_IM(g, s, tw)
     }
   }
 
@@ -577,7 +606,7 @@ trait Header extends Skeleton {
       val (a, b) = g.vec2t(v)
       val (c, d) = s.vec2t(b)
       val (e, f) = twim.vec2t(d)
-      (new Dyn_GTT_IM(a, c,e), f)
+      (new Dyn_GTT_IM(a, c, e), f)
     }
 
     def gather() = g
@@ -617,7 +646,7 @@ trait Header extends Skeleton {
 
   abstract class Base(pos: AInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidBase])
 
-  abstract class Header(pos: AInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(pos,n, lb, im, v, tw) with RepSelector2 {
+  abstract class Header(pos: AInt, n: AInt, lb: AInt, im: IM, v: AInt, tw: Option[TwidHeader]) extends Base(pos, n, lb, im, v, tw) with RepSelector2 {
     def getpos() = repselect(pos)
 
     def getn() = repselect(n)
@@ -636,6 +665,7 @@ trait Header extends Skeleton {
       val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString) + "pos" + repselect(pos).toSig()
       t
     }
+
     override def getim(): StatIM = im
 
     override def gettw(): Option[StatTwiddleScaling] = tw
@@ -658,7 +688,7 @@ trait Header extends Skeleton {
       val s = dyn.getim()
       val im = IM(g, s)
       val tw = TwiddleScaling(stat.gettw(), dyn.gettw())
-      Mix(pos,dyn.x, dyn.y, n, lb, im, v, tw, stat.par, stat.precompute, stat.expdata)
+      Mix(pos, dyn.x, dyn.y, n, lb, im, v, tw, stat.par, stat.precompute, stat.expdata)
     }
   }
 
@@ -666,13 +696,14 @@ trait Header extends Skeleton {
   case class Mix(pos: AInt, x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean, expdata: ExposeRep[Data]) extends Base(pos, n, lb, im, v, tw) {
     def getDyn(): Dyn = new Dyn(pos, x, y, n, lb, im.getDynIM(), v, tw.fold[Option[DynTwiddleScaling]](None)(fb => Some(fb.getDynTwiddleScaling())))
 
-    def getStat(): Stat = new Stat(pos, n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())),par, precompute, expdata)
+    def getStat(): Stat = new Stat(pos, n, lb, im.getStatIM(), v, tw.fold[Option[StatTwiddleScaling]](None)(fb => Some(fb.getStatTwiddleScaling())), par, precompute, expdata)
   }
 
   def OR2AInt[T](op: Option[T]): AInt = op match {
     case Some(x: Rep[Int]) => R2AInt(x)
     case _ => toOE(-1)
   }
+
   def OR2LInt[T](op: Option[T]): LInt = op match {
     case Some(x: Rep[List[Int]]) => R2LInt(x)
     case _ => toOEL(List.empty)
@@ -681,8 +712,8 @@ trait Header extends Skeleton {
   implicit def exposeDyn(stat: Stat): ExposeRep[Dyn] = {
     new ExposeRep[Dyn]() {
       val freshExps: Unit => Vector[Exp[_]] = (u: Unit) => {
-        val t = stat.expdata.freshExps() ++ stat.expdata.freshExps() ++ stat.pos.ev.fresh()(stat.pos.evtyp) ++stat.n.ev.fresh()(stat.n.evtyp) ++ stat.lb.ev.fresh()(stat.lb.evtyp) ++
-          stat.v.ev.fresh()(stat.v.evtyp) ++ stat.im.freshExps() ++  stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
+        val t = stat.expdata.freshExps() ++ stat.expdata.freshExps() ++ stat.pos.ev.fresh()(stat.pos.evtyp) ++ stat.n.ev.fresh()(stat.n.evtyp) ++ stat.lb.ev.fresh()(stat.lb.evtyp) ++
+          stat.v.ev.fresh()(stat.v.evtyp) ++ stat.im.freshExps() ++ stat.tw.fold[Vector[Exp[_]]](Vector.empty)(fb => fb.freshExps())
         t
       }
       val vec2t: Vector[Exp[_]] => Dyn = (in: Vector[Exp[_]]) => {
@@ -691,6 +722,7 @@ trait Header extends Skeleton {
           val me = stat.expdata.t2vec(d)
           (d, v.drop(me.size))
         }
+
         val (x, ax) = removeData(in)
         val (y, ay) = removeData(ax)
         val (apos, opos) = stat.pos.ev.fetch[List[Int]](ay)
@@ -707,7 +739,7 @@ trait Header extends Skeleton {
         val v: AInt = OR2AInt(ov)
         val n: AInt = OR2AInt(on)
         val lb: AInt = OR2AInt(olb)
-        new Dyn(pos,x, y, n, lb, im, v, otw)
+        new Dyn(pos, x, y, n, lb, im, v, otw)
       }
       val t2vec: Dyn => Vector[Exp[_]] = (in: Dyn) => {
         in.x.t2vec() ++ in.y.t2vec() ++
@@ -742,8 +774,10 @@ trait Header extends Skeleton {
   class StatTwiddleScaling(val n: AInt, val d: AInt, val k: AInt) extends TwidHeader(n, d, k) with StatSelector2 {
 
     def genSig(): String = "n" + repselect(n).toSig() + "d" + repselect(d).toSig() + "k" + repselect(k).toSig()
+
     def freshExps(): Vector[Exp[_]] = n.ev.fresh()(n.evtyp) ++ d.ev.fresh()(d.evtyp) ++ k.ev.fresh()(k.evtyp)
-//base.ev.fresh()(base.evtyp) ++ s0.ev.fresh()(s0.evtyp) ++ s1.ev.fresh()(s1.evtyp)
+
+    //base.ev.fresh()(base.evtyp) ++ s0.ev.fresh()(s0.evtyp) ++ s1.ev.fresh()(s1.evtyp)
     def vec2t(v: Vector[Exp[_]]): (DynTwiddleScaling, Vector[Exp[_]]) = {
       val (an, on) = n.ev.fetch[Int](v)
       val (ad, od) = d.ev.fetch[Int](an)
