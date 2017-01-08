@@ -11,7 +11,7 @@ import scala.tools.nsc.interpreter.AbstractFileClassLoader
 
 trait ScalaCompile {
 
-  val codegen: ScalaCodegen with EmitHeadInternalFunctionAsClass
+  val codegen: ScalaCodegen with TupleHelper
 
   var compiler: Global = _
   var reporter: ConsoleReporter = _

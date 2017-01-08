@@ -5,7 +5,7 @@ package scalalike
 import ops._
 import scala.lms.internal.FunctionsExp
 
-trait ScalaGenIfThenElse extends ScalaCodegen with EmitHeadInternalFunctionAsClass{
+trait ScalaGenIfThenElse extends ScalaCodegen with TupleHelper{
   val IR: IfThenElsePureExp with FunctionsExp
   import IR._
 

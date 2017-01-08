@@ -45,12 +45,12 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     var basecase_min = 4
     var basecase_max = 8
     var basecase_default = 0
-    val default_dft_size = 2
+    val default_dft_size = 3
     //2^n
-    val cur_dft_size = default_dft_size
+    var cur_dft_size = default_dft_size
 
     var breakdown_enum = BreakDown.getBreakdown(Some(basecase_min, basecase_max), basecase_default, None)
-    var dft_variants = breakdown_enum((Math.pow(2, default_dft_size).toInt, false))
+    var dft_variants = breakdown_enum((Math.pow(2, cur_dft_size).toInt, false))
     var cur_variant = dft_variants(0)
 
 
@@ -168,6 +168,15 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     }
 
     //-------------------------------------------------Variants
+    val dft_size =
+      new Slider() {
+        min = 1
+        value = default_dft_size
+        max = 14
+        majorTickSpacing = 1
+        paintLabels = true
+        paintTicks = true
+      }
     val slider_variant =
       new Slider() {
         min = 0
@@ -199,6 +208,9 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
 
     val variants = new BoxPanel(Orientation.Vertical) {
+      contents.append(new Label("DFT size"))
+      contents.append(dft_size)
+      contents.append(new Label("DFT breakdown variant #"))
       contents.append(slider_variant)
       contents.append(plotting)
     }
@@ -265,7 +277,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
       val varmap = variant2Map(cur_variant, Map.empty, List.empty)
       val varmap2 = variant2Map3(cur_variant,BRMaps(Map.empty,Map.empty,Map.empty, Map.empty, Map.empty))
       new CorewGlue(cur_variant, varmap2._1, cur_dft_size, radio_wht.selected,
-        if (radio_dyn_size.selected) None else Some((Math.pow(2, default_dft_size).toInt)),
+        if (radio_dyn_size.selected) None else Some((Math.pow(2, cur_dft_size).toInt)),
         radio_format_interleaved.selected,
         checkbox_threading.selected,
         textfield_basecase_default.text.toInt,
@@ -324,23 +336,34 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
           }
         }
       }
+      contents += new Button {
+        text = "Clear Plot"
+        reactions += {
+          case ButtonClicked(_) => {
+            variantplot.series.clear()
+          }
+        }
+      }
 
 
     }
 
     ///////////////////////////////////// DEFAULT Config
 
-    radio_dyn_size.selected_=(true)
-    radio_wht.selected_=(true)
+    radio_dyn_size.selected_=(false)
+    radio_stat_size.selected_=(true)
+    radio_wht.selected_=(false)
+    radio_dft.selected_=(true)
     radio_format_complex.selected_=(false); radio_format_interleaved.selected_=(true)
 
     checkbox_validate.selected_=(true)
-    checkbox_inplace.selected_=(true)
+    checkbox_inplace.selected_=(false)
     textfield_basecase_default.text_=("4")//textfield_basecase_default.text_=("0")
     radio_basecase_default.selected_=(true)
     radio_twiddle_default.selected_=(true)
     checkbox_twiddle_inline.selected_=(true)
-    radio_twiddle_onthefly.selected_=(true)
+    radio_twiddle_precompute.selected_=(true);radio_twiddle_onthefly.selected_=(false)
+    checkbox_threading.selected_=(true)
 
 
 
@@ -370,14 +393,37 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         contents.append(buttons)
 
         listenTo(slider_variant)
+        listenTo(dft_size)
         reactions += {
           case ValueChanged(`slider_variant`) => {
             cur_variant = dft_variants(slider_variant.value)
             val newtree = getInternalBreakdownTree(cur_variant)
             scpanel.viewportView_=(newtree)
           }
+            case ValueChanged(`dft_size`) => {
+              cur_dft_size = dft_size.value
+              dft_variants = breakdown_enum(Math.pow(2, dft_size.value).toInt, false)
+              slider_variant.paintLabels_=(false)
+              slider_variant.paintTicks_=(false)
 
+
+              slider_variant.max_=(dft_variants.size - 1)
+              if (dft_variants.size < 20) {
+                slider_variant.majorTickSpacing_=(if ((dft_variants.size - 1) < 5) dft_variants.size - 1 else 5)
+                slider_variant.minorTickSpacing_=(1)
+                slider_variant.peer.setLabelTable( slider_variant.peer.createStandardLabels( 1) );
+              } else {
+                slider_variant.majorTickSpacing_=((dft_variants.size - 1) / 10)
+                slider_variant.minorTickSpacing_=((dft_variants.size - 1) / 5)
+                slider_variant.peer.setLabelTable( slider_variant.peer.createStandardLabels( slider_variant.peer.getMajorTickSpacing() ) );
+              }
+
+              slider_variant.paintLabels_=(true)
+              slider_variant.paintTicks_=(true)
+              slider_variant.value_=(0)
+          }
         }
+
       }
 
     )

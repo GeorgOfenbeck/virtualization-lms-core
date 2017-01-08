@@ -1,4 +1,5 @@
 /*
+
 package SpiralS2
 
 import java.io._
@@ -22,10 +23,10 @@ import scala.swing.ListView._
 
 
 object Gui extends SimpleSwingApplication {
-  /*val frame = new HelloWorld
+  val frame = new HelloWorld
   frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
   frame.setSize(2048, 1080)
-  frame.setVisible(true)*/
+  frame.setVisible(true)
 
   import ExampleData._
 
@@ -446,6 +447,7 @@ object Gui extends SimpleSwingApplication {
 
 
 }
+
 
 
 

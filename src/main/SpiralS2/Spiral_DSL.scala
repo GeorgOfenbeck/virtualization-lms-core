@@ -2,18 +2,17 @@
 package SpiralS2
 
 
-
 import scala.lms._
 import scala.lms.internal._
 import scala.lms.ops._
 import scala.lms.targets.graphviz.GraphVizExport
 import scala.lms.targets.scalalike._
 
-trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExpOpt  with ImplicitOpsExp with ScalaCompile  {
+trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with BooleanOpsExpOpt with IfThenElsePureExp with PurePrimitiveOpsExpOpt with ImplicitOpsExp with ScalaCompile {
 
-  case class ListAdd(l : Exp[List[Int]], i: Exp[Int])extends Def[List[Int]]
+  case class ListAdd(l: Exp[List[Int]], i: Exp[Int]) extends Def[List[Int]]
 
-  def listadd(l : Exp[List[Int]], i: Exp[Int]): Exp[List[Int]] = ListAdd(l,i)
+  def listadd(l: Exp[List[Int]], i: Exp[Int]): Exp[List[Int]] = ListAdd(l, i)
 
   case class ISingle(s: Single, i: Rep[Int])
 
@@ -50,11 +49,11 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class Int_Eq(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Boolean]
 
-  def int_eq(lhs: Exp[Int], rhs: Exp[Int]): Exp[Boolean]  = Int_Eq(lhs,rhs)
+  def int_eq(lhs: Exp[Int], rhs: Exp[Int]): Exp[Boolean] = Int_Eq(lhs, rhs)
 
   case class IVecUpRank(v: Exp[Vector[Int]]) extends Def[Vector[Int]]
 
-  def ivecuprank(v: Exp[Vector[Int]]): Exp[Vector[Int]]  = IVecUpRank(v)
+  def ivecuprank(v: Exp[Vector[Int]]): Exp[Vector[Int]] = IVecUpRank(v)
 
   case class IVecCreate(s: Exp[Int]) extends Def[Vector[Int]]
 
@@ -76,7 +75,7 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class IVecAddStride(vec: Exp[Vector[Int]], y: Exp[Int], blub: Exp[Int]) extends Def[Vector[Int]]
 
-  def ivecaddstride(vec: Exp[Vector[Int]], y: Exp[Int], blub: Exp[Int]): Exp[Vector[Int]] = IVecAddStride(vec,y, blub)
+  def ivecaddstride(vec: Exp[Vector[Int]], y: Exp[Int], blub: Exp[Int]): Exp[Vector[Int]] = IVecAddStride(vec, y, blub)
 
   case class IVecAppend(vec: Exp[Vector[Int]], y: Exp[Int]) extends Def[Vector[Int]]
 
@@ -92,37 +91,33 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class Twiddle_Apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]) extends Def[ComplexVector]
 
-  def twiddle_apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]): Exp[ComplexVector] = Twiddle_Apply(vec,size,n,d,k)
+  def twiddle_apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]): Exp[ComplexVector] = Twiddle_Apply(vec, size, n, d, k)
 
 
+  case class Twiddle_Apply_Index(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) extends Def[Complex]
 
-  case class Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) extends Def[Complex]
+  def twiddle_apply_index(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index(n, d, k, i)
 
-  def twiddle_apply_index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index(n,d,k,i)
+  case class Twiddle_Load(i: Exp[Int]) extends Def[Complex]
 
-  case class Twiddle_Load(i: Exp[Int] ) extends Def[Complex]
+  def twiddle_load(i: Exp[Int]): Exp[Complex] = Twiddle_Load(i)
 
-  def twiddle_load( i: Exp[Int]): Exp[Complex] = Twiddle_Load(i)
+  case class Twiddle_Apply_Index_Store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) extends Def[Complex]
 
-  case class Twiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) extends Def[Complex]
-
-  def twiddle_apply_index_store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index_Store(n,d,k,i)
-
-
-  case class DTwiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
-
-  def dtwiddle_apply_index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re:Boolean): Exp[Double] = DTwiddle_Apply_Index(n,d,k,i,re)
-
-  case class DTwiddle_Load(i: Exp[Int] ) extends Def[Double]
-
-  def dtwiddle_load( i: Exp[Int]): Exp[Double] = DTwiddle_Load(i)
-
-  case class DTwiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
-
-  def dtwiddle_apply_index_store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean): Exp[Double] = DTwiddle_Apply_Index_Store(n,d,k,i,re)
+  def twiddle_apply_index_store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]): Exp[Complex] = Twiddle_Apply_Index_Store(n, d, k, i)
 
 
+  case class DTwiddle_Apply_Index(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
 
+  def dtwiddle_apply_index(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean): Exp[Double] = DTwiddle_Apply_Index(n, d, k, i, re)
+
+  case class DTwiddle_Load(i: Exp[Int]) extends Def[Double]
+
+  def dtwiddle_load(i: Exp[Int]): Exp[Double] = DTwiddle_Load(i)
+
+  case class DTwiddle_Apply_Index_Store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) extends Def[Double]
+
+  def dtwiddle_apply_index_store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean): Exp[Double] = DTwiddle_Apply_Index_Store(n, d, k, i, re)
 
 
   case class VecCreate(s: Exp[Int]) extends Def[ComplexVector]
@@ -135,7 +130,7 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class CompCreate(re: Exp[Double], im: Exp[Double]) extends Def[Complex]
 
-  def compcreate(re: Exp[Double], im: Exp[Double]): Exp[Complex] = CompCreate(re,im)
+  def compcreate(re: Exp[Double], im: Exp[Double]): Exp[Complex] = CompCreate(re, im)
 
 
   case class DVecApply(vec: Exp[Array[Double]], i: Exp[Int]) extends Def[Double]
@@ -154,13 +149,13 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   def dvecupdate(vec: Exp[Array[Double]], i: Exp[Int], y: Exp[Double]): Exp[Array[Double]] = DVecUpdate(vec, i, y)
 
-  case class VecSame(x: Exp[ComplexVector],y: Exp[ComplexVector] ) extends Def[ComplexVector]
+  case class VecSame(x: Exp[ComplexVector], y: Exp[ComplexVector]) extends Def[ComplexVector]
 
-  def vecsame(x: Exp[ComplexVector], y:  Exp[ComplexVector]): Exp[ComplexVector] = VecSame(x,y)
+  def vecsame(x: Exp[ComplexVector], y: Exp[ComplexVector]): Exp[ComplexVector] = VecSame(x, y)
 
-  case class DVecSame(x: Exp[Array[Double]], y:  Exp[Array[Double]]) extends Def[Array[Double]]
+  case class DVecSame(x: Exp[Array[Double]], y: Exp[Array[Double]]) extends Def[Array[Double]]
 
-  def dvecsame(x: Exp[Array[Double]], y:  Exp[Array[Double]]): Exp[Array[Double]] = DVecSame(x,y)
+  def dvecsame(x: Exp[Array[Double]], y: Exp[Array[Double]]): Exp[Array[Double]] = DVecSame(x, y)
 
   case class Plus(lhs: Exp[Complex], rhs: Exp[Complex]) extends Def[Complex]
 
@@ -181,17 +176,15 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
   case class SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
 
+  case class SigmaLoop[A, R](till: Exp[Int], parllel: Option[Int], ini: Exp[_], out: Exp[_], tupleexpose: ExposeRep[A], body: Exp[_ => _]) extends Def[Any]
 
-
-  case class SigmaLoop[A,R](till: Exp[Int], parllel: Option[Int], ini: Exp[_], out: Exp[_], tupleexpose: ExposeRep[A], body: Exp[_ => _]) extends Def[Any]
-
-  def sigmaLoop[A,R](till: Rep[Int], parallel: Option[Int], ini: Exp[_], out: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
+  def sigmaLoop[A, R](till: Rep[Int], parallel: Option[Int], ini: Exp[_], out: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
     val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     //val looptuple = tupleexpose.freshExps()
     //val loopvar = looptuple.head.asInstanceOf[Exp[Int]]
     //val loopacc = looptuple.tail.head.asInstanceOf[Exp[ComplexVector]]
-    val sumloopnode = SigmaLoop(till, parallel, ini, out, tupleexpose,  lambda.exp)
+    val sumloopnode = SigmaLoop(till, parallel, ini, out, tupleexpose, lambda.exp)
     val sumnodeexp = toAtom(sumloopnode)
 
     val returnNodes = if (newsyms.size > 1) {
@@ -217,7 +210,7 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
 
   case class SumFoldX[R](till: Exp[Int], parllel: Option[Int], ini: Exp[_], out: Exp[_], loopvar: Exp[Int], loopacc: Exp[ComplexVector], body: Exp[_ => _]) extends Def[ComplexVector]
 
-  def sumFoldx[A,R](till: Rep[Int], parallel: Option[Int], ini: Exp[_], out: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
+  def sumFoldx[A, R](till: Rep[Int], parallel: Option[Int], ini: Exp[_], out: Exp[_], body: A => R)(implicit tupleexpose: ExposeRep[A], singleexpose: ExposeRep[R]): R = {
     val lambda = doInternalLambda(body, false, None)(tupleexpose, singleexpose)
     val newsyms = singleexpose.freshExps()
     val looptuple = tupleexpose.freshExps()
@@ -245,7 +238,6 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
     }
     singleexpose.vec2t(returnNodes)
   }
-
 
 
   def sumFold[A](till: Rep[Int], parallel: Boolean, ini: Single, body: ISingle => Single)(implicit tupleexpose: ExposeRep[ISingle], singleexpose: ExposeRep[Single]): Single = {
@@ -278,14 +270,13 @@ trait Spiral_DSL extends BaseExp with FunctionsExp with OrderingOpsExp with Bool
   }
 }
 
-trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsClass {
+trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadInternalFunctionAsClass  */ {
   val IR: Spiral_DSL
 
   import IR._
 
   var delay: Vector[(TP[_], Vector[String], (Block, Vector[String]) => Vector[String])] = Vector.empty
   var delaynow: Boolean = false
-
 
 
   override def emitNode(tp: TP[_], acc: Vector[String],
@@ -303,7 +294,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case DVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "new Array[Double](2*" + quote(n) + ") //buffer creation"))
       case DVecApply(vec: Exp[Array[Double]], i: Exp[Int]) => Vector(emitValDef(tp, "" + quote(vec) + "(" + quote(i) + ")"))
       case DVecSame(x: Exp[Array[Double]], y: Exp[Array[Double]]) => Vector(emitValDef(tp, "" + quote(x)))
-      case DVecUpdate(vec: Exp[Array[Double]], i: Exp[Int], y: Exp[Double]) => Vector(emitValDef(tp, "{" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + "); "+quote(vec)+ "}"))
+      case DVecUpdate(vec: Exp[Array[Double]], i: Exp[Int], y: Exp[Double]) => Vector(emitValDef(tp, "{" + quote(vec) + ".update(" + quote(i) + "," + quote(y) + "); " + quote(vec) + "}"))
       case IVecAddStride(v: Exp[Vector[Int]], y: Exp[Int], b: Exp[Int]) => Vector(emitValDef(tp, quote(v) + ".dropRight(1) :+ " + quote(v) + ".last / " + quote(y) + "/// ADD STride " + quote(b)))
       case IVecCreate(n: Exp[Int]) => Vector(emitValDef(tp, "Vector.empty[Int] //creating vector with " + quote(n)))
       case IVecAppend(v: Exp[Vector[Int]], y: Exp[Int]) => Vector(emitValDef(tp, quote(v) + " :+ " + quote(y)))
@@ -311,22 +302,28 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case IVecZipMagic(r, s) => Vector(emitValDef(tp, "Vector(" + quote(r) + ".headOption.getOrElse(0) * " + quote(s) + ".headOption.getOrElse(0)) ++ " + quote(r) + ".tail.zipAll(" + quote(s) + ".tail,0,0).map(p => p._1 + " + quote(r) + ".headOption.getOrElse(0) * p._2)"))
       case IVecMult(b, s, l) => Vector(emitValDef(tp, " VectorMult(" + quote(b) + "," + quote(s) + "," + quote(l) + ")"))
       case IVecFirstorZero(v) => Vector(emitValDef(tp, quote(v) + ".headOption.getOrElse(0)"))
-      case IVecUpRank(v) => Vector(emitValDef(tp, "Vector("+ quote(v) + ".head, 0) ++ " + quote(v) + ".tail"))
-      case Int_Eq(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
+      case IVecUpRank(v) => Vector(emitValDef(tp, "Vector(" + quote(v) + ".head, 0) ++ " + quote(v) + ".tail"))
+      case Int_Eq(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " == " + quote(rhs)))
       case Plus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " + " + quote(rhs)))
       case Minus(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " - " + quote(rhs)))
       case Times(lhs, rhs) => Vector(emitValDef(tp, quote(lhs) + " * " + quote(rhs)))
       //case Divide(lhs,rhs) => Vector(emitValDef(tp, quote(lhs) + " / " + quote(rhs)))
-      case Twiddle_Apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int])  => Vector(emitValDef(tp, " Twiddle(" + quote(vec) + "," + quote(n) + "," + quote(d) + "," + quote(k) + ")"))
-      case Twiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
-      case Twiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.store(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
+      case Twiddle_Apply(vec: Exp[ComplexVector], size: Exp[Int], n: Exp[Int], d: Exp[Int], k: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(vec) + "," + quote(n) + "," + quote(d) + "," + quote(k) + ")"))
+      case Twiddle_Apply_Index(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
+      case Twiddle_Apply_Index_Store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.store(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")"))
       case Twiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.load()"))
 
-      case DTwiddle_Apply_Index( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int],re: Boolean) => {
-        val t = if(re){ ".re"} else {".im"}
-        Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")" + t ))
+      case DTwiddle_Apply_Index(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) => {
+        val t = if (re) {
+          ".re"
+        } else {
+          ".im"
+        }
+        Vector(emitValDef(tp, " Twiddle(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + ")" + t))
       }
-      case DTwiddle_Apply_Index_Store( n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int],re: Boolean) => { Vector(emitValDef(tp, " Twiddle.dstore(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + "," + re + ")" ))}
+      case DTwiddle_Apply_Index_Store(n: Exp[Int], d: Exp[Int], k: Exp[Int], i: Exp[Int], re: Boolean) => {
+        Vector(emitValDef(tp, " Twiddle.dstore(" + quote(n) + "," + quote(d) + "," + quote(k) + "," + quote(i) + "," + re + ")"))
+      }
 
 
       case DTwiddle_Load(i: Exp[Int]) => Vector(emitValDef(tp, " Twiddle.dload()"))
@@ -339,7 +336,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       case Radix(l: Exp[Int]) => Vector(emitValDef(tp, "Settings.id2radix.getOrElse(" + quote(l) + ",2)"))
 
       case Twid(l: Exp[List[Int]]) => Vector(emitValDef(tp, "{val t = Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = ???; \nt})._3\nif(t) 1 else 0}\n"))
-      case ListAdd(l: Exp[List[Int]],i:Exp[Int]) => Vector(emitValDef(tp, quote(l) + ":+ " + quote(i)))
+      case ListAdd(l: Exp[List[Int]], i: Exp[Int]) => Vector(emitValDef(tp, quote(l) + ":+ " + quote(i)))
 
       case SumFold(till: Exp[Int], parllel: Boolean, ini: Exp[ComplexVector], loopvar: Exp[Int], acc: Exp[ComplexVector], body) => {
         val bodylambda = exp2tp(body)
@@ -398,7 +395,6 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
             })
 
 
-
             val l10 = l1 + "\n" + helper + "\n"
             val l2 = block_callback(ty, Vector(l10))
             val trestuple: Vector[String] = ty.res.map(r => quote(r))
@@ -415,13 +411,8 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
       }
 
 
-
-
-
-
       case SigmaLoop(till: Exp[Int], parallel: Option[Int], in: Exp[_], out: Exp[_], exparg: ExposeRep[_], body) => {
         val bodylambda = exp2tp(body)
-
 
 
         val rets: Vector[String] = bodylambda.rhs match {
@@ -439,39 +430,47 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with EmitHeadInternalFunctionAsCla
             }
             val argtuple = tupledeclarehelper(tx.map(a => remap(a.tag)), "")
 
-            val l1 = parallel.fold[String](s"val ${quote(tp)} = {for(lc <- 0 until ${quote(till)}){\n val helper = (lc,${quote(in)},${quote(out)})\n ")(nrthreads => {???; ""})
+            parallel.fold[String]({
+              val l1 = s"val ${quote(tp)} = {for(lc <- 0 until ${quote(till)}){\n val helper = (lc,${quote(in)},${quote(out)})\n "
+              val l10 = l1 + "\n" + helper + "\n"
+              val l2 = block_callback(ty, Vector(l10))
+              val trestuple: Vector[String] = ty.res.map(r => quote(r))
+              val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
+              val l4 = l3 + s"\n};\n${quote(out)} }\n"
+              l4
+            })(nrthreads => {
+              val l1 = s"val ${quote(tp)} = Twiddle.parloop(${quote(till)},$nrthreads,${quote(in)},${quote(out)},(lc: Int) => {\n val helper = (lc,${quote(in)},${quote(out)})\n "
+              val l10 = l1 + "\n" + helper + "\n"
+              val l2 = block_callback(ty, Vector(l10))
+              val trestuple: Vector[String] = ty.res.map(r => quote(r))
+              val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
+              val l4 = l3 + s"\n}) \n"
+              l4
+            })
 
 
-/*
-            val l1 = parllel.fold[String]("val " + quote(tp) + " = (0 until " + quote(till) + ").foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n")(nrthreads => {
-              //"val " + quote(tp) + " = (0 until " + quote(till) + ").par.foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
-              "val " + quote(tp) + " = Twiddle.parloop(" + quote(till) + "," + nrthreads + "," + quote(ini) + "," + quote(out) + ",(x: (SpiralS2.ComplexVector,Int)) => {\n        val helper = x\n "
-            })*/
+              /*
+                          val l1 = parllel.fold[String]("val " + quote(tp) + " = (0 until " + quote(till) + ").foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n")(nrthreads => {
+                            //"val " + quote(tp) + " = (0 until " + quote(till) + ").par.foldLeft( " + quote(ini) + " )(\n  (acc,ele) => {\n val helper = (acc,ele)\n"
+                            "val " + quote(tp) + " = Twiddle.parloop(" + quote(till) + "," + nrthreads + "," + quote(ini) + "," + quote(out) + ",(x: (SpiralS2.ComplexVector,Int)) => {\n        val helper = x\n "
+                          })*/
 
 
-
-            val l10 = l1 + "\n" + helper + "\n"
-            val l2 = block_callback(ty, Vector(l10))
-            val trestuple: Vector[String] = ty.res.map(r => quote(r))
-            val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
-            val l4 = l3 + s"\n};\n${quote(out)} }\n"
-            l4
-          })
-          case _ => {
-            assert(false, "got an SumLoop statment which does not contain a lambda")
-            Vector.empty
+            })
+            case _ => {
+              assert(false, "got an SumLoop statment which does not contain a lambda")
+              Vector.empty
+            }
           }
+            rets
         }
-        rets
+
+
+        case _ => {
+
+          super.emitNode(tp, acc, block_callback)
+        }
       }
-
-
-
-      case _ => {
-
-        super.emitNode(tp, acc, block_callback)
-      }
+        ma
     }
-    ma
   }
-}

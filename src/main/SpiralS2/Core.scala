@@ -23,14 +23,14 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
   val emitGraph = new GraphVizExport {
     override val IR: self.type = self
   }
-  override val codegen = new ScalaCodegen with EmitHeadInternalFunctionAsClass with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse with ScalaGenOrderingOps {
+  override val codegen = new ScalaCodegen with EmitHeadNoTuples with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse with ScalaGenOrderingOps {
     val IR: self.type = self
   }
 
 
   val basecase_size: Option[Int] = if (base_default == 0) None else Some(base_default)
 
-  def inline(oe: OptionalEntry {type T = Int}): Boolean = oe.a match {
+  def inlinec(oe: OptionalEntry {type T = Int}): Boolean = oe.a match {
     case Some(n: Int) => inline && basecase_size.fold(false)(fb => n <= fb)
     case _ => false
   }
@@ -132,7 +132,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
 
   def loop[A](mix: Mix, in: Data, out: Data, par: Option[Int], body: iData => Data): Data = {
     val till = mix.lb
-    if (!unroll(mix)) {
+    if (!unroll(mix) ) {
       sigmaLoop(till.ev.toRep(till.a), par, in.getdata(), out.getdata(), body)(exposeiData(mix.expdata), mix.expdata)
     }
     else {
@@ -176,7 +176,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     }
   }
 
-  def F2(stat: Stat): MaybeSFunction = {
+  def F2(stat: Stat, inline: Boolean): MaybeSFunction = {
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix = Mix(stat, dyn)
@@ -202,7 +202,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
       }
       })
     }
-    if (inline(stat.getn())) MaybeSFunction(stageme) else
+    if (inline) MaybeSFunction(stageme) else
       MaybeSFunction(doGlobalLambda(stageme, Some("F2" + stat.toSig()), Some("F2" + stat.toSig()))(expose, stat.expdata))
   }
 
@@ -221,7 +221,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     }*/
 
 
-  def DFT_CT(stat: Stat): MaybeSFunction = {
+  def DFT_CT(stat: Stat,inline: Boolean): MaybeSFunction = {
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix_b = Mix(stat, dyn)
@@ -235,7 +235,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
       val k = chooseRadix(mix.n, mix.pos)
       val m = mix.n / k
 
-
+      val inlinechildren = inlinec(mix.getStat().getn())
       loop(mix, mix.x, mix.y, parx, { idata => {
         val stage1mix: Mix = {
           val (s0, s1) = if (!WHT) (k, toOE(1)) else (toOE(1), m)
@@ -260,9 +260,11 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
               if (inplace) idata.out else mix.y.create(mix.n)
             }
           }
-          mix.copy(x = idata.in, y = stage1_target, n = m, lb = k, im = nim, v = idata.i, pos = rid)
+          mix.copy(x = idata.in, y = stage1_target, n = m, lb = if(inline) k else R2AInt(k.ev.toRep(k.a)), im = nim, v = idata.i, pos = rid)
         }
-        val dataafterS1 = DFT(stage1mix.getStat())(stage1mix.getDyn())
+        val dataafterS1 = DFT(stage1mix.getStat(), inlinechildren)(stage1mix.getDyn())
+
+
         val stage2mix: Mix = {
           val twid = TwiddleScaling(mix.n, m, toOE(1))
           val s2_gather: IMH = IMH(toOE(0), m, toOE(1))
@@ -270,22 +272,21 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
           val nim = if (inplace && !hack) GTI_IM(s2_scatter, s2_gather) else if (WHT) GT_IM(s2_gather, s2_scatter) else {
             GTT_IM(s2_gather, s2_scatter, s2_gather)
           }
-          //val npos = R2LInt(listadd(mix.pos.ev.toRep(mix.pos.a), Const(Constants.encode_left)))
 
-          mix.copy(x = dataafterS1, y = idata.out, n = k, lb = m, im = nim, v = idata.i, tw = Some(twid), pos = lid)
+          mix.copy(x = dataafterS1, y = idata.out, n = k, lb = if(inline) m else R2AInt(m.ev.toRep(m.a)), im = nim, v = idata.i, tw = Some(twid), pos = lid)
         }
-        DFT(stage2mix.getStat())(stage2mix.getDyn())
+        DFT(stage2mix.getStat(),inlinechildren)(stage2mix.getDyn())
       }
       })
     }
-    if (inline(stat.getn())) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, stat.expdata))
+    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, stat.expdata))
   }
 
   def binsearchpos(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
     implicit val expose = mix.expdata
     if (low == high) {
       val nmix = mix.copy(pos = toOE(high))
-      DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
+      DFT(nmix.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix.getStat(), nmix.getDyn())
     } else {
       myifThenElse(ordering_equiv(check, Const(high)), {
         val nmix = mix.copy(pos = toOE(high))
@@ -295,7 +296,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
             if (realsize != in && in != 2)
               nmix.x
             else
-              DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
+              DFT(nmix.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix.getStat(), nmix.getDyn())
           }
           case _ => ??? //this should never happen
         }
@@ -319,24 +320,24 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
         binsearchpos(nmix, nmix.pos.ev.toRep(nmix.pos.a), 0, lookup.id2radix.size-1)
       }, {
         val nmix2 = nmix.copy(pos = toOE(-99))
-        DFT(nmix2.getStat()).mkfun(nmix2.getStat(), nmix2.getDyn())
+        DFT(nmix2.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix2.getStat(), nmix2.getDyn())
       })
 
     }, {
       if (high == 2) {
         val nmix = mix.copy(n = toOE(high))
-        DFT(nmix.getStat()).mkfun(nmix.getStat(), nmix.getDyn())
+        DFT(nmix.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix.getStat(), nmix.getDyn())
       }
       else
         binsearch2pow(mix, check, low, high / 2)
     })
   }
 
-  def DFT_placeholder(stat: Stat): MaybeSFunction = {
+  /*def DFT_placeholder(stat: Stat): MaybeSFunction = {
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => dyn.y
     if (inline(stat.getn())) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_uneven" + stat.toSig()), Some("DFT_uneven" + stat.toSig()))(expose, stat.expdata))
-  }
+  }*/
 
   def DFT_call(mix: Mix, stat: Stat, dyn: Dyn): Data = {
     //val dftct = mix.n.ev.equiv(mix.n.ev.mod(mix.n.a, mix.n.ev.const(2)), mix.n.ev.const(0))
@@ -344,16 +345,16 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     //mix.n.ev._if(dftct, {
     val bool = mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2))
     mix.n.ev._if(bool, {
-      F2(stat)(dyn)
+      F2(stat, inlinec(mix.getStat().getn()))(dyn)
     }, {
-      DFT_CT(stat)(dyn)
+      DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)
     })
     /*    }, {
           DFT_placeholder(stat)(dyn)
         })*/
   }
 
-  def DFT(stat: Stat): MaybeSFunction = {
+  def DFT(stat: Stat, inline: Boolean): MaybeSFunction = {
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix2 = Mix(stat, dyn)
@@ -373,13 +374,13 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
       }
       else DFT_call(mix, mix.getStat(), mix.getDyn())
     }
-    if (inline(stat.getn())) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toSig()))(expose, stat.expdata))
+    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toSig()))(expose, stat.expdata))
   }
 
   def ini(stat: Stat): (Dyn => Data) = {
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix = Mix(stat, dyn)
-      DFT(stat)(dyn)
+      DFT(stat,true)(dyn)
     }
     stageme
   }
