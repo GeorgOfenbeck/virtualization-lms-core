@@ -353,8 +353,8 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
     ///////////////////////////////////// DEFAULT Config
 
-    radio_dyn_size.selected_=(false)
-    radio_stat_size.selected_=(true)
+    radio_dyn_size.selected_=(true)
+    radio_stat_size.selected_=(false)
     radio_wht.selected_=(false)
     radio_dft.selected_=(true)
     radio_format_complex.selected_=(false); radio_format_interleaved.selected_=(true)

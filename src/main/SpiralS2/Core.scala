@@ -31,7 +31,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
   val codegen_java = {
     import scala.lms.targets.javalike._ 
     
-      new JavaCodegen with EmitHeadNoTuples with JavaGenPrimitivOps with JavaGenSpiral_DSL with JavaGenBooleanOps with JavaGenIfThenElse with JavaGenOrderingOps {
+      new JavaCodegen with EmitHeadNoTuples with JavaGenPrimitivOps /*with JavaGenSpiral_DSL*/ with JavaGenBooleanOps with JavaGenIfThenElse with JavaGenOrderingOps {
         val IR: self.type = self
       }
   }
@@ -124,7 +124,11 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
           if (fnb / 16 >= 2) 16 else if (fnb / 4 >= 2) 4 else 2
         })
       } else {
-        toOE(lookup.id2radix.getOrElse(fb, 2))
+        n.ev.fold[Int, AInt](n.a, fna => {
+          R2AInt(Const(lookup.id2radix.getOrElse(fb, 2)))
+        }, fnb => {
+          toOE(lookup.id2radix.getOrElse(fb, 2))
+        })
       }
     })
 
@@ -338,6 +342,9 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
               nmix.x
             else
               DFT_call(nmix,nmix.getStat(),nmix.getDyn())
+          }
+          case (ipos: Int,in: Exp[Int]) => {
+            DFT_call(nmix,nmix.getStat(),nmix.getDyn())
           }
           case _ => ??? //this should never happen
         }
