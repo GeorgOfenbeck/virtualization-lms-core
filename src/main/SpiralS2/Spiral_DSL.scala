@@ -492,4 +492,3 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
   }
 
 
-trait JavaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadInternalFunctionAsClass  */

@@ -379,6 +379,7 @@ trait EmitHeadNoTuples extends ScalaCodegen with TupleHelper{
       val restuple: Vector[String] = y.res.map(r => quote(r))
 
       val paras = x.map(tp => {
+
         val typ = remap(tp.tag.mf)
         s"${quote(tp)} : ${remap(tp.tag)}"
       }).mkString(", ")

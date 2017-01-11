@@ -151,7 +151,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     }
 
 
-    val checkbox_validate = new CheckBox("Validate Code (part of the timed code) ")
+    val checkbox_validate = new CheckBox("Validate Code ")
     val checkbox_inplace = new CheckBox("Inplace")
 
     val leftconfig = new BoxPanel(Orientation.Horizontal) {
@@ -269,7 +269,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     def ms2gflops(d: Double): Double = {
       val n = Math.pow(2,cur_dft_size)
       val flops = 5 * n * (Math.log10(n)/Math.log10(2))
-      val y: Double = ((flops / (d * 1000000)))
+      val y: Double = ((flops / (d)))
       y
     }
 
@@ -293,6 +293,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
       contents += new Button(Action("Generate Code") {
         val dsl = makecode()
         dsl.codeexport()
+        //dsl.codeexport_java()
       })
       contents += new Button(Action("Time JTransform") {
         val t = new Thread(new Runnable {
@@ -363,7 +364,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     radio_twiddle_default.selected_=(true)
     checkbox_twiddle_inline.selected_=(true)
     radio_twiddle_precompute.selected_=(true);radio_twiddle_onthefly.selected_=(false)
-    checkbox_threading.selected_=(true)
+    checkbox_threading.selected_=(false)
 
 
 

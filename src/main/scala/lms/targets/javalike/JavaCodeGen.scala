@@ -34,7 +34,11 @@ trait JavaCodegen extends GenericCodegen with Config {
       val context = tp.sym.pos(0)
       "      // " + relativePath(context.fileName) + ":" + context.line
     }
-    "val " + quote(tp) + " = " + rhs + extra + "\n"
+    val typ = remap(tp.tag.mf)
+
+
+
+    s"${typ} ${quote(tp)} = $rhs$extra;\n "
   }
 
   def relativePath(fileName: String): String = {
@@ -60,11 +64,20 @@ trait TupleHelper extends JavaCodegen{
   }
   def tupledeclarehelper(rest: Vector[String], acc: String): String = {
     if (rest.size <= tuplesize)
-      acc + "(" + rest.mkString(",") + ")"
+      acc + rest.mkString(",")
     else
     {
-      val start = acc + "(" + rest.take(tuplesize).mkString(",") + ","
-      tupledeclarehelper(rest.drop(tuplesize),start) + ")"
+      val start = acc   + rest.take(tuplesize).mkString(",") + ","
+      tupledeclarehelper(rest.drop(tuplesize),start)
+    }
+  }
+
+  override def remap[A](m: Manifest[A]): String = {
+    m.toString() match{
+      case "Array[Double]" => "double []"
+      case "Int" => "int"
+      case "Double" => "double"
+      case _ => super.remap(m)
     }
   }
 
@@ -98,193 +111,6 @@ trait TupleHelper extends JavaCodegen{
 
 }
 
-trait EmitHeadInternalFunctionAsClass extends JavaCodegen with TupleHelper{
-  self =>
-
-  var head: IR.TP[_] = null //RF - get rid of the state!
-  val staticData = Vector.empty[(IR.TP[_],Any)]
-  var className: String
-
-
-
-  override def emitSource[A,R](
-                       f: Function1[A,R],
-                       className: String,
-                       out: PrintWriter)(implicit args: IR.ExposeRep[A], returns: IR.ExposeRep[R]) = {
-
-    val res = super.emitSource(f,className,out)(args,returns)
-    head = null
-    res
-  }
-
-/*
-
-
-  def myhelp(tp: IR.TP[_]): String = {
-    val rm:String = tp.rhs match {
-
-
-      case IR.InternalLambda(f,x,y,args,returns) => {
-        val av: Vector[String] = x.map(ele => remap(ele.tag.mf))
-        val rv: Vector[String] = y.res.map(ele => myhelp(IR.exp2tp(ele)))
-        val a = tupledeclarehelper(av, "")
-        val r = tupledeclarehelper(rv, "")
-        println("................")
-        println(a + r)
-        println("................")
-        "scala.Function1[" + a + "," + r + "]"
-      }
-      case IR.ReturnArg(f,newsym,pos,tuple,last) => {
-        if (tp.tag.toString.contains("Function"))
-          println(".....")
-        val newsymtp = IR.exp2tp(newsym)
-        val applynodetp = IR.exp2tp(f)
-        myhelp(newsymtp)
-      }
-      case IR.ArgDef(id) => {
-        if (tp.tag.toString.contains("Function")){
-          val funexp = tp.sym
-          val aro = IR.funexp2StagedFunction.get(funexp)
-          aro match{
-            case Some(sf) =>{
-              val args = sf.args.freshExps()
-              val returns = sf.returns.freshExps()
-              val av: Vector[String] = args.map(ele => myhelp(IR.exp2tp(ele)))
-              val rv: Vector[String] = returns.map(ele => myhelp(IR.exp2tp(ele)))
-              val a = tupledeclarehelper(av, "")
-              val r = tupledeclarehelper(rv, "")
-              "scala.Function1[" + a + "," + r + "]"
-            }
-            case None => {
-              //val otp = IR.id2tp(id)
-              println("Function - but not found in map")
-              val r = myhelp(IR.id2tp(id))
-              println(r)
-              r
-              //remap(tp.tag.mf)
-            }
-
-          }
-        }
-        else
-          remap(tp.tag.mf)
-
-      }
-
-
-
-      case _ => {
-        remap(tp.tag.mf)
-      }
-    }
-    rm
-  }
-*/
-
-
-
-
-
-  override def emitNode(tp: self.IR.TP[_], acc: Vector[String],
-               block_callback: (self.IR.Block,Vector[String]) => Vector[String]): Vector[String] = tp.rhs match {
-    case IR.ExternalLambda(f,x,y,hot,args,returns,global,name) => {
-      val returntuple = tupledeclarehelper(y.res.map(a => remap(IR.exp2tp(a).tag) ),"")
-      val restuple: Vector[String] = y.res.map(r => quote(r))
-      val helper = if (x.size > 1) {
-        x.zipWithIndex.map(a => {
-          val (tp,index) = a
-          val typ = remap(tp.tag.mf)
-          "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
-        }).mkString("\n")
-      } else {
-        //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
-        "val " + quote(x.head) + " : " + remap(x.head.tag) + " = helper\n"
-      }
-      val argtuple = tupledeclarehelper(x.map(a => remap(a.tag)),"")
-
-      if (head == null || head == tp) {
-        head = tp
-        /*if (y.res.size > 1)
-          assert(false, "still need to implement multiy result unparsing")*/
-
-
-
-        val stringheader =
-          "/*****************************************\n"+
-            "  Emitting Generated Code                  \n"+
-            "*******************************************/\n" +
-            "class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tag).mkString(",")+")")+
-            " extends (("+ argtuple +")=> (" + returntuple + ")) {" +
-            //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
-            "\ndef apply( helper: ("+ argtuple +")): ("+returntuple+") = {\n" + helper + "\n"
-
-        val t1 = block_callback(y,Vector(stringheader))
-        val res =  t1 :+
-          "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
-          "}" +
-          "" +
-          "\n/*****************************************\n"+
-          "  End Main                  \n"+
-          "*******************************************/\n"
-        res
-      }
-      else {
-           val t1 = "def " + name.map(_ + "_").getOrElse("") + quote(tp) + ": " +
-          "("+ argtuple +") => (" + returntuple + ") = \n" +
-           "(helper: ("+ argtuple+")) =>{\n" + helper + "\n"
-          val t2: Vector[String] = block_callback(y,Vector(t1))
-          val t3 =   "\n "+ tupledeclarehelper(restuple,"") +  "\n" + "}\n"
-        //Vector(t1) ++ t2 :+ t3
-        Vector(t3) //t1 and t2 streamed out through the block callback
-        //emitValDef(tp,string)
-        //assert(false, "you are emitting code that has Internal Lambdas in the body - not handling this yet")
-      }
-    }
-    case IR.InternalApply(f,arg,name) => Vector( {
-      //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
-      emitValDef(tp, " " + name.map(_ + "_").getOrElse("") + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
-    } )
-    case IR.ReturnArg(f,sym,posx,tuple,last) => Vector({
-      /*tp.tag match {
-        case x@IR.TypeExp(mf,dyntags) => {
-          println("..........")
-          println(dyntags)
-        }
-        case _ => {
-          assert(false, "should never happen")
-        }
-      }*/
-      if (tuple) {
-        //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
-        val start = "val " + quote(tp) + " = " + quote(f)
-        tupleaccesshelper(posx,start,last) + "//returnarg  " + last + "\n"//RF
-      }
-      else
-        emitValDef(tp,quote(f))
-    })
-    case IR.ArgDef(id) => Vector.empty //args are handled in the according lambda
-    case IR.ConstDef(x) => Vector.empty //are handeled through remaps
-    case IR.InternalLambda(f,x,y,hot,a,r) => Vector.empty //are inlined by the symbol containing them
-    case IR.Reflect(a,b,c) => {
-      tp match {
-        case tpm@IR.TP(sym,IR.Reflect(x,summary,deps),tag) => {
-          val t = tpm.copy(rhs = x)
-          emitNode(t,acc,block_callback)
-        }
-        case _ => {
-          assert(false, "this should be unreachable")
-          Vector.empty
-        }
-      }
-    }
-
-    case _ => super.emitNode(tp,acc,block_callback)
-  }
-
-}
-
-
-
 trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
   self =>
 
@@ -304,74 +130,6 @@ trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
     res
   }
 
-
-  /*
-
-
-    def myhelp(tp: IR.TP[_]): String = {
-      val rm:String = tp.rhs match {
-
-
-        case IR.InternalLambda(f,x,y,args,returns) => {
-          val av: Vector[String] = x.map(ele => remap(ele.tag.mf))
-          val rv: Vector[String] = y.res.map(ele => myhelp(IR.exp2tp(ele)))
-          val a = tupledeclarehelper(av, "")
-          val r = tupledeclarehelper(rv, "")
-          println("................")
-          println(a + r)
-          println("................")
-          "scala.Function1[" + a + "," + r + "]"
-        }
-        case IR.ReturnArg(f,newsym,pos,tuple,last) => {
-          if (tp.tag.toString.contains("Function"))
-            println(".....")
-          val newsymtp = IR.exp2tp(newsym)
-          val applynodetp = IR.exp2tp(f)
-          myhelp(newsymtp)
-        }
-        case IR.ArgDef(id) => {
-          if (tp.tag.toString.contains("Function")){
-            val funexp = tp.sym
-            val aro = IR.funexp2StagedFunction.get(funexp)
-            aro match{
-              case Some(sf) =>{
-                val args = sf.args.freshExps()
-                val returns = sf.returns.freshExps()
-                val av: Vector[String] = args.map(ele => myhelp(IR.exp2tp(ele)))
-                val rv: Vector[String] = returns.map(ele => myhelp(IR.exp2tp(ele)))
-                val a = tupledeclarehelper(av, "")
-                val r = tupledeclarehelper(rv, "")
-                "scala.Function1[" + a + "," + r + "]"
-              }
-              case None => {
-                //val otp = IR.id2tp(id)
-                println("Function - but not found in map")
-                val r = myhelp(IR.id2tp(id))
-                println(r)
-                r
-                //remap(tp.tag.mf)
-              }
-
-            }
-          }
-          else
-            remap(tp.tag.mf)
-
-        }
-
-
-
-        case _ => {
-          remap(tp.tag.mf)
-        }
-      }
-      rm
-    }
-  */
-
-
-
-
   override def emitNode(tp: self.IR.TP[_], acc: Vector[String],
                         block_callback: (self.IR.Block,Vector[String]) => Vector[String]): Vector[String] = tp.rhs match {
     case IR.ExternalLambda(f,x,y,hot,args,returns,global,name) => {
@@ -380,20 +138,11 @@ trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
 
       val paras = x.map(tp => {
         val typ = remap(tp.tag.mf)
-        s"${quote(tp)} : ${remap(tp.tag)}"
+        s"${remap(tp.tag)} ${quote(tp)}"
       }).mkString(", ")
 
-      val helper = if (x.size > 1) {
-        x.zipWithIndex.map(a => {
-          val (tp,index) = a
-          val typ = remap(tp.tag.mf)
-          "val " + quote(tp) + " : " + remap(tp.tag) + " = helper" + tupleaccesshelper(index,"",index == x.size-1)
-        }).mkString("\n")
-      } else {
-        //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
-        "val " + quote(x.head) + " : " + remap(x.head.tag) + " = helper\n"
-      }
-      val argtuple = tupledeclarehelper(x.map(a => remap(a.tag)),"")
+
+
 
       if (head == null || head == tp) {
         head = tp
@@ -406,14 +155,14 @@ trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
           "/*****************************************\n"+
             "  Emitting Generated Code                  \n"+
             "*******************************************/\n" +
-            "class "+className+(if (staticData.isEmpty) "" else "("+staticData.map(p=>"p"+quote(p._1)+":"+p._1.tag).mkString(",")+")")+
+            "class "+className+
              "{" +
             //"\ndef apply("+x.map(a => quote(a) + ":" + remap(a.tag.mf)).mkString(", ")+"): ("+returntuple+") = {\n"
-            "\ndef apply( " + paras + "): ("+returntuple+") = {\n" + "\n"
+            s"\nstatic $returntuple apply( $paras ) {\n" + "\n"
 
         val t1 = block_callback(y,Vector(stringheader))
         val res =  t1 :+
-          "\n "+ tupledeclarehelper(restuple,"") +  "\n" +
+          "\n return "+ tupledeclarehelper(restuple,"") +  ";\n" +
             "}" +
             "" +
             "\n/*****************************************\n"+
@@ -422,12 +171,12 @@ trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
         res
       }
       else {
-        val t1 = "def " + name.map(_ + "_").getOrElse("") + quote(tp) + "" +
-          "( " + paras + "): ("+returntuple+") = {\n" + "\n"
+        val t1 = "static " +returntuple + name.map(_ + "_").getOrElse("") + quote(tp) + "" +
+          "( " + paras + ") {\n" + "\n"
           //"("+ argtuple +") => (" + returntuple + ") = \n" +
           //"(helper: ("+ argtuple+")) =>{\n" + helper + "\n"
         val t2: Vector[String] = block_callback(y,Vector(t1))
-        val t3 =   "\n "+ tupledeclarehelper(restuple,"") +  "\n" + "}\n"
+        val t3 =   "\n return "+ tupledeclarehelper(restuple,"") +  ";\n" + "}\n"
         //Vector(t1) ++ t2 :+ t3
         Vector(t3) //t1 and t2 streamed out through the block callback
         //emitValDef(tp,string)
@@ -436,7 +185,7 @@ trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
     }
     case IR.InternalApply(f,arg,name) => Vector( {
       //"val " + res.res.map(r => quote(r)).mkString(", ") + " = " + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n"
-      emitValDef(tp, " " + name.map(_ + "_").getOrElse("") + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ")\n")
+      emitValDef(tp, " " + name.map(_ + "_").getOrElse("") + quote(f) + "(" + arg.map(r => quote(r)).mkString(", ") + ");\n")
     } )
     case IR.ReturnArg(f,sym,posx,tuple,last) => Vector({
       /*tp.tag match {
@@ -449,6 +198,7 @@ trait EmitHeadNoTuples extends JavaCodegen with TupleHelper{
         }
       }*/
       if (tuple) {
+        ???
         //emitValDef(tp, quote(f) + "._" + (pos + 1).toInt)
         val start = "val " + quote(tp) + " = " + quote(f)
         tupleaccesshelper(posx,start,last) + "//returnarg  " + last + "\n"//RF

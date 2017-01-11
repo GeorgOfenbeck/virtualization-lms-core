@@ -4,14 +4,14 @@ package javalike
 
 import ops.PurePrimitiveOpsExp
 
-trait ScalaGenPrimitivOps extends JavaCodegen{
+trait JavaGenPrimitivOps extends JavaCodegen{
  val IR: PurePrimitiveOpsExp with internal.FunctionsExp
  import IR._
 
  override def emitNode(tp: TP[_], acc: Vector[String],
                        block_callback: (Block,Vector[String]) => Vector[String]): Vector[String] = {
   val ma = tp.rhs match {
-      /*
+      
    //case ObjDoubleParseDouble(s) => Vector(emitValDef(tp, src"java.lang.Double.parseDouble($s)")
    case ObjDoublePositiveInfinity() => Vector(emitValDef(tp, "scala.Double.PositiveInfinity"))
    case ObjDoubleNegativeInfinity() => Vector(emitValDef(tp, "scala.Double.NegativeInfinity"))
@@ -76,7 +76,7 @@ trait ScalaGenPrimitivOps extends JavaCodegen{
    //case LongDoubleValue(lhs) => Vector(emitValDef(tp, quote(lhs) + ".doubleValue()")
    //case LongFloatValue(lhs) => Vector(emitValDef(tp, quote(lhs) + ".floatValue()")
    case LongToFloat(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toFloat"))
-   case LongToDouble(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toDouble"))*/
+   case LongToDouble(lhs) => Vector(emitValDef(tp, quote(lhs) + ".toDouble"))
    case _ => super.emitNode(tp,acc,block_callback)
   }
   ma

@@ -27,6 +27,15 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     val IR: self.type = self
   }
 
+  val codegen_java = {
+    import scala.lms.targets.javalike._ 
+    
+      new JavaCodegen with EmitHeadNoTuples with JavaGenPrimitivOps with JavaGenSpiral_DSL with JavaGenBooleanOps with JavaGenIfThenElse with JavaGenOrderingOps {
+        val IR: self.type = self
+      }
+  }
+  
+  
 
   val basecase_size: Option[Int] = if (base_default == 0) None else Some(base_default)
 
