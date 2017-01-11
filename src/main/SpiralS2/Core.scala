@@ -17,7 +17,8 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
            val twid_inline: Boolean = true,
            val twid_default_precomp: Boolean = true,
            val inplace: Boolean = false,
-           val inline: Boolean = true
+           val inline: Boolean = true,
+           val ignore_config: Boolean = false
           ) extends Header {
   self =>
   val emitGraph = new GraphVizExport {
@@ -113,7 +114,18 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     id.ev.fold[Int, AInt](id.a, fa => {
       R2AInt(choose_radix(fa))
     }, fb => {
-      toOE(lookup.id2radix.getOrElse(fb, 2))
+      if (ignore_config){
+        assert(false)
+        println(" WTF")
+        n.ev.fold[Int, AInt](n.a, fna => {
+          toOE(lookup.id2radix.getOrElse(fb, 2))
+        }, fnb => {
+          println(" DEBUG - we are choosing default")
+          if (fnb / 16 >= 2) 16 else if (fnb / 4 >= 2) 4 else 2
+        })
+      } else {
+        toOE(lookup.id2radix.getOrElse(fb, 2))
+      }
     })
 
 
@@ -294,13 +306,30 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, stat.expdata))
   }
 
-  def binsearchpos(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
+
+  def binsearchpos(nmix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
+    implicit val expose = nmix.expdata
+    if (ignore_config){
+      assert(false, "WTF")
+      DFT_call(nmix, nmix.getStat(), nmix.getDyn())
+    } else {
+      nmix.pos.ev._if(nmix.pos.ev.less(nmix.pos.a, nmix.pos.ev.const(lookup.id2radix.size)), {
+        binsearchpos2(nmix, nmix.pos.ev.toRep(nmix.pos.a), 0, lookup.id2radix.size - 1)
+      }, {
+        val nmix2 = nmix.copy(pos = toOE(-99))
+        DFT_call(nmix2, nmix2.getStat(), nmix2.getDyn())
+      })
+    }
+  }
+
+  def binsearchpos2(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
     implicit val expose = mix.expdata
     if (low == high) {
       val nmix = mix.copy(pos = toOE(high))
-      DFT(nmix.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix.getStat(), nmix.getDyn())
+      DFT_call(nmix,nmix.getStat(),nmix.getDyn())
     } else {
-      myifThenElse(ordering_equiv(check, Const(high)), {
+      mix.pos.ev._if(mix.pos.ev.equiv(mix.pos.a, mix.pos.ev.const(high)), {
+      //myifThenElse(ordering_equiv(check, Const(high)), {
         val nmix = mix.copy(pos = toOE(high))
         (nmix.pos.a, nmix.n.a) match {
           case (ipos: Int,in: Int) => { //We check combinations that can never occur and would then yield inifnite code - workaround
@@ -308,33 +337,23 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
             if (realsize != in && in != 2)
               nmix.x
             else
-              DFT(nmix.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix.getStat(), nmix.getDyn())
+              DFT_call(nmix,nmix.getStat(),nmix.getDyn())
           }
           case _ => ??? //this should never happen
         }
-
       }, {
-        binsearchpos(mix, check, low, high - 1)
+        binsearchpos2(mix, check, low, high - 1)
       })
     }
   }
 
 
-
-
   def binsearch2pow(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
     val mid = low + (high - low) / 2
     implicit val expose = mix.expdata
-
     myifThenElse(ordering_equiv(check, Const(high)), {
       val nmix = mix.copy(n = toOE(high))
-      nmix.pos.ev._if(nmix.pos.ev.less(nmix.pos.a, nmix.pos.ev.const(lookup.id2radix.size)), {
-        binsearchpos(nmix, nmix.pos.ev.toRep(nmix.pos.a), 0, lookup.id2radix.size-1)
-      }, {
-        val nmix2 = nmix.copy(pos = toOE(-99))
-        DFT(nmix2.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix2.getStat(), nmix2.getDyn())
-      })
-
+      DFT(nmix.getStat(), inlinec(mix.getStat().getn())).mkfun(nmix.getStat(), nmix.getDyn())
     }, {
       if (high == 2) {
         val nmix = mix.copy(n = toOE(high))
@@ -344,6 +363,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
         binsearch2pow(mix, check, low, high / 2)
     })
   }
+
 
   /*def DFT_placeholder(stat: Stat): MaybeSFunction = {
     val expose = exposeDyn(stat)
@@ -355,6 +375,9 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     //val dftct = mix.n.ev.equiv(mix.n.ev.mod(mix.n.a, mix.n.ev.const(2)), mix.n.ev.const(0))
     implicit val expose = mix.expdata
     //mix.n.ev._if(dftct, {
+
+ 
+    
     val bool = mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2))
     mix.n.ev._if(bool, {
       F2(stat, inlinec(mix.getStat().getn()))(dyn)
@@ -381,10 +404,13 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
         mix.n.ev._if(isbasecase, {
           binsearch2pow(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get)
         }, {
-          DFT_call(mix, mix.getStat(), mix.getDyn())
+          //DFT_call(mix, mix.getStat(), mix.getDyn())
+          binsearchpos(mix, mix.pos.ev.toRep(mix.pos.a), 0, lookup.id2radix.size-1)
         })
       }
-      else DFT_call(mix, mix.getStat(), mix.getDyn())
+      else binsearchpos(mix, mix.pos.ev.toRep(mix.pos.a), 0, lookup.id2radix.size-1)
+
+      
     }
     if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toSig()))(expose, stat.expdata))
   }

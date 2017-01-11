@@ -114,7 +114,9 @@ object BreakDown {
     breakdown
   }
 }
-case class BRMaps(id2ids: Map[Int, (Int, Int)], ids2id: Map[(Int, Int), Int], id2radix: Map[Int, Int], size2id: Map[Int, Int], id2size: Map[Int, Int])
+case class BRMaps(id2ids: Map[Int, (Int, Int)], ids2id: Map[(Int, Int), Int], id2radix: Map[Int, Int], size2id: Map[Int, Int], id2size: Map[Int, Int]){
+  def clear(): BRMaps = BRMaps(Map.empty,Map.empty,Map.empty,Map.empty,Map.empty)
+}
 
 abstract class EnumTree extends SimpleSwingApplication {
 

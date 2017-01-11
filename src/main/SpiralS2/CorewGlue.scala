@@ -6,7 +6,7 @@ import java.lang.reflect.InvocationTargetException
 /**
   * Created by rayda on 03-Jan-17.
   */
-class CorewGlue (variant: BreakDown.Tree, lookup: BRMaps, testsize: Int,
+class CorewGlue (variant: BreakDown.Tree, plookup: BRMaps, testsize: Int,
                  WHT: Boolean = true,
                  static_size: Option[Int] = None,
                  interleaved: Boolean = false,
@@ -15,16 +15,15 @@ class CorewGlue (variant: BreakDown.Tree, lookup: BRMaps, testsize: Int,
                  twid_inline: Boolean = true,
                  twid_default_precomp: Boolean = true,
                  validate: Boolean = true,
-                 inplace: Boolean = false
-                ) extends Core(variant,lookup, testsize, WHT, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace ){
+                 inplace: Boolean = false,
+                 ignore_config: Boolean = false
+                ) extends Core(variant,plookup, testsize, WHT, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, ignore_config ){
 
 
   val repeats = 1000
   val repeatsets = 10
   val minwarmup = 10
   val maxwarmup = 1000
-
-
   val threads = 8
 
   def iniGTSkeleton(precomp: Boolean): Stat = {

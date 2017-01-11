@@ -434,7 +434,9 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
         val rets: Vector[String] = bodylambda.rhs match {
           case InternalLambda(tf, tx, ty, thot, targs, treturns) => Vector({
             //val l1 = "val " + quote(tp) + " = ("+ quote(loopvar) + " <- 0 until "+ quote(till) + ").foldLeft(Vector.empty) {\n "
-            val helper = if (tx.size > 1) {
+
+
+            val helper_old = if (tx.size > 1) {
               tx.zipWithIndex.map(a => {
                 val (tp, index) = a
                 val typ = remap(tp.tag.mf)
@@ -444,15 +446,30 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
               //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
               "val " + quote(tx.head) + " : " + remap(tx.head.tag) + " = helper\n"
             }
+            val helper = if (tx.size > 1) {
+              tx.zipWithIndex.map(a => {
+                val (tp, index) = a
+                val typ = remap(tp.tag.mf)
+                "val " + quote(tp) + " : " + remap(tp.tag) + s" = helper$index"
+              }).mkString("\n")
+            } else {
+              //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+              "val " + quote(tx.head) + " : " + remap(tx.head.tag) + " = helper\n"
+            }
             val argtuple = tupledeclarehelper(tx.map(a => remap(a.tag)), "")
 
             parallel.fold[String]({
-              val l1 = s"val ${quote(tp)} = {for(lc <- 0 until ${quote(till)}){\n val helper = (lc,${quote(in)},${quote(out)})\n "
+              val l1 =
+                s"""val ${quote(tp)} = {var lc = 0
+                   |while(lc < ${quote(till)}){
+                   |val helper0 = lc
+                   | val helper1 = ${quote(in)}
+                   | val helper2 = ${quote(out)}""".stripMargin
               val l10 = l1 + "\n" + helper + "\n"
               val l2 = block_callback(ty, Vector(l10))
               val trestuple: Vector[String] = ty.res.map(r => quote(r))
               val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
-              val l4 = l3 + s"\n};\n${quote(out)} }\n"
+              val l4 = l3 + s"\n lc = lc + 1\n};\n${quote(out)} }\n"
               l4
             })(nrthreads => {
               val l1 = s"val ${quote(tp)} = Twiddle.parloop(${quote(till)},$nrthreads,${quote(in)},${quote(out)},(lc: Int) => {\n val helper = (lc,${quote(in)},${quote(out)})\n "

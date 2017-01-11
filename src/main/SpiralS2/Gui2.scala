@@ -152,10 +152,11 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
 
     val checkbox_validate = new CheckBox("Validate Code ")
+    val checkbox_default_config = new CheckBox("Use default radix")
     val checkbox_inplace = new CheckBox("Inplace")
 
     val leftconfig = new BoxPanel(Orientation.Horizontal) {
-      contents.append(boxpanel_statvdyn, boxpanel_transformtype, boxpanel_dataformat, boxpanel_parallelism, checkbox_validate, checkbox_inplace)
+      contents.append(boxpanel_statvdyn, boxpanel_transformtype, boxpanel_dataformat, boxpanel_parallelism, checkbox_validate, checkbox_inplace, checkbox_default_config)
     }
 
     val rightconfig = new BoxPanel(Orientation.Horizontal) {
@@ -285,6 +286,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         radio_twiddle_precompute.selected,
         checkbox_validate.selected,
         checkbox_inplace.selected
+        //checkbox_default_config.selected
       )
     }
 
@@ -365,7 +367,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     checkbox_twiddle_inline.selected_=(true)
     radio_twiddle_precompute.selected_=(true);radio_twiddle_onthefly.selected_=(false)
     checkbox_threading.selected_=(false)
-
+    checkbox_default_config.selected_=(false)
 
 
     //Refresh the tree
