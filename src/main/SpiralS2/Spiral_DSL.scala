@@ -468,11 +468,11 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
               val l10 = l1 + "\n" + helper + "\n"
               val l2 = block_callback(ty, Vector(l10))
               val trestuple: Vector[String] = ty.res.map(r => quote(r))
-              val l3: String = l2.mkString("") + tupledeclarehelper(trestuple, "")
+              val l3: String = l2.mkString("") //+ tupledeclarehelper(trestuple, "")
               val l4 = l3 + s"\n lc = lc + 1\n};\n${quote(out)} }\n"
               l4
             })(nrthreads => {
-              val l1 = s"val ${quote(tp)} = Twiddle.parloop(${quote(till)},$nrthreads,${quote(in)},${quote(out)},(lc: Int) => {\n val helper = (lc,${quote(in)},${quote(out)})\n "
+              val l1 = s"val ${quote(tp)} = Twiddle.parloop(${quote(till)},$nrthreads,${quote(in)},${quote(out)},(lc: Int) => {\n val helper0 = lc\n val helper1 =${quote(in)}\n val helper2 = ${quote(out)}\n "
               val l10 = l1 + "\n" + helper + "\n"
               val l2 = block_callback(ty, Vector(l10))
               val trestuple: Vector[String] = ty.res.map(r => quote(r))

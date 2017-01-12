@@ -15,14 +15,15 @@ class CorewGlue (variant: BreakDown.Tree, lookup: BRMaps, testsize: Int,
                  twid_inline: Boolean = true,
                  twid_default_precomp: Boolean = true,
                  validate: Boolean = true,
-                 inplace: Boolean = false
-                ) extends Core(variant,lookup, testsize, WHT, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace ){
+                 inplace: Boolean = false,
+                 pignore_config: Boolean = false
+                ) extends Core(variant,lookup, testsize, WHT, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, true,pignore_config ){
 
 
-  val repeats = 1000
+  val repeats = if (testsize < 1024) 10000 else 100
   val repeatsets = 10
-  val minwarmup = 10
-  val maxwarmup = 1000
+  val minwarmup = if (testsize < 1024) 1000 else 10
+  val maxwarmup = if (testsize < 1024) 1000 else 10
 
 
   val threads = 8
@@ -33,7 +34,7 @@ class CorewGlue (variant: BreakDown.Tree, lookup: BRMaps, testsize: Int,
     //new Stat(if(static_size.isDefined) static_size.get else sph(), 1, new Stat_GT_IM(idIM, idIM), 0, None,Some(4))
     //new Stat(sph2(), if (static_size.isDefined) static_size.get else sph(), 1, new Stat_GT_IM(idIM, idIM), 0, None, None, precomp, exposeComplexVector)
     val expose = if (interleaved) exposeInterleavedComplexVector else exposeComplexVector
-    val t = new Stat(if (static_size.isDefined) toOE(lookup.size2id(static_size.get)) else toOE(-99),
+    val t = new Stat(if (static_size.isDefined && !pignore_config) toOE(lookup.size2id(static_size.get)) else toOE(-99),
       if (static_size.isDefined) static_size.get else sph(), 1, new Stat_GT_IM(idIM, idIM), 0, None, if (thread) Some(4) else None, precomp, expose)
     t
 

@@ -18,7 +18,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
            val twid_default_precomp: Boolean = true,
            val inplace: Boolean = false,
            val inline: Boolean = true,
-           val ignore_config: Boolean = false
+           val ignore_config: Boolean = true
           ) extends Header {
   self =>
   val emitGraph = new GraphVizExport {
@@ -115,13 +115,31 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
       R2AInt(choose_radix(fa))
     }, fb => {
       if (ignore_config){
-        assert(false)
-        println(" WTF")
         n.ev.fold[Int, AInt](n.a, fna => {
+          ???
           toOE(lookup.id2radix.getOrElse(fb, 2))
         }, fnb => {
-          println(" DEBUG - we are choosing default")
-          if (fnb / 16 >= 2) 16 else if (fnb / 4 >= 2) 4 else 2
+          //println(" DEBUG - we are choosing default")
+          val t = fnb match {
+            case 4 => 2
+            case 8 => 4
+            case 16 => 4
+            case 32 => 16
+            case 64 => 16
+            case 128 => 16
+            case 256 => 16
+            case 512 => 16
+            case 1024 => 16
+            case 2048 => 16
+            case 4096 => 16
+            case 8192 => 16
+            case 16384 => 256
+            case 32768 => 256
+            case 65536 => 256
+            case _ => 256
+          }
+          toOE(t)
+          //if (fnb / 16 >= 2) 16 else if (fnb / 4 >= 2) 4 else 2
         })
       } else {
         n.ev.fold[Int, AInt](n.a, fna => {
@@ -314,7 +332,6 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
   def binsearchpos(nmix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
     implicit val expose = nmix.expdata
     if (ignore_config){
-      assert(false, "WTF")
       DFT_call(nmix, nmix.getStat(), nmix.getDyn())
     } else {
       nmix.pos.ev._if(nmix.pos.ev.less(nmix.pos.a, nmix.pos.ev.const(lookup.id2radix.size)), {

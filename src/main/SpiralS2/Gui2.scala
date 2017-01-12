@@ -76,7 +76,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     val radio_format_complex = new RadioButton("Complex Class")
     val radio_format_interleaved = new RadioButton("Interleaved Complex")
     val radio_format_splitcomplex = new RadioButton("Split Complex")
-    val mutex_dataformat = new ButtonGroup(radio_format_complex, radio_format_interleaved, radio_format_splitcomplex)
+    val mutex_dataformat = new ButtonGroup(radio_format_complex, radio_format_interleaved)//, radio_format_splitcomplex)
 
 
     val boxpanel_dataformat = new BoxPanel(Orientation.Horizontal) {
@@ -286,6 +286,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         radio_twiddle_precompute.selected,
         checkbox_validate.selected,
         checkbox_inplace.selected
+
         //checkbox_default_config.selected
       )
     }
@@ -301,7 +302,10 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         val t = new Thread(new Runnable {
           def run() {
             val gflops = jtransform2()
-            variantplot.series.add(0.0,gflops)
+            //variantplot.series.add(0.0,gflops)
+            val marker = new ValueMarker(gflops);  // position is the value on the axis
+            marker.setPaint(java.awt.Color.BLUE);
+            variantplot.plot.addRangeMarker(marker)
           }
         })
         t.start()
@@ -314,6 +318,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
             val f = dsl.compile()
             val perf = f();
             variantplot.series.add(-1.0,ms2gflops(perf))
+
           }
         })
         t.start()
@@ -344,6 +349,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         reactions += {
           case ButtonClicked(_) => {
             variantplot.series.clear()
+            variantplot.plot.clearRangeMarkers()
           }
         }
       }
@@ -457,10 +463,12 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     import java.awt.Color;
 
     val minsize = 2
-    val maxsize = 5
+    val maxsize = 15
 
     val series: XYSeries = new XYSeries("jtransform")
     val series2: XYSeries = new XYSeries("jtransform scalameter")
+    val series3: XYSeries = new XYSeries("Heurisitc single")
+    val series4: XYSeries = new XYSeries("Heurisitc threaded")
 
     //jtransform2()
     //jtransform()
@@ -474,6 +482,8 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     val dataset: XYSeriesCollection = new XYSeriesCollection()
     dataset.addSeries(series)
     dataset.addSeries(series2)
+    dataset.addSeries(series3)
+    dataset.addSeries(series4)
 
     val plot: XYPlot = new XYPlot(dataset, xAxis, yAxis, renderer)
     plot.setBackgroundPaint(Color.lightGray);
@@ -485,6 +495,11 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     val chartPanel = new ChartPanel(chart)
 
 
+    def heurisitc(): Unit = {
+
+    }
+
+
     def jtransform(): Unit = {
       import org.jtransforms.fft.DoubleFFT_1D
       import org.jtransforms.utils.{CommonUtils, IOUtils}
@@ -494,7 +509,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         acc :+ Math.pow(2, ele).toLong
       })
       var nsize: Int = sizes1D.size
-      var niter: Int = 100;
+
       var x: Array[Double] = null
       val doWarmup: Boolean = true
       val times_without_constructor = new Array[Double](nsize)
@@ -502,6 +517,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
       var i = 0
       while (i < nsize) {
         {
+          var niter: Int = if(sizes1D(i) < 10) 10000 else 1000;
           System.out.println("Complex forward FFT 1D of size " + sizes1D(i))
           if (doWarmup) {
             // call the transform twice to warm up
@@ -518,23 +534,23 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
           x = new Array[Double]((2 * sizes1D(i)).toInt)
           var min_time: Double = Double.MaxValue
           var j = 0
+          IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
+          elapsedTime = System.nanoTime
           while (j < niter) {
             {
-              IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
-              elapsedTime = System.nanoTime
+
               fft.complexForward(x)
-              elapsedTime = System.nanoTime - elapsedTime
-              if (elapsedTime < min_time) min_time = elapsedTime
-            }
-            {
               j += 1;
-              j - 1
             }
+            elapsedTime = System.nanoTime - elapsedTime
+            elapsedTime = elapsedTime / niter
+            if (elapsedTime < min_time) min_time = elapsedTime
+
           }
-          times_without_constructor(i) = min_time.toDouble / 1000000.0
-          times_with_constructor(i) += times_without_constructor(i)
+          times_without_constructor(i) = min_time.toDouble
+          //times_with_constructor(i) += times_without_constructor(i)
           System.out.println("\tBest execution time without constructor: " + times_without_constructor(i) + " msec")
-          System.out.println("\tBest execution time with constructor: " + times_with_constructor(i) + " msec")
+          //System.out.println("\tBest execution time with constructor: " + times_with_constructor(i) + " msec")
           val n = sizes1D(i)
           val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
           val y: Double = ((flops / min_time))
@@ -543,8 +559,8 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
 
           x = null
           fft = null
-          System.gc()
-          CommonUtils.sleep(5000)
+          //System.gc()
+          //CommonUtils.sleep(5000)
         }
         {
           i += 1;
@@ -574,7 +590,7 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         val standardConfig = config(
           Key.exec.minWarmupRuns -> 100,
           Key.exec.maxWarmupRuns -> 1000,
-          Key.exec.benchRuns -> 100, //(1000*1000/sizes1D(i)).toLong,
+          Key.exec.benchRuns -> 10000, //(1000*1000/sizes1D(i)).toLong,
           Key.verbose -> false
         ) withWarmer (new Warmer.Default)
 
@@ -619,6 +635,8 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
     //IOUtils.writeFFTBenchmarkResultsToFile("benchmarkDoubleComplexForwardFFT_1D.txt", nthread, niter, doWarmup, doScaling, sizes1D, times_without_constructor, times_with_constructor)
 
 
+
+
     val buttons = new FlowPanel {
       border = Swing.EmptyBorder(5, 5, 5, 5)
       contents += new Button(Action("JTransforminternal timing") {
@@ -633,6 +651,71 @@ object Gui2 extends EnumTree with scalax.chart.module.Charting {
         val t = new Thread(new Runnable {
           def run() {
             jtransform2()
+          }
+        })
+        t.start()
+      })
+
+      contents += new Button(Action("Heuristic") {
+        val t = new Thread(new Runnable {
+          def run() {
+
+
+
+            for (i <- 3 until maxsize) {
+              println(s"size $i")
+              val size = Math.pow(2,i).toInt
+              def ms2gflops(d: Double): Double = {
+                val n = Math.pow(2,i)
+                val flops = 5 * n * (Math.log10(n)/Math.log10(2))
+                val y: Double = ((flops / (d)))
+                y
+              }
+              val dsl = new CorewGlue(null, BRMaps.createEmpty(), size, false,
+                Some(size),
+                true,
+                false,
+                16,
+                true,
+                true,
+                true,
+                false,
+                true
+
+                //checkbox_default_config.selected
+              )
+              val f = dsl.compile()
+              val perf = f();
+              println(s"Time $perf Performance ${ms2gflops(perf)}")
+              series3.add(i,ms2gflops(perf))
+            }
+            for (i <- 3 until maxsize) {
+              println(s"size $i")
+              val size = Math.pow(2,i).toInt
+              def ms2gflops(d: Double): Double = {
+                val n = Math.pow(2,i)
+                val flops = 5 * n * (Math.log10(n)/Math.log10(2))
+                val y: Double = ((flops / (d)))
+                y
+              }
+              val dsl = new CorewGlue(null, BRMaps.createEmpty(), size, false,
+                Some(size),
+                true,
+                true,
+                16,
+                true,
+                true,
+                true,
+                false,
+                true
+
+                //checkbox_default_config.selected
+              )
+              val f = dsl.compile()
+              val perf = f();
+              println(s"Time $perf Performance ${ms2gflops(perf)}")
+              series4.add(i,ms2gflops(perf))
+            }
           }
         })
         t.start()
