@@ -155,15 +155,17 @@ class CorewGlue(testsize: Int,
     f
   }
 
-  def codeexport() = {
-    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala"))
+  def codeexport(path: String = "F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala") = {
+    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream(path))
     dumpCode(stream2)
     val ingt = iniGTSkeleton(false)
     val esc = codegen.emitSource((ini(ingt)), "testClass", stream2)(exposeDyn(ingt), ingt.expdata)
     stream2.println("\n}\n")
-    val ingtpre = iniGTSkeleton(true)
-    val esc2 = codegen.emitSource((ini(ingtpre)), "PreCompute", stream2)(exposeDyn(ingtpre), ingt.expdata)
-    //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
+    if (twid_default_precomp) {
+      val ingtpre = iniGTSkeleton(true)
+      val esc2 = codegen.emitSource((ini(ingtpre)), "PreCompute", stream2)(exposeDyn(ingtpre), ingt.expdata)
+      //val esc = codegen.emitSource((DFTstart(ingt)), "testClass", stream2)(exposeDynGTSkeleton(ingt), exposeSingle)
+    }
     stream2.println("\n}}\n")
     stream2.flush()
     stream2.close()
@@ -172,6 +174,7 @@ class CorewGlue(testsize: Int,
 
 
   def graphexport() = {
+    this.graphname = true
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("F:\\Phd\\git\\code\\SpiralSTarget\\Graph.dot"))
     //dumpCode (stream2)
     val ingt = iniGTSkeleton(false)
@@ -179,6 +182,7 @@ class CorewGlue(testsize: Int,
     stream2.println(str)
     stream2.flush()
     stream2.close()
+    this.graphname = false
   }
 
 
@@ -222,7 +226,8 @@ class CorewGlue(testsize: Int,
 
       "\n  Twiddle.twindex = 0\n      Twiddle.precompbuffer = Vector.empty\n   Twiddle.dprecompbuffer = Vector.empty\n    " +
       (if (interleaved) "var res: InterleavedVector = new InterleavedVector(null); \nvar resx: Array[Double] = null;\n" else "var res: ComplexVector = null\nvar resx: ComplexVector = null ") +
-      "//VARIOUS PRE CALLS HERE\n  resx = pre." + call + "     // VARIOUS PRE CALLS HERE END\n  println(\"pre comp done\")\n   Twiddle.precomp = Twiddle.precompbuffer.toArray\n     Twiddle.dprecomp = Twiddle.TMap2preComp()\n    val txy = for (j <- 0 until " + repeatsets + ") yield {\n" +
+      (if (twid_default_precomp) "//VARIOUS PRE CALLS HERE\n  resx = pre." + call + "     // VARIOUS PRE CALLS HERE END\n  println(\"pre comp done\")\n   Twiddle.precomp = Twiddle.precompbuffer.toArray\n     Twiddle.dprecomp = Twiddle.TMap2preComp()\n    " else "" ) +
+      "val txy = for (j <- 0 until " + repeatsets + ") yield {\n" +
       "  var elapsedTime = System.nanoTime\n          var repeatsinner = 1000\n          for (inner <- 0 until repeatsinner) {\n\n            //VARIOUS CALLS HERE\n       resx = t." + call + "     // VARIOUS CALLS HERE END\n\n          }\n          elapsedTime = System.nanoTime - elapsedTime\n          elapsedTime = elapsedTime / repeatsinner\n          elapsedTime\n        }" +
       "//VARIOUS CALLS HERE\n       resx = t." + call + "     // VARIOUS CALLS HERE END\n\n        if (Settings.validate) {\n\n          for (c <- 0 until size) {\n            val c1 = res(c)\n            val c2 = if (Settings.WHT) Twiddle.WHT(size, c, i) else Twiddle.DFT(size, c, i)\n\n            val thres = 1E-3\n            if (Math.abs(c1.re - c2.re) > thres) {\n              println(c1.re)\n              println(c2.re)\n              fail = true\n            }\n            if (Math.abs(c1.im - c2.im) > thres) {\n              println(c1.im)\n              println(c2.im)\n              fail = true\n            }\n            assert(!fail)\n          }}\n   val seqtime = txy.min \n     println(s\"time: $seqtime ns\")\nseqtime     \n      \n \n      \n    }\n    //println(fftmatrix)\n    //val validate = Twiddle.DFT(size)\n    //println(validate)\n\n    /*var fail = false\n    val thres = 1E-3\n    for (i <- 0 until size)\n      for (j <- 0 until size) {\n        val c1 = fftmatrix(i)(j)\n        val c2 = validate(i)(j)\n        if (Math.abs(c1.re - c2.re) > thres) {\n          println(c1.re)\n          println(c2.re)\n          fail = true\n        }\n        if (Math.abs(c1.im - c2.im) > thres) {\n          println(c1.im)\n          println(c2.im)\n          fail = true\n        }\n      }*/\n\n   if (!fail)\n        println(size + \" WORKS!!!!\")\n\n      fftmatrix\n    }\n    println(\"timings\")\n    println(timings)\n    timings.head.head\n  }\n\n\n  time()/*val one = Complex(0, 0)\n  val two = Complex(0, 0)\n  val three = Complex(1, 0)\n  val four = Complex(0, 0)\n\n\n  val in = new ComplexVector(4)\n  val x1 = in.update(0, one)\n  val x2 = x1.update(1, two)\n  val x3 = x2.update(2, three)\n  val x4 = x3.update(3, four)\n\n  val out = new ComplexVector(4)\n  val res = t.apply(x4, out, 4, 0, Vector.empty, 0, Vector.empty, Vector.empty)\n  res.print()*/\n\n")
   }

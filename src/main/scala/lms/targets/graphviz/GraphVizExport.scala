@@ -14,6 +14,8 @@ trait GraphVizExport {
    val IR: self.IR.type
   }}
 
+
+
  def emitDepGraph(file: String, landscape: Boolean = false) : String = ???
 
  def quote(x: Any) = "\""+x+"\""
@@ -26,8 +28,6 @@ trait GraphVizExport {
   val cm: specCM = CodeMotion(reification)
   (emitDepGraph(cm),cm)
  }
-
-
 
  def emitDepGraph(cm: specCM): String = {
 

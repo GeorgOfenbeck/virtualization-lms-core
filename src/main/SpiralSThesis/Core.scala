@@ -1,20 +1,20 @@
 package SpiralSThesis
 
-import scala.lms.targets.graphviz.GraphVizExport
+import scala.lms.targets.graphviz.{GraphVizCallGraph, GraphVizExport}
 import scala.lms.targets.scalalike._
 
 class Core(val testsize: Int, val radix_choice: Map[Int, Int], val static_size: Option[Int] = None, val interleaved: Boolean = false, val thread: Boolean = false,
            val base_default: Int = 0, val twid_inline: Boolean = true, val twid_default_precomp: Boolean = true, val inplace: Boolean = false,
            val inline: Boolean = true, val ignore_config: Boolean = true) extends Header {
   self =>
-  val emitGraph = new GraphVizExport {
+  val emitGraph = new GraphVizCallGraph {
     override val IR: self.type = self
   }
   override val codegen = new ScalaCodegen with EmitHeadNoTuples with ScalaGenPrimitivOps with ScalaGenSpiral_DSL with ScalaGenBooleanOps with ScalaGenIfThenElse with ScalaGenOrderingOps {
     val IR: self.type = self
   }
 
-  val basecase_size: Option[Int] = if (base_default == 0) None else Some(base_default)
+  val basecase_size: Option[Int] = if (base_default < 2) None else Some(base_default)
 
   def inlinec(oe: OptionalEntry {type T = Int}): Boolean = oe.a match {
     case Some(n: Int) => inline && basecase_size.fold(false)(fb => n <= fb)
@@ -86,7 +86,7 @@ class Core(val testsize: Int, val radix_choice: Map[Int, Int], val static_size: 
       }
       })
     }
-    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("F2" + stat.toSig()), Some("F2" + stat.toSig()))(expose, stat.expdata))
+    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("F2" + stat.toSig()), Some("F2" + stat.toName()))(expose, stat.expdata))
   }
 
   def fuseIM(r: IMHBase, s: IMHBase, lv: AInt): IMH = IMH((r.base + (r.s0 * s.base)) + r.s1 * lv, r.s0 * s.s0, (toOE(0) + (r.s0 * s.s1)))
@@ -141,7 +141,7 @@ class Core(val testsize: Int, val radix_choice: Map[Int, Int], val static_size: 
       }
       })
     }
-    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toSig()))(expose, stat.expdata))
+    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toName()))(expose, stat.expdata))
   }
 
   def binsearch2pow(mix: Mix, check: Rep[Int], low: Int, high: Int): Data = {
@@ -164,13 +164,18 @@ class Core(val testsize: Int, val radix_choice: Map[Int, Int], val static_size: 
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix = Mix(stat, dyn)
       implicit val exposedata = mix.expdata
-      if (basecase_size.isDefined && mix.n.ev.isRep()) {
+      if (basecase_size.isDefined) {
         val isbasecase = mix.n.ev.less(mix.n.a, mix.n.ev.const(basecase_size.get + 1))
-        mix.n.ev._if(isbasecase, binsearch2pow(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get), mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn), DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)))
+        mix.n.ev._if(isbasecase,
+          mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)),
+            F2(stat, inlinec(mix.getStat().getn()))(dyn),
+            binsearch2pow(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get)),
+          DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn))
+      } else {
+        mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn), DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn))
       }
-      else mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn), DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn))
     }
-    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toSig()))(expose, stat.expdata))
+    if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toName()))(expose, stat.expdata))
   }
 
   def ini(stat: Stat): (Dyn => Data) = (dyn: Dyn) => {

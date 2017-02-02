@@ -4,6 +4,8 @@ import org.scala_lang.virtualized.SourceContext
 
 trait Header extends Skeleton {
 
+  var graphname: Boolean = false
+
   //just to rename
   def ifThenElse[A](cond: Rep[Boolean], thenp: => A, elsep: => A)(implicit pos: SourceContext, branch: ExposeRep[A]): A = myifThenElse[A](cond,thenp,elsep)
 
@@ -664,6 +666,57 @@ trait Header extends Skeleton {
   }
 
   class Stat(val n: AInt, val lb: AInt, val im: StatIM, val v: AInt, val tw: Option[StatTwiddleScaling], val par: Option[Int], val precompute: Boolean, val expdata: ExposeRep[Data], val scalars: Boolean) extends Header(n, lb, im, v, tw) with StatSelector2 {
+    //(x: Data, y: Data, n: AInt, lb: AInt, im: IMFull, v: AInt, tw: Option[TwiddleScaling], par: Option[Int], precompute: Boolean, expdata: ExposeRep[Data], scalars: Boolean)
+    def toName(): String = {
+      if (graphname){
+
+        val ssize: (String,String) = n.ev.fold[Int, (String,String)](n.a, fa => (",size: Int",""), fb=> (("",s", size = ${n.a}")))
+        val slb: (String,String) = lb.ev.fold[Int, (String,String)](lb.a, fa => (",lb: Int",""), fb=> (("",s", lb = ${lb.a}")))
+
+        def IM2S(prefix: String, imh: StatIMH): (String,String) = {
+          val b: (String,String) = imh.base.ev.fold[Int, (String,String)](imh.base.a, fa => (s",${prefix}_b: Int",""), fb=> (("",s", ${prefix}_b = ${imh.base.a}")))
+          val s0: (String,String) = imh.s0.ev.fold[Int, (String,String)](imh.s0.a, fa => (s",${prefix}_s0: Int",""), fb=> (("",s", ${prefix}_s0 = ${imh.s0.a}")))
+          val s1: (String,String) = imh.s1.ev.fold[Int, (String,String)](imh.s1.a, fa => (s",${prefix}_s1: Int",""), fb=> (("",s", ${prefix}_s1 = ${imh.s1.a}")))
+          (b._1 ++ s0._1 ++ s1._1, b._2 ++ s0._2 ++ s1._2 )
+        }
+        val sim: (String,String) = im match {
+          case gttim: Stat_GTT_IM => {
+            val gs = IM2S("G",gttim.g)
+            val ss = IM2S("S",gttim.g)
+            val ts = IM2S("TI",gttim.twim)
+            (gs._1 ++ ss._1 ++ ts._1, gs._2 ++ ss._2 ++ ts._2 )
+          }
+          case gttim: Stat_GT_IM => {
+            val gs = IM2S("G",gttim.g)
+            val ss = IM2S("S",gttim.g)
+            (gs._1 ++ ss._1 , gs._2 ++ ss._2 )
+          }
+          case gttim: Stat_GTI_IM => {
+            val gs = IM2S("G",gttim.im)
+            val ss = IM2S("S",gttim.im)
+            val ts = IM2S("TI",gttim.twim)
+            (gs._1 ++ ss._1 ++ ts._1, gs._2 ++ ss._2 ++ ts._2 )
+            ("","")
+          }
+        }
+        val sv: (String,String) = lb.ev.fold[Int, (String,String)](lb.a, fa => (",lc: Int",""), fb=> (("",s", lc = ${lb.a}")))
+        val ts: (String, String) = tw.fold(("",""))(tw => {
+          val sn: (String,String) = tw.n.ev.fold[Int, (String,String)](tw.n.a, fa => (",Tn: Int",""), fb=> (("",s", Tn = ${tw.n.a}")))
+          val sd: (String, String) = tw.d.ev.fold[Int, (String,String)](tw.d.a, fa => (",Td: Int",""), fb=> (("",s", Td = ${tw.d.a}")))
+          val sk: (String, String)= tw.k.ev.fold[Int, (String,String)](tw.k.a, fa => (",Tk: Int",""), fb=> (("",s", Tk = ${tw.k.a}")))
+          (sn._1 ++ sd._1 ++ sk._1, sn._2 ++ sd._2 ++ sk._2 )
+        })
+        //par: Option[Int], precompute: Boolean, expdata: ExposeRep[Data], scalars: Boolean)
+
+        val rest = s"$par,$precompute,$scalars"
+        val dyns = s"(in: Data, out: Data ${ssize._1} ${slb._1} ${sim._1} ${sv._1} ${ts._1})"
+        val stats = "[" + s"${ssize._2} ${slb._2} ${sim._2} ${sv._2} ${ts._2} $rest]".dropWhile(s => s != ',' && s != ']')
+
+        //dyns + stats
+        stats
+      }
+      else toSig()
+    }
     def toSig(): String = {
       val t = "n" + repselect(n).toSig() + "lb" + repselect(lb).toSig() + im.toSig() + "v" + repselect(v).toSig() + "tw" + tw.fold("")(t => t.genSig()) + "par" + par.fold("")(p => p.toString) + "scalars" + scalars
       t
