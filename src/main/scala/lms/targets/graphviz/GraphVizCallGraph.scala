@@ -127,10 +127,14 @@ trait GraphVizCallGraph {
 
           }
           val tp = ele
-          val s: String = if (tp.sym.id == lamdbaid)
+          /*val s: String = if (tp.sym.id == lamdbaid)
             tp.sym.id + " [label=" + quote(tp.sym.id + "\\n" +"Top Level" ) + "\n,shape=polygon]"
           else
-            tp.sym.id + " [label=" + quote(tp.sym.id + "\\n" +name.get) + "\n,shape=box]"
+            tp.sym.id + " [label=<" + quote(tp.sym.id + "\\n" +name.get) + ">\n,shape=box]"*/
+          val s: String = if (tp.sym.id == lamdbaid)
+            tp.sym.id + s" [id = ${quote(tp.sym.id)}label=<" + quote("Top Level" ) + ">\n,shape=polygon]"
+          else
+            tp.sym.id + s" [id = ${quote(tp.sym.id)} " + "label=<" + name.get + ">\n,shape=box]"
           Vector(s) ++ blockres
         }
         case _ => Vector.empty

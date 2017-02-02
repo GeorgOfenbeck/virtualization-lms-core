@@ -16,8 +16,10 @@ class CorewGlue(testsize: Int,
                 twid_default_precomp: Boolean = true,
                 validate: Boolean = true,
                 inplace: Boolean = false,
-                pignore_config: Boolean = false
-               ) extends Core( testsize, radix_choice, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, true, pignore_config) {
+                pignore_config: Boolean = false,
+                inputstride: Boolean = false,
+                pinline: Boolean = true
+               ) extends Core( testsize, radix_choice, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, inline = pinline, pignore_config) {
 
 
 
@@ -30,8 +32,12 @@ class CorewGlue(testsize: Int,
 
   def iniGTSkeleton(precomp: Boolean): Stat = {
     val idIM: StatIMH = new StatIMH(0, 1, 0)
+    val dynIM = new StatIMH(sph(),sph(),sph())
     val expose = if (interleaved) exposeInterleavedComplexVector else exposeComplexVector
-    val t = new Stat(if (static_size.isDefined) static_size.get else sph(), 1, new Stat_GT_IM(idIM, idIM), 0, None, if (thread) Some(4) else None, precomp, expose, false)
+    val instride = if (inputstride) new Stat_GT_IM(dynIM,dynIM) else new Stat_GT_IM(idIM, idIM)
+    val inlb: AInt = if (inputstride) sph() else 1
+    val inlc: AInt = if (inputstride) sph() else 0
+    val t = new Stat(if (static_size.isDefined) static_size.get else sph(), lb = inlb, instride, inlc, None, if (thread) Some(4) else None, precomp, expose, false)
     t
 
   }
@@ -173,9 +179,9 @@ class CorewGlue(testsize: Int,
   }
 
 
-  def graphexport() = {
+  def graphexport(path: String = "F:\\Phd\\git\\code\\SpiralSTarget\\", name: String = "Graph.dot") = {
     this.graphname = true
-    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream("F:\\Phd\\git\\code\\SpiralSTarget\\Graph.dot"))
+    val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream(path + name))
     //dumpCode (stream2)
     val ingt = iniGTSkeleton(false)
     val (str, esc) = emitGraph.emitDepGraphf(ini(ingt))(exposeDyn(ingt), ingt.expdata)

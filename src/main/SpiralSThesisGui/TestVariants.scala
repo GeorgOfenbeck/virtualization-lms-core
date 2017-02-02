@@ -61,18 +61,134 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           twid_inline = false,
           twid_default_precomp = false,
           validate = true,
+          inplace = false,
+          inputstride =  true
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "fulldyn.dot")
+        //val f = dsl.compile()
+        //val perf = f();
+        true
+      }
+    }
+  }
+
+  property("size dynamic") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 4, //2^testsize
+          radix_choice = radix,
+          static_size = None,
+          interleaved = true,
+          thread = false,
+          base_default = 1,
+          twid_inline = false,
+          twid_default_precomp = false,
+          validate = true,
+          inplace = false,
+          inputstride =  true
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "generic_int.dot")
+        //val f = dsl.compile()
+        //val perf = f();
+        true
+      }
+    }
+  }
+  property("size dynamic static identity stride") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 4, //2^testsize
+          radix_choice = radix,
+          static_size = None,
+          interleaved = true,
+          thread = false,
+          base_default = 1,
+          twid_inline = false,
+          twid_default_precomp = false,
+          validate = true,
           inplace = false
         )
         dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
-        dsl.graphexport()
+        dsl.graphexport(name = "generic_int_statinstride.dot")
+        //val f = dsl.compile()
+        //val perf = f();
+        true
+      }
+    }
+  }
+
+  property("static size static identity stride") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 4, //2^testsize
+          radix_choice = radix,
+          static_size = Some(16),
+          interleaved = true,
+          thread = false,
+          base_default = 1,
+          twid_inline = false,
+          twid_default_precomp = false,
+          validate = true,
+          inplace = false
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "statsize_int_statinstride.dot")
         val f = dsl.compile()
         val perf = f();
         true
       }
-
     }
-
-
   }
+
+  property("dynsize basecase identity stride") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 4, //2^testsize
+          radix_choice = radix,
+          static_size = None,
+          interleaved = true,
+          thread = false,
+          base_default = 4,
+          twid_inline = true,
+          twid_default_precomp = true,
+          validate = true,
+          inplace = false
+          //pinline = false
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "basecase_statinstride.dot")
+        val f = dsl.compile()
+        val perf = f();
+        true
+      }
+    }
+  }
+  property("dynsize basecase identity stride") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 6, //2^testsize
+          radix_choice = radix,
+          static_size = None,
+          interleaved = true,
+          thread = false,
+          base_default = 32,
+          twid_inline = true,
+          twid_default_precomp = true,
+          validate = true,
+          inplace = false
+          //pinline = false
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "basecase32_statinstride.dot")
+        val f = dsl.compile()
+        val perf = f();
+        true
+      }
+    }
+  }
+
+
 
 }

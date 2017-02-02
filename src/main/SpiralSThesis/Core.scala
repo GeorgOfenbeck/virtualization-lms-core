@@ -164,7 +164,7 @@ class Core(val testsize: Int, val radix_choice: Map[Int, Int], val static_size: 
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix = Mix(stat, dyn)
       implicit val exposedata = mix.expdata
-      if (basecase_size.isDefined) {
+      if (basecase_size.isDefined && mix.n.ev.isRep()) {
         val isbasecase = mix.n.ev.less(mix.n.a, mix.n.ev.const(basecase_size.get + 1))
         mix.n.ev._if(isbasecase,
           mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)),
