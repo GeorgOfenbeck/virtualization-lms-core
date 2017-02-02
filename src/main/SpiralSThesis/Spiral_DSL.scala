@@ -349,7 +349,7 @@ trait ScalaGenSpiral_DSL extends ScalaCodegen with TupleHelper /*with EmitHeadIn
       case Lookupid2lid(n: Exp[Int]) => Vector(emitValDef(tp, s"Settings.id2ids.getOrElse(${quote(n)},(-99,-99))._1"))
       case Lookupid2rid(n: Exp[Int]) => Vector(emitValDef(tp, s"Settings.id2ids.getOrElse(${quote(n)},(-99,-99))._2"))
       case Lookupsize2id(n: Exp[Int]) => Vector(emitValDef(tp, s"Settings.size2id.getOrElse(${quote(n)},-99)"))
-      case Radix(l: Exp[Int]) => Vector(emitValDef(tp, "Settings.id2radix.getOrElse(" + quote(l) + ",2)"))
+      case Radix(l: Exp[Int]) => Vector(emitValDef(tp, "Settings.size2radix.getOrElse(" + quote(l) + ",2)"))
 
       case Twid(l: Exp[List[Int]]) => Vector(emitValDef(tp, "{val t = Settings.decompchoice.getOrElse(" + quote(l) + ",{ val t: (Int,Boolean,Boolean) = ???; \nt})._3\nif(t) 1 else 0}\n"))
       case ListAdd(l: Exp[List[Int]], i: Exp[Int]) => Vector(emitValDef(tp, quote(l) + ":+ " + quote(i)))

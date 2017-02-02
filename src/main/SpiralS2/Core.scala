@@ -417,10 +417,7 @@ class Core(variant: BreakDown.Tree, val lookup: BRMaps, val testsize: Int,
     val expose = exposeDyn(stat)
     val stageme: (Dyn => Data) = (dyn: Dyn) => {
       val mix2 = Mix(stat, dyn)
-
       val myid = getmyID(mix2.n, mix2.pos)
-
-      //listadd(mix2.pos.ev.toRep(mix2.pos.a), mix2.n.ev.toRep(mix2.n.a))
       val mix = mix2.copy(pos = myid)
       implicit val exposedata = mix.expdata
       if (basecase_size.isDefined && mix.n.ev.isRep()) {

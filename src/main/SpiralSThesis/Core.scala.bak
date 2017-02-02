@@ -105,7 +105,7 @@ class Core(val testsize: Int, val radix_choice: Map[Int, Int], val static_size: 
       val inlinechildren = inlinec(mix.getStat().getn())
       loop(mix, mix.x, mix.y, parx, { idata => {
         val stage1mix: Mix = {
-          val (s0, s1) = (k, toOE(1))
+          val (s0, s1) = (toOE(1), m)
           val inner = IMH(toOE(0), s0, s1)
           val s1_gather: IMH = fuseIM(mix.im.gather(), inner, idata.i)
           val s1_scatter: IMH = if (inplace && !idata.scalars) {
