@@ -142,7 +142,32 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
     }
   }
 
-  property("dynsize basecase identity stride") = {
+
+  property("static size codelet static identity stride") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 4, //2^testsize
+          radix_choice = radix,
+          static_size = Some(16),
+          interleaved = true,
+          thread = false,
+          base_default = 16,
+          twid_inline = false,
+          twid_default_precomp = false,
+          validate = true,
+          inplace = false
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "statsize_codelet_int_statinstride.dot")
+        val f = dsl.compile()
+        val perf = f();
+        true
+      }
+    }
+  }
+
+
+  property("dynsize basecase 16 identity stride") = {
     Prop.forAll(randomRadix()) {
       radix => {
         val dsl = new CorewGlue(testsize = 4, //2^testsize
@@ -165,7 +190,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
       }
     }
   }
-  property("dynsize basecase identity stride") = {
+  property("dynsize basecase 64 identity stride") = {
     Prop.forAll(randomRadix()) {
       radix => {
         val dsl = new CorewGlue(testsize = 6, //2^testsize
@@ -188,6 +213,31 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
       }
     }
   }
+  property("dynsize basecase 4 identity stride") = {
+    Prop.forAll(randomRadix()) {
+      radix => {
+        val dsl = new CorewGlue(testsize = 6, //2^testsize
+          radix_choice = radix,
+          static_size = None,
+          interleaved = true,
+          thread = false,
+          base_default = 4,
+          twid_inline = true,
+          twid_default_precomp = true,
+          validate = true,
+          inplace = false
+          //pinline = false
+        )
+        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.graphexport(name = "basecase4_statinstride.dot")
+        val f = dsl.compile()
+        val perf = f();
+        true
+      }
+    }
+  }
+
+
 
 
 

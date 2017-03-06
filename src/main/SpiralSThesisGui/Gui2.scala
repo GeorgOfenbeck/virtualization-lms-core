@@ -41,7 +41,7 @@ import SpiralSThesis._
 object GuiThesis extends EnumTree with scalax.chart.module.Charting {
 
   var defradix: scala.collection.mutable.Map[Int, Int] = scala.collection.mutable.Map(
-      4 -> 2
+    4 -> 2
     , 8 -> 2
     , 16 -> 2
     , 32 -> 2
@@ -58,26 +58,26 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
     , 65536 -> 2
   ).withDefaultValue(256)
 
-/*
- scala.collection.mutable.Map(
-      4 -> 2
-    , 8 -> 4
-    , 16 -> 4
-    , 32 -> 16
-    , 64 -> 16
-    , 128 -> 16
-    , 256 -> 16
-    , 512 -> 16
-    , 1024 -> 16
-    , 2048 -> 16
-    , 4096 -> 16
-    , 8192 -> 16
-    , 16384 -> 256
-    , 32768 -> 256
-    , 65536 -> 256
-  ).withDefaultValue(256)
+  /*
+   scala.collection.mutable.Map(
+        4 -> 2
+      , 8 -> 4
+      , 16 -> 4
+      , 32 -> 16
+      , 64 -> 16
+      , 128 -> 16
+      , 256 -> 16
+      , 512 -> 16
+      , 1024 -> 16
+      , 2048 -> 16
+      , 4096 -> 16
+      , 8192 -> 16
+      , 16384 -> 256
+      , 32768 -> 256
+      , 65536 -> 256
+    ).withDefaultValue(256)
 
- */
+   */
   object SmallEnum {
     var basecase_min = 4
     var basecase_max = 8
@@ -90,7 +90,8 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
     var cur_dft_size = default_dft_size
 
     var breakdown_enum = BreakDown.getBreakdown(Some(basecase_min, basecase_max), basecase_default, None)
-    var dft_variants = radix_enum(8)//breakdown_enum((Math.pow(2, cur_dft_size).toInt, false))
+    var dft_variants = radix_enum(8)
+    //breakdown_enum((Math.pow(2, cur_dft_size).toInt, false))
     var cur_variant = dft_variants(0)
 
 
@@ -174,8 +175,10 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
 
     val rightconfig = new BoxPanel(Orientation.Horizontal) {
       contents.append(
-        new BoxPanel(Orientation.Vertical){ contents.append(boxpanel_basecase_default, boxpanel_twiddle)})
-       radix_sliders.zipWithIndex.map(p => {
+        new BoxPanel(Orientation.Vertical) {
+          contents.append(boxpanel_basecase_default, boxpanel_twiddle)
+        })
+      radix_sliders.zipWithIndex.map(p => {
         //contents.append(new Label(s"Radix 2^( ) for ${Math.pow(2,p._2+3)}"))
         contents.append(new BoxPanel(Orientation.Vertical) {
           contents.append(new Label(s"${p._2 + 3}"))
@@ -257,6 +260,9 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
 
     //-----------------------------------------------Buttons
 
+
+
+
     def jtransform2(): Double = {
       import org.jtransforms.fft.DoubleFFT_1D
       import org.jtransforms.utils.{CommonUtils, IOUtils}
@@ -319,7 +325,7 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
         if (radio_dyn_size.selected) None else Some((Math.pow(2, cur_dft_size).toInt)),
         radio_format_interleaved.selected,
         checkbox_threading.selected,
-        Math.pow(2,slider_basecase_default.value).toInt,
+        Math.pow(2, slider_basecase_default.value).toInt,
         //textfield_basecase_default.text.toInt,
         checkbox_twiddle_inline.selected,
         radio_twiddle_precompute.selected,
@@ -337,14 +343,254 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
         dsl.codeexport()
         //dsl.codeexport_java()
       })
+
+      contents += new Button(Action("gen timing") {
+        val t = new Thread(new Runnable {
+          def run() {
+            val series: XYSeries = new XYSeries(s"basecase 8")
+            variantplot.dataset.addSeries(series)
+            val series2: XYSeries = new XYSeries(s"base case 16")
+            variantplot.dataset.addSeries(series2)
+            val series3: XYSeries = new XYSeries(s"basecase 32")
+            variantplot.dataset.addSeries(series3)
+            val series4: XYSeries = new XYSeries(s"base case 64")
+            variantplot.dataset.addSeries(series4)
+            var curradix = Map(2048 -> 16, 128 -> 8, 32 -> 2, 8 -> 4, 4096 -> 64, 256 -> 16, 1024 -> 2, 64 -> 4, 4 -> 2, 16 -> 4, 8192 -> 128, 512 -> 2)
+
+            val max = 30
+
+
+            val base8 = new Array[Double](max);
+            val base16 = new Array[Double](max);
+            val base32 = new Array[Double](max);
+            val base64 = new Array[Double](max);
+
+
+
+            for (size <- 2 until 30) {
+              println(s"Size: $size")
+              val fsize = Math.pow(2, size).toInt
+
+
+              val trypar = if (fsize < 4096) false else true
+              def xms2gflops(d: Double): Double = {
+                val n = Math.pow(2, size)
+                val flops = 5 * n * (Math.log10(n) / Math.log10(2))
+                val y: Double = ((flops / (d)))
+                y
+              }
+
+              for (basesize <- Vector(8,16,32,64)) {
+                for (gen <- Vector(true)) {
+                  val dsl = new CorewGlue(
+                    testsize = size,
+                    radix_choice = curradix.withDefaultValue(16),
+                    static_size = if (gen) None else Some(fsize),
+                    interleaved = true,
+                    thread = trypar, //threading
+                    base_default = basesize,
+                    twid_inline = true,
+                    twid_default_precomp = true,
+                    validate = true,
+                    inplace = false
+                    //checkbox_default_config.selected
+                  )
+
+                  var elapsedTime = System.nanoTime
+                  val f = dsl.codeexport()
+                  elapsedTime = System.nanoTime - elapsedTime
+
+                  basesize match{
+                    case 8 => base8(size) = elapsedTime
+                    case 16 => base16(size) = elapsedTime
+                    case 32 => base32(size) = elapsedTime
+                    case 64 => base64(size) = elapsedTime
+                  }
+
+                }
+              }
+            }
+            println(scala.runtime.ScalaRunTime.stringOf(base8))
+            println(scala.runtime.ScalaRunTime.stringOf(base16))
+            println(scala.runtime.ScalaRunTime.stringOf(base32))
+            println(scala.runtime.ScalaRunTime.stringOf(base64))
+          }
+        })
+        t.start()
+
+      })
+
+      contents += new Button(Action("best found") {
+        val t = new Thread(new Runnable {
+          def run() {
+            val series: XYSeries = new XYSeries(s"General Size basecase 16")
+            variantplot.dataset.addSeries(series)
+            val series2: XYSeries = new XYSeries(s"Fixed Size base case 16")
+            variantplot.dataset.addSeries(series2)
+            val series3: XYSeries = new XYSeries(s"General Size basecase 32")
+            variantplot.dataset.addSeries(series3)
+            val series4: XYSeries = new XYSeries(s"Fixed Size base case 32")
+            variantplot.dataset.addSeries(series4)
+            //var curradix = Map(2048 -> 16, 128 -> 8, 32 -> 2, 8 -> 4, 4096 -> 64, 256 -> 16, 1024 -> 2, 64 -> 4, 4 -> 2, 16 -> 4, 8192 -> 128, 512 -> 2)
+            var curradix = Map(128 -> 2, 2048 -> 8, 32 -> 8, 8 -> 4, 256 -> 16, 4096 -> 64, 16384 -> 64, 64 -> 4, 1024 -> 2, 4 -> 2, 16 -> 4, 512 -> 2, 8192 -> 512, 32768 -> 2048).withDefaultValue(2048)
+
+            var parsize = 4096
+
+            val gen16 = new Array[Double](20);
+            val stat16 = new Array[Double](20);
+            val gen32 = new Array[Double](20);
+            val stat32 = new Array[Double](20);
+
+
+
+            for (size <- 2 until 17) {
+              println(s"Size: $size")
+              val fsize = Math.pow(2, size).toInt
+
+
+              val trypar = if (fsize < 4096) false else true
+              def xms2gflops(d: Double): Double = {
+                val n = Math.pow(2, size)
+                val flops = 5 * n * (Math.log10(n) / Math.log10(2))
+                val y: Double = ((flops / (d)))
+                y
+              }
+
+              for (basesize <- Vector(32)) {
+                for (gen <- Vector(true,false)) {
+                  val dsl = new CorewGlue(
+                    testsize = size,
+                    radix_choice = curradix.withDefaultValue(16),
+                    static_size = if (gen) None else Some(fsize),
+                    interleaved = true,
+                    thread = trypar, //threading
+                    base_default = basesize,
+                    twid_inline = true,
+                    twid_default_precomp = true,
+                    validate = true,
+                    inplace = false
+                    //checkbox_default_config.selected
+                  )
+                  val f = dsl.compile()
+                  val perf = f();
+
+                  if (basesize == 16) {
+                    if (!gen) {
+                      stat16(size) = xms2gflops(perf)
+                      series2.add(size, xms2gflops(perf))
+                    }
+                    else {
+                      gen16(size) = xms2gflops(perf)
+                      series.add(size, xms2gflops(perf))
+                    }
+                  } else if (!gen) {
+                    stat32(size) = xms2gflops(perf)
+                    series4.add(size, xms2gflops(perf))
+                  }
+                  else {
+                    gen32(size) = xms2gflops(perf)
+                    series3.add(size, xms2gflops(perf))
+                  }
+
+                }
+              }
+            }
+            println(scala.runtime.ScalaRunTime.stringOf(gen16))
+            println(scala.runtime.ScalaRunTime.stringOf(stat16))
+            println(scala.runtime.ScalaRunTime.stringOf(gen32))
+            println(scala.runtime.ScalaRunTime.stringOf(stat32))
+          }
+        })
+        t.start()
+
+      })
+
+      contents += new Button(Action("DynProgramming") {
+        val t = new Thread(new Runnable {
+          def run() {
+            val series: XYSeries = new XYSeries(s"DynProg sequential")
+            variantplot.dataset.addSeries(series)
+            val series2: XYSeries = new XYSeries(s"DynProg parallel")
+            variantplot.dataset.addSeries(series2)
+            var curradix: scala.collection.mutable.Map[Int, Int] = scala.collection.mutable.Map(
+              4 -> 2
+              , 8 -> 4
+              , 16 -> 4
+            )
+
+            var parsize = 0
+            for (size <- 5 until 20) {
+              println(s"Size: $size")
+              val fsize = Math.pow(2, size).toInt
+              val pairs = Bla.DivisorPairs(fsize)
+              var alwaysparnow = false
+
+              val trypar = if (size < 9) Vector(false) else if (alwaysparnow) Vector(true) else Vector(false,true)
+              def xms2gflops(d: Double): Double = {
+                val n = Math.pow(2, size)
+                val flops = 5 * n * (Math.log10(n) / Math.log10(2))
+                val y: Double = ((flops / (d)))
+                y
+              }
+              for (par <- trypar) {
+                val perfs = pairs.foldLeft(Map.empty[Double, (Int,Boolean)])(
+                  (acc, rchoice) => {
+                    curradix(fsize) = rchoice._1
+                    val dsl = new CorewGlue(
+                      testsize = size,
+                      radix_choice = curradix.toMap.withDefaultValue(8),
+                      static_size = if (fsize < 512) None else Some(fsize),
+                      interleaved = true,
+                      thread = par, //threading
+                      base_default = 32,
+                      twid_inline = true,
+                      twid_default_precomp = true,
+                      validate = true,
+                      inplace = false
+                      //checkbox_default_config.selected
+                    )
+                    val f = dsl.compile()
+                    val perf = f();
+
+
+                    if (par)
+                      series2.add(size, xms2gflops(perf))
+                    else
+                      series.add(size, xms2gflops(perf))
+                    println(s" time ${perf} performance ${xms2gflops(perf)} ${rchoice._1} $par")
+                    acc + (perf -> (rchoice._1, par))
+                  })
+                curradix(fsize) = perfs(perfs.keySet.min)._1
+
+                if (perfs(perfs.keySet.min)._2) {
+                  alwaysparnow = true
+                  if (alwaysparnow)parsize = fsize
+                }
+                println(s"selected radix ${curradix(fsize)}")
+                println(curradix)
+              }
+            }
+            println(s"parallelize at $parsize")
+          }
+        })
+        t.start()
+
+      })
+
       contents += new Button(Action("Time JTransform") {
         val t = new Thread(new Runnable {
           def run() {
-            val gflops = jtransform2()
-            //variantplot.series.add(0.0,gflops)
-            val marker = new ValueMarker(gflops); // position is the value on the axis
-            marker.setPaint(java.awt.Color.BLUE);
-            variantplot.plot.addRangeMarker(marker)
+            val series: XYSeries = new XYSeries(s"JTransform")
+            val array = new Array[Double](20)
+            variantplot.dataset.addSeries(series)
+            for (j <- 2 until 20) {
+              cur_dft_size = j
+              val gflops = jtransform2()
+              //variantplot.series.add(0.0,gflops)
+              array(j) = gflops
+              series.add(j, gflops)
+            }
+            println(scala.runtime.ScalaRunTime.stringOf(array))
           }
         })
         t.start()
@@ -477,10 +723,10 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
           }
         }
         radix_sliders.zipWithIndex.map(p => {
-          val (slider,nr) = p
+          val (slider, nr) = p
           reactions += {
             case ValueChanged(`slider`) => {
-              defradix.update(Math.pow(2,nr+3).toInt,Math.pow(2,slider.value).toInt)
+              defradix.update(Math.pow(2, nr + 3).toInt, Math.pow(2, slider.value).toInt)
             }
           }
         })
@@ -504,285 +750,7 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
    */
 
 
-  object Heuristic {
-    //val data = for (i <- 1 to 5) yield (i,i)
-    //val chart = XYLineChart(data)
-    import org.scalameter._
 
-
-    import org.scalameter._
-
-    import java.awt.Color;
-
-    val minsize = 2
-    val maxsize = 15
-
-    val series: XYSeries = new XYSeries("jtransform")
-    val series2: XYSeries = new XYSeries("jtransform scalameter")
-    val series3: XYSeries = new XYSeries("Heurisitc single")
-    val series4: XYSeries = new XYSeries("Heurisitc threaded")
-
-    //jtransform2()
-    //jtransform()
-
-
-    val xAxis: NumberAxis = new NumberAxis("x Axis")
-    val yAxis: NumberAxis = new NumberAxis("y Axis")
-    //val renderer:XYSplineRenderer = new XYSplineRenderer();
-    val renderer = new XYLineAndShapeRenderer();
-
-    val dataset: XYSeriesCollection = new XYSeriesCollection()
-    dataset.addSeries(series)
-    dataset.addSeries(series2)
-    dataset.addSeries(series3)
-    dataset.addSeries(series4)
-
-    val plot: XYPlot = new XYPlot(dataset, xAxis, yAxis, renderer)
-    plot.setBackgroundPaint(Color.lightGray);
-    plot.setDomainGridlinePaint(Color.white);
-    plot.setRangeGridlinePaint(Color.white);
-    plot.setAxisOffset(new RectangleInsets(4, 4, 4, 4));
-
-    val chart = new JFreeChart(plot)
-    val chartPanel = new ChartPanel(chart)
-
-
-    def heurisitc(): Unit = {
-
-    }
-
-
-    def jtransform(): Unit = {
-      import org.jtransforms.fft.DoubleFFT_1D
-      import org.jtransforms.utils.{CommonUtils, IOUtils}
-
-
-      var sizes1D: Array[Long] = (minsize until maxsize).foldLeft(Array.empty[Long])((acc, ele) => {
-        acc :+ Math.pow(2, ele).toLong
-      })
-      var nsize: Int = sizes1D.size
-
-      var x: Array[Double] = null
-      val doWarmup: Boolean = true
-      val times_without_constructor = new Array[Double](nsize)
-      val times_with_constructor = new Array[Double](nsize)
-      var i = 0
-      while (i < nsize) {
-        {
-          var niter: Int = if (sizes1D(i) < 10) 10000 else 1000;
-          System.out.println("Complex forward FFT 1D of size " + sizes1D(i))
-          if (doWarmup) {
-            // call the transform twice to warm up
-            val fft = new DoubleFFT_1D(sizes1D(i))
-            x = new Array[Double]((2 * sizes1D(i)).toInt)
-            IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
-            fft.complexForward(x)
-            IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
-            fft.complexForward(x)
-          }
-          var elapsedTime = System.nanoTime
-          var fft = new DoubleFFT_1D(sizes1D(i))
-          times_with_constructor(i) = (System.nanoTime - elapsedTime) / 1000000.0
-          x = new Array[Double]((2 * sizes1D(i)).toInt)
-          var min_time: Double = Double.MaxValue
-          var j = 0
-          IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
-          elapsedTime = System.nanoTime
-          while (j < niter) {
-            {
-
-              fft.complexForward(x)
-              j += 1;
-            }
-            elapsedTime = System.nanoTime - elapsedTime
-            elapsedTime = elapsedTime / niter
-            if (elapsedTime < min_time) min_time = elapsedTime
-
-          }
-          times_without_constructor(i) = min_time.toDouble
-          //times_with_constructor(i) += times_without_constructor(i)
-          System.out.println("\tBest execution time without constructor: " + times_without_constructor(i) + " msec")
-          //System.out.println("\tBest execution time with constructor: " + times_with_constructor(i) + " msec")
-          val n = sizes1D(i)
-          val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
-          val y: Double = ((flops / min_time))
-          println("adding flops" + flops + " -> " + i + " / " + y)
-          series.add(i + 2.toDouble, y)
-
-          x = null
-          fft = null
-          //System.gc()
-          //CommonUtils.sleep(5000)
-        }
-        {
-          i += 1;
-          i - 1
-        }
-      }
-      //IOUtils.writeFFTBenchmarkResultsToFile("benchmarkDoubleComplexForwardFFT_1D.txt", nthread, niter, doWarmup, doScaling, sizes1D, times_without_constructor, times_with_constructor)
-    }
-
-    def jtransform2(): Unit = {
-      import org.jtransforms.fft.DoubleFFT_1D
-      import org.jtransforms.utils.{CommonUtils, IOUtils}
-
-
-      var sizes1D: Array[Long] = (minsize until maxsize).foldLeft(Array.empty[Long])((acc, ele) => {
-        acc :+ Math.pow(2, ele).toLong
-      })
-      var nsize: Int = sizes1D.size
-      var niter: Int = 100;
-      var x: Array[Double] = null
-      val doWarmup: Boolean = true
-      val times_without_constructor = new Array[Double](nsize)
-      val times_with_constructor = new Array[Double](nsize)
-      var i = 0
-      while (i < nsize) {
-
-        val standardConfig = config(
-          Key.exec.minWarmupRuns -> 100,
-          Key.exec.maxWarmupRuns -> 1000,
-          Key.exec.benchRuns -> 10000, //(1000*1000/sizes1D(i)).toLong,
-          Key.verbose -> false
-        ) withWarmer (new Warmer.Default)
-
-
-        System.out.println("Complex forward FFT 1D of size " + sizes1D(i))
-
-        var elapsedTime = System.nanoTime
-        var fft = new DoubleFFT_1D(sizes1D(i))
-        x = new Array[Double]((2 * sizes1D(i)).toInt)
-        IOUtils.fillMatrix_1D(2 * sizes1D(i), x)
-        val min_time = standardConfig measure {
-
-          //times_with_constructor(i) = (System.nanoTime - elapsedTime) / 1000000.0
-
-
-          fft.complexForward(x)
-
-
-        }
-
-
-        val n = sizes1D(i)
-        val flops: Double = 5 * n * (Math.log10(n) / Math.log10(2.0))
-        val y: Double = ((flops / (min_time * 1000000)))
-        println("adding flops" + flops + " -> " + i + " / " + y)
-
-        update(i + 2.0, y, series2)
-
-        x = null
-        fft = null
-        i = i + 1
-
-      }
-    }
-
-    def update(x: Double, y: Double, seri: XYSeries) {
-      swing.Swing onEDT {
-        seri.add(x, y)
-      }
-    }
-
-    //IOUtils.writeFFTBenchmarkResultsToFile("benchmarkDoubleComplexForwardFFT_1D.txt", nthread, niter, doWarmup, doScaling, sizes1D, times_without_constructor, times_with_constructor)
-
-
-    val buttons = new FlowPanel {
-      border = Swing.EmptyBorder(5, 5, 5, 5)
-      contents += new Button(Action("JTransforminternal timing") {
-        val t = new Thread(new Runnable {
-          def run() {
-            jtransform()
-          }
-        })
-        t.start()
-      })
-      contents += new Button(Action("Scala Meter Timing") {
-        val t = new Thread(new Runnable {
-          def run() {
-            jtransform2()
-          }
-        })
-        t.start()
-      })
-
-      contents += new Button(Action("Heuristic") {
-        val t = new Thread(new Runnable {
-          def run() {
-
-
-            for (i <- 3 until maxsize) {
-              println(s"size $i")
-              val size = Math.pow(2, i).toInt
-
-              def ms2gflops(d: Double): Double = {
-                val n = Math.pow(2, i)
-                val flops = 5 * n * (Math.log10(n) / Math.log10(2))
-                val y: Double = ((flops / (d)))
-                y
-              }
-
-              val dsl = new CorewGlue(size, defradix.toMap.withDefaultValue(defradix(3)),
-                Some(size),
-                true,
-                false,
-                16,
-                true,
-                true,
-                true,
-                false,
-                true
-
-                //checkbox_default_config.selected
-              )
-              val f = dsl.compile()
-              val perf = f();
-              println(s"Time $perf Performance ${ms2gflops(perf)}")
-              series3.add(i, ms2gflops(perf))
-            }
-            for (i <- 3 until maxsize) {
-              println(s"size $i")
-              val size = Math.pow(2, i).toInt
-
-              def ms2gflops(d: Double): Double = {
-                val n = Math.pow(2, i)
-                val flops = 5 * n * (Math.log10(n) / Math.log10(2))
-                val y: Double = ((flops / (d)))
-                y
-              }
-
-              val dsl = new CorewGlue(size, defradix.toMap.withDefaultValue(defradix(3)),
-                Some(size),
-                true,
-                true,
-                16,
-                true,
-                true,
-                true,
-                false,
-                true
-
-                //checkbox_default_config.selected
-              )
-              val f = dsl.compile()
-              val perf = f();
-              println(s"Time $perf Performance ${ms2gflops(perf)}")
-              series4.add(i, ms2gflops(perf))
-            }
-          }
-        })
-        t.start()
-      })
-    }
-
-
-    val heuristic = new Page("Heuristic vs JTransform",
-      new BoxPanel(Orientation.Vertical) {
-        contents.append(Component.wrap(chartPanel))
-        contents.append(buttons)
-      }
-    )
-  }
 
   //Heuristic.jtransform()
 
@@ -793,7 +761,6 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
 
     contents = new TabbedPane {
       pages += SmallEnum.smallenum
-      pages += Heuristic.heuristic
 
     }
   }

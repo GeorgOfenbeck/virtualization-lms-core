@@ -6,9 +6,9 @@ import java.lang.reflect.InvocationTargetException
 /**
   * Created by rayda on 03-Jan-17.
   */
-class CorewGlue(testsize: Int,
+class CorewGlue(testsize: Int, //2^n
                 radix_choice: Map[Int, Int],
-                static_size: Option[Int] = None,
+                static_size: Option[Int] = None, //actual size - not as power
                 interleaved: Boolean = false,
                 thread: Boolean = true,
                 base_default: Int = 0,
@@ -19,15 +19,15 @@ class CorewGlue(testsize: Int,
                 pignore_config: Boolean = false,
                 inputstride: Boolean = false,
                 pinline: Boolean = true
-               ) extends Core( testsize, radix_choice, static_size, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, inline = pinline, pignore_config) {
+               ) extends Core( radix_choice, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, inline = pinline, pignore_config) {
 
 
 
   val WHT: Boolean = false
-  val repeats = if (testsize < 1024) 10000 else 100
+  val repeats = if (testsize < 8) 1000 else 10
   val repeatsets = 10
-  val minwarmup = if (testsize < 1024) 1000 else 10
-  val maxwarmup = if (testsize < 1024) 1000 else 10
+  val minwarmup = if (testsize < 8) 1000 else 10
+  val maxwarmup = if (testsize < 8) 1000 else 10
   val threads = 8
 
   def iniGTSkeleton(precomp: Boolean): Stat = {
@@ -36,8 +36,7 @@ class CorewGlue(testsize: Int,
     val expose = if (interleaved) exposeInterleavedComplexVector else exposeComplexVector
     val instride = if (inputstride) new Stat_GT_IM(dynIM,dynIM) else new Stat_GT_IM(idIM, idIM)
     val inlb: AInt = if (inputstride) sph() else 1
-    val inlc: AInt = if (inputstride) sph() else 0
-    val t = new Stat(if (static_size.isDefined) static_size.get else sph(), lb = inlb, instride, inlc, None, if (thread) Some(4) else None, precomp, expose, false)
+    val t = new Stat(if (static_size.isDefined) static_size.get else sph(), lb = inlb, instride, None, if (thread) Some(4) else None, precomp, expose, false)
     t
 
   }

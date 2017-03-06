@@ -145,7 +145,7 @@ trait GraphVizCallGraph {
     })
 
 
-    "digraph G {\n" + "\n" + graphstring.mkString("\n") + "\n}"
+    "digraph G {\n" + "1 [id = \"1\"label=<Input>,shape=circle]\n 1 -> 0\n" + graphstring.mkString("\n") + "\n}"
   }
 
 
