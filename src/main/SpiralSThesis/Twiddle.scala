@@ -9,19 +9,19 @@ object Twiddle {
 
   object MathUtilities {
 
-    def dLin(N: Int, a: Double, b: Double): List[Double] = {
+    def dLin(N: Int, a: Double, b: Double): Array[Double] = {
       val t_array = new Array[Double](N)
       for (i <- 0 until N)
         t_array(i) = a * i + b
-      t_array.toList
+      t_array
     }
 
-    def diagTensor(a: List[Double], b: List[Double]): List[Double] = {
+    def diagTensor(a: Array[Double], b: Array[Double]): Array[Double] = {
       val t_array = new Array[Double](a.size * b.size)
       for (i <- 0 until a.size)
         for (j <- 0 until b.size)
           t_array(i * b.size + j) = a(i) * b(j)
-      t_array.toList
+      t_array
     }
   }
 
