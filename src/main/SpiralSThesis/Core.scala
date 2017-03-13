@@ -1,5 +1,7 @@
 package SpiralSThesis
 
+import SpiralSThesis.Twiddle.MathUtilities
+
 import scala.lms.targets.graphviz.{GraphVizCallGraph, GraphVizExport}
 import scala.lms.targets.scalalike._
 
@@ -90,6 +92,122 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
  }
 
  def fuseIM(r: IMHBase, s: IMHBase, lv: AInt): IMH = IMH((r.base + (r.s0 * s.base)) + r.s1 * lv, r.s0 * s.s0, (toOE(0) + (r.s0 * s.s1)))
+
+
+ def DFT_SplitRadix(stat: Stat, inline: Boolean): MaybeSFunction = {
+  val expose = exposeDyn(stat)
+  val stageme: (Dyn => Data) = (dyn: Dyn) => {
+   val mix_b = Mix(stat, dyn)
+   val (mix, parx): (Mix, Option[Int]) = mix_b.par.fold[(Mix, Option[Int])]((mix_b, None))(p => mix_b.lb.a match {
+    case x: Int => if (x < 2) (mix_b, None) else (mix_b.copy(par = None), Some(p))
+    case _ => (mix_b.copy(par = None), Some(p))
+   })
+
+   val nhalf = mix.n / toOE(2)
+   val nquart = mix.n / toOE(4)
+
+   val inlinechildren = inlinec(mix.getStat().getn())
+   loop(mix, mix.x, mix.y, parx, { idata => {
+
+
+    // I(2) tensor dft(n/4) compose L(n/2,2)
+    val stage1lowmix: Mix = {
+     val (s0, s1) = (nhalf, toOE(1))
+     val inner = IMH(toOE(0), s0, s1)
+     val s1_gather: IMH = fuseIM(mix.im.gather(), inner, idata.i)
+     val s1_scatter: IMH = IMH(toOE(0), toOE(1), toOE(2))
+     val nim = GT_IM(s1_gather, s1_scatter)
+     val stage1_target: Data = {
+      if (idata.scalars) {
+       mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
+        ???
+       }, fb => {
+        ScalarVector(new Array[Exp[Double]](fb * 2))
+       })
+      } else {
+       mix.y.create(mix.n)
+      }
+     }
+     mix.copy(x = idata.in, y = stage1_target, n = nquart, lb = toOE(2), im = nim, scalars = idata.scalars)
+    }
+    //((D2(k) compose F_2()) tensor I(n/4))
+    //compose T3L(n/2,2,k)
+
+    val datalowhalf = DFT(stage1lowmix.getStat(), inlinechildren)(stage1lowmix.getDyn())
+    //((D2(k) compose F_2()) tensor I(n/4))
+    //compose T3L(n/2,2,k)
+    val d2mix: Mix = {
+      val s2_gather: IMH = IMH(toOE(0), nquart, toOE(1))
+      val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
+      val nim = GT_IM(s2_scatter, s2_gather)
+      mix.copy(x = datalowhalf, y = idata.out, n = toOE(2), lb = nquart, im = nim, tw = None, scalars = idata.scalars)
+    }
+
+
+     val sn: Int = mix.n.a match{
+       case x: Int => x
+       case _ => assert(false); 1
+     }
+
+
+     //T3L(n/2,2,k)
+     val diag  = MathUtilities.diagTensor(MathUtilities.dLin((sn/2)/2,2,0), MathUtilities.dLin(2,2,1))
+     val tx = E(sn)
+     val clist_re = diag map ( ele => tx.re(ele.toInt))
+     val clist_im = diag map ( ele => tx.im(ele.toInt))
+
+     val root_list_re = clist_re.grouped(2).toList.transpose.flatten //this is the L(n/2,k) part
+     val root_list_im = clist_im.grouped(2).toList.transpose.flatten
+
+     val t3l = d2mix.x.create(sn/2)
+     val sample = d2mix.x(toOE(0))
+     val t3data = (0 until sn/2).foldLeft(t3l){
+       (acc,ele) =>  acc.update(ele,sample.create(unit(root_list_re(ele)),unit(root_list_im(ele))))
+     }
+
+
+
+    val directresult = loop(d2mix, d2mix.x, datalowhalf, None, { idata => {
+       val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
+       val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
+
+       val t3idx0 = resolveH(IMH(toOE(0), nquart, toOE(1)), toOE(0), idata.i)
+       val t3idx1 = resolveH(IMH(toOE(0), nquart, toOE(1)), toOE(0), idata.i)
+
+       val scale0 = t3data(t3idx0)
+       val scale1 = t3data(t3idx1)
+
+
+       val (t1, t2): (DataEle, DataEle) = d2mix.im match {
+         case im_git: GT_IM => (t01, t02)
+       }
+
+       val t = E(4)
+       val re = t.re(1)
+       val im = t.im(1)
+       val ele = t1.create(unit(re),unit(im))
+       val idx0 = resolveH(d2mix.im.scatter(), toOE(0), idata.i)
+       val val1 = idata.out.update(idx0, (t1 + t2)  * scale0)
+       val idx1 = resolveH(d2mix.im.scatter(), toOE(1), idata.i)
+       val val2 = val1.update(idx1, (t1 - t2) * ele * scale1)
+
+       val2
+     } })
+
+
+    val stage2mix: Mix = {
+     val s2_gather: IMH = IMH(toOE(0), nhalf, toOE(1))
+     val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
+     val nim = GT_IM(s2_scatter, s2_gather)
+     mix.copy(x = directresult, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
+    }
+    DFT(stage2mix.getStat(), inlinechildren)(stage2mix.getDyn())
+   }
+   })
+  }
+  if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toName()))(expose, stat.expdata))
+ }
+
 
  def DFT_CT(stat: Stat, inline: Boolean): MaybeSFunction = {
   val expose = exposeDyn(stat)
