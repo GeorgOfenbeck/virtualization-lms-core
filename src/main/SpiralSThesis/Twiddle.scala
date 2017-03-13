@@ -160,93 +160,75 @@ class E(val n: Int) {
     (xp.toDouble, yp.toDouble)
   }
 
-  def normalize_trig(sign: Int, trig: String, x: Double, y: Double): (Int, String, Double, Double, Double) = {
+  def normalize_trig(sign: Int, trig: Boolean, x: Double, y: Double): (Int, Boolean, Double, Double, Double) = {
     // normalization in 2Pi, achieving: 0 <= xn / yn <= 2
     val (xn, yn) = normalize_2pi_shift(x, y)
     if (xn > yn) {
-      trig match {
-        case "sin" => normalize_trig(sign * (-1), "sin", xn - yn, yn)
-        case "cos" => normalize_trig(sign * (-1), "cos", xn - yn, yn)
-      }
+      if (trig) normalize_trig(sign * (-1), trig, xn - yn, yn) else normalize_trig(sign * (-1), false, xn - yn, yn)
     } else if (xn == yn) {
-      trig match {
-        case "sin" => (sign, "sin", xn, yn, sign * (+0.0))
-        case "cos" => (sign, "cos", xn, yn, sign * (-1.0))
-      }
+      if (trig) (sign, true, xn, yn, sign * (+0.0)) else (sign, false, xn, yn, sign * (-1.0))
     } else {
       if (xn > yn / 2) {
         // normalization in Pi, achieving 0 <= xn / yn <= 1/2
         val (xp, yp) = normalize_pi_over2_shift(xn, yn)
-        trig match {
-          case "sin" => normalize_trig(sign * (+1), "cos", xp, yp)
-          case "cos" => normalize_trig(sign * (-1), "sin", xp, yp)
-        }
+        if (trig) normalize_trig(sign * (+1), false, xp, yp)else normalize_trig(sign * (-1), true, xp, yp)
+
       } else if (xn == yn / 2) {
-        trig match {
-          case "sin" => (sign, "sin", xn, yn, sign * (+1.0))
-          case "cos" => (sign, "cos", xn, yn, sign * (+0.0))
-        }
+        if (trig) (sign, true, xn, yn, sign * (+1.0)) else
+        (sign, false, xn, yn, sign * (+0.0))
+
       } else {
         // now reflect in Pi / 2, and make sure that 0 <= xn / yn <= 1/4
         if (xn > yn / 4) {
           val (xp, yp) = normalize_pi_over2_reflection(xn, yn)
-          trig match {
-            case "sin" => (sign, "cos", xp, yp, Double.MaxValue)
-            case "cos" => (sign, "sin", xp, yp, Double.MaxValue)
-          }
+          if (trig) (sign, false, xp, yp, Double.MaxValue) else (sign, true, xp, yp, Double.MaxValue)
+
         } else if (xn == yn / 4) {
-          (sign, "cos", 1.0, 4.0, Double.MaxValue)
+          (sign, false, 1.0, 4.0, Double.MaxValue)
         } else {
           if (xn == 0.0) {
-            trig match {
-              case "sin" => (sign, "sin", xn, yn, sign * (+0.0))
-              case "cos" => (sign, "cos", xn, yn, sign * (+1.0))
-            }
+            if (trig) (sign, true, xn, yn, sign * (+0.0)) else (sign, false, xn, yn, sign * (+1.0))
+
           } else {
-            trig match {
-              case "sin" => (sign, "sin", xn, yn, Double.MaxValue)
-              case "cos" => (sign, "cos", xn, yn, Double.MaxValue)
-            }
+            if (trig) (sign, true, xn, yn, Double.MaxValue) else (sign, false, xn, yn, Double.MaxValue)
+
           }
         }
       }
     }
   }
 
-  private def valueSinOrCos(f: String, x: Double, y: Double): Double = {
+  private def valueSinOrCos(f: Boolean, x: Double, y: Double): Double = {
     val (sign, trig, xn, yn, value) = normalize_trig(1, f, x, y)
-    if (!value.equals(scala.Double.MaxValue)) {
-      value
-
-    } else {
-      trig match {
-        case "sin" => (xn, yn) match {
+    if (!value.equals(scala.Double.MaxValue))  value  else {
+      if (trig)
+        (xn, yn) match {
           case (1.0, 6.0) => sign * 0.5
           case _ => sign * Math.sin(xn * Math.PI / yn)
         }
-        case "cos" => sign * Math.cos(xn * Math.PI / yn)
-      }
+        else sign * Math.cos(xn * Math.PI / yn)
+
     }
   }
 
-  def SinPi(x: Double, y: Double): Double = valueSinOrCos("sin", x, y)
+  def SinPi(x: Double, y: Double): Double = valueSinOrCos(true, x, y)
 
-  def CosPi(x: Double, y: Double): Double = valueSinOrCos("cos", x, y)
+  def CosPi(x: Double, y: Double): Double = valueSinOrCos(false, x, y)
 
-  private def yieldk(n: Int) = {
-    //TODO - find short form for return value
-    def tmp() = {
-      for (k <- 0 until n
-           // this if checks if x^t becomes 1 before n==t, this is e.g. the
-           // case for 2nd root of unity of 4 where it becomes 1 at x^2
-           if (for (t <- 2 until n - 1
-                    if (Math.cos(2 * math.Pi * k * t / n) == 1)
-           ) yield 1).isEmpty
-      )
-        yield k
+  private def yieldk(n: Int) :Int = {
+    var k = n
+    var nonzero = true
+    while (k > 0 && nonzero) {
+      k = k - 1
+      var t = 2
+      nonzero = false
+      while (t < n - 1 && !nonzero) {
+        val one = (Math.cos(2 * math.Pi * k * t / n) == 1)
+        nonzero = nonzero || one
+        t = t + 1
+      }
     }
-
-    tmp.last
+    k
   }
 
   lazy val store = yieldk(n)
