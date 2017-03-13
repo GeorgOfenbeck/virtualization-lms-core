@@ -109,6 +109,34 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
    val inlinechildren = inlinec(mix.getStat().getn())
    loop(mix, mix.x, mix.y, parx, { idata => {
 
+     //L(n,2)
+
+     //gather low half
+     //gather high half
+
+     val stage1_target: Data = {
+       if (idata.scalars) {
+         mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
+           ???
+         }, fb => {
+           ScalarVector(new Array[Exp[Double]](fb * 2))
+         })
+       } else {
+         mix.y.create(mix.n)
+       }
+     }
+
+     val lowhalf_target: Data = {
+       if (idata.scalars) {
+         mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
+           ???
+         }, fb => {
+           ScalarVector(new Array[Exp[Double]](fb ))
+         })
+       } else {
+         mix.y.create(mix.n / 2)
+       }
+     }
 
     // I(2) tensor dft(n/4) compose L(n/2,2)
     val stage1lowmix: Mix = {
@@ -117,30 +145,22 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      val s1_gather: IMH = fuseIM(mix.im.gather(), inner, idata.i)
      val s1_scatter: IMH = IMH(toOE(0), toOE(1), toOE(2))
      val nim = GT_IM(s1_gather, s1_scatter)
-     val stage1_target: Data = {
-      if (idata.scalars) {
-       mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
-        ???
-       }, fb => {
-        ScalarVector(new Array[Exp[Double]](fb * 2))
-       })
-      } else {
-       mix.y.create(mix.n)
-      }
-     }
-     mix.copy(x = idata.in, y = stage1_target, n = nquart, lb = toOE(2), im = nim, scalars = idata.scalars)
+
+     mix.copy(x = idata.in, y = lowhalf_target, n = nquart, lb = toOE(2), im = nim, scalars = idata.scalars)
     }
     //((D2(k) compose F_2()) tensor I(n/4))
     //compose T3L(n/2,2,k)
 
-    val datalowhalf = DFT(stage1lowmix.getStat(), inlinechildren)(stage1lowmix.getDyn())
+    val datalowhalf1 = DFT(stage1lowmix.getStat(), inlinechildren)(stage1lowmix.getDyn())
     //((D2(k) compose F_2()) tensor I(n/4))
     //compose T3L(n/2,2,k)
+
+
     val d2mix: Mix = {
       val s2_gather: IMH = IMH(toOE(0), nquart, toOE(1))
       val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
       val nim = GT_IM(s2_scatter, s2_gather)
-      mix.copy(x = datalowhalf, y = idata.out, n = toOE(2), lb = nquart, im = nim, tw = None, scalars = idata.scalars)
+      mix.copy(x = datalowhalf1, y = stage1_target, n = toOE(2), lb = nquart, im = nim, tw = None, scalars = idata.scalars)
     }
 
 
@@ -167,7 +187,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
 
 
 
-    val directresult = loop(d2mix, d2mix.x, datalowhalf, None, { idata => {
+    val directresult1 = loop(d2mix, idata.in, stage1_target, None, { idata => {
        val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
        val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
 
@@ -194,6 +214,10 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
        val2
      } })
 
+     //scatter low half
+     //scatter high half
+
+
 
     val stage2mix: Mix = {
      val s2_gather: IMH = IMH(toOE(0), nhalf, toOE(1))
@@ -205,7 +229,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
    }
    })
   }
-  if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_CT" + stat.toSig()), Some("DFT_CT" + stat.toName()))(expose, stat.expdata))
+  if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_SR" + stat.toSig()), Some("DFT_SR" + stat.toName()))(expose, stat.expdata))
  }
 
 
@@ -290,7 +314,10 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
       binsearch2pow(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get)),
      DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn))
    } else {
-    mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn), DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn))
+    mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn),
+      mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(4)),
+        DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn),
+        DFT_SplitRadix(stat, inlinec(mix.getStat().getn()))(dyn)))
    }
   }
   if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toName()))(expose, stat.expdata))

@@ -137,7 +137,7 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
 
     val slider_basecase_default = new Slider() {
       min = 1
-      value = 1
+      value = 3
       max = 6
       majorTickSpacing = 1
       paintLabels = true
