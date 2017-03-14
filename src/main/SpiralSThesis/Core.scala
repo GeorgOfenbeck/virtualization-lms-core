@@ -67,6 +67,8 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
   val stageme: (Dyn => Data) = (dyn: Dyn) => {
    val mix = Mix(stat, dyn)
    loop(mix, mix.x, mix.y, None, { idata => {
+     val v0 = resolveH(mix.im.gather(), toOE(0), idata.i)
+     val v1 = resolveH(mix.im.gather(), toOE(1), idata.i)
     val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
     val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
     val (t1, t2): (DataEle, DataEle) = mix.im match {
@@ -112,7 +114,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      //L(n,2)
 
      val lowhalf_intarget: Data = {
-       if (idata.scalars) {
+       if (true) {
          mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
            ???
          }, fb => {
@@ -123,9 +125,30 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
        }
      }
 
-     val halfmix = mix.copy(n = mix.n/2, lb = mix.n/4)
+
+     val highhalf_intarget: Data = {
+       if (true) {
+         mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
+           ???
+         }, fb => {
+           ScalarVector(new Array[Exp[Double]](fb ))
+         })
+       } else {
+         mix.y.create(mix.n / 2)
+       }
+     }
+
+     val halfmix: Mix = {
+       val s2_gather: IMH = IMH(mix.im.gather().base,mix.im.gather().s0,mix.im.gather().s1)
+       val s2_scatter: IMH = IMH(toOE(0), toOE(1), toOE(2))
+       val nim = GT_IM(s2_gather, s2_scatter)
+       mix.copy(x = mix.x, y = lowhalf_intarget, n = toOE(2), lb = nquart, im = nim, tw = None)
+     }
+
+     //val halfmix = mix.copy(n = mix.n/2, lb = mix.n/4)
      //gather low half
      val lowhalf_input = {
+       val mix = halfmix
        loop(halfmix, mix.x, lowhalf_intarget, parx, { idata => {
          val nh = halfmix.n
          val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i) + nh)
@@ -151,7 +174,8 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      //gather high half
 
      val highhalf_input = {
-       loop(halfmix, mix.x, lowhalf_intarget, parx, { idata => {
+       val mix = halfmix
+       loop(halfmix, mix.x, highhalf_intarget, parx, { idata => {
          val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
          val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
          val (t1, t2): (DataEle, DataEle) = mix.im match {
@@ -175,7 +199,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
 
 
      val stage1_target: Data = {
-       if (idata.scalars) {
+       if (true) {
          mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
            ???
          }, fb => {
@@ -185,7 +209,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
          mix.y.create(mix.n)
        }
      }
-
+/*
      val lowhalf_target: Data = {
        if (idata.scalars) {
          mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
@@ -199,11 +223,12 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      }
 
     // I(2) tensor dft(n/4) compose L(n/2,2)
+     //ignore the L for now
     val stage1lowmix: Mix = {
-     val (s0, s1) = (nhalf, toOE(1))
+     val (s0, s1) = (toOE(2), toOE(1))
      val inner = IMH(toOE(0), s0, s1)
      val s1_gather: IMH = inner//fuseIM(mix.im.gather(), inner, idata.i)
-     val s1_scatter: IMH = IMH(toOE(0), toOE(1), toOE(2))
+     val s1_scatter: IMH = inner//IMH(toOE(0), toOE(1), toOE(2))
      val nim = GT_IM(s1_gather, s1_scatter)
 
      mix.copy(x = lowhalf_input, y = lowhalf_target, n = nquart, lb = toOE(2), im = nim, scalars = idata.scalars)
@@ -247,7 +272,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
 
 
 
-    val directresult1 = loop(d2mix, idata.in, stage1_target, None, { idata => {
+    val directresultlow = loop(d2mix, idata.in, stage1_target, None, { idata => {
        val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
        val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
 
@@ -267,28 +292,44 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
        val im = t.im(1)
        val ele = t1.create(unit(re),unit(im))
        val idx0 = resolveH(d2mix.im.scatter(), toOE(0), idata.i)
-       val val1 = idata.out.update(idx0, (t1 + t2)  * scale0)
+       val val1 = idata.out.update(idx0 + nhalf, (t1 + t2)  * scale0)
        val idx1 = resolveH(d2mix.im.scatter(), toOE(1), idata.i)
-       val val2 = val1.update(idx1, (t1 - t2) * ele * scale1)
+       val val2 = val1.update(idx1 + nhalf, (t1 - t2) * ele * scale1)
 
        val2
-     } })
-
-     //scatter low half
-     //just scatter
-
+     } })*/
      //scatter high half
 
      //perform dft(n/2)
 
 
+     val highhalfmix1: Mix = {
+       val s2_gather: IMH = IMH(toOE(0), toOE(1), toOE(0))
+       val s2_scatter: IMH = IMH(toOE(0), toOE(1), toOE(0)+nhalf)
+       val nim = GT_IM(s2_scatter, s2_gather)
+       mix.copy(x = highhalf_input, y = stage1_target, n = nhalf, lb = toOE(1), im = nim, tw = None, scalars = idata.scalars)
+     }
+     val directresultlow = DFT(highhalfmix1.getStat(), inlinechildren)(highhalfmix1.getDyn())
+
+
+     val highhalfmix: Mix = {
+       val s2_gather: IMH = IMH(toOE(0), toOE(1), toOE(0))
+       val s2_scatter: IMH = IMH(toOE(0), toOE(1), toOE(0))
+       val nim = GT_IM(s2_scatter, s2_gather)
+       mix.copy(x = directresultlow, y = stage1_target, n = nhalf, lb = toOE(1), im = nim, tw = None, scalars = idata.scalars)
+     }
+     val directresulthigh = DFT(highhalfmix.getStat(), inlinechildren)(highhalfmix.getDyn())
+
     val stage2mix: Mix = {
-     val s2_gather: IMH = IMH(toOE(0), nhalf, toOE(1))
+     val s2_gather: IMH = IMH(toOE(0), toOE(1), toOE(2))
      val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
      val nim = GT_IM(s2_scatter, s2_gather)
-     mix.copy(x = directresult, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
+      mix.copy(x = directresulthigh, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
+      //mix.copy(x = idata.in, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
     }
-    DFT(stage2mix.getStat(), inlinechildren)(stage2mix.getDyn())
+    val finalres = DFT(stage2mix.getStat(), inlinechildren)(stage2mix.getDyn())
+     finalres
+
    }
    })
   }
@@ -342,7 +383,8 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      val nim = if (inplace && !idata.scalars) GTI_IM(s2_scatter, s2_gather) else GTT_IM(s2_gather, s2_scatter, s2_gather)
      mix.copy(x = dataafterS1, y = idata.out, n = k, lb = if (inline) m else R2AInt(m.ev.toRep(m.a)), im = nim, tw = Some(twid), scalars = idata.scalars)
     }
-    DFT(stage2mix.getStat(), inlinechildren)(stage2mix.getDyn())
+    val finalres = DFT(stage2mix.getStat(), inlinechildren)(stage2mix.getDyn())
+     finalres
    }
    })
   }
