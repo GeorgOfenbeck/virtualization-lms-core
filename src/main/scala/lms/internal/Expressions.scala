@@ -74,7 +74,8 @@ trait Expressions extends TypeRepBase with Logging{
     r
   }
 
-  def fresh[T:TypeRep]: Exp[T] = Exp[T] { nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
+  def fresh[T:TypeRep]: Exp[T] = Exp[T] {
+    nVars += 1;  if (nVars%1000 == 0) printlog("nVars="+nVars);  nVars -1 }
   def fresh[T:TypeRep](pos: Vector[SourceContext]): Exp[T] = fresh[T].withPos(pos)
 
   def quotePos(e: Exp[_]): String = {
@@ -140,7 +141,8 @@ trait Expressions extends TypeRepBase with Logging{
  }
 
  protected implicit def toAtom[T:TypeRep](d: Def[T])(implicit pos: SourceContext): Exp[T] = {
-   findOrCreateDefinitionExp(d, Vector(pos))
+   val t = findOrCreateDefinitionExp(d, Vector(pos))
+   t
  }
 
 

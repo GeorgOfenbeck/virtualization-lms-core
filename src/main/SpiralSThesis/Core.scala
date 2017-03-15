@@ -67,8 +67,9 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
   val stageme: (Dyn => Data) = (dyn: Dyn) => {
    val mix = Mix(stat, dyn)
    loop(mix, mix.x, mix.y, None, { idata => {
-     val v0 = resolveH(mix.im.gather(), toOE(0), idata.i)
-     val v1 = resolveH(mix.im.gather(), toOE(1), idata.i)
+
+    val v0 = resolveH(mix.im.gather(), toOE(0), idata.i)
+    val v1 = resolveH(mix.im.gather(), toOE(1), idata.i)
     val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
     val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
     val (t1, t2): (DataEle, DataEle) = mix.im match {
@@ -209,7 +210,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
          mix.y.create(mix.n)
        }
      }
-/*
+
      val lowhalf_target: Data = {
        if (idata.scalars) {
          mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
@@ -225,7 +226,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
     // I(2) tensor dft(n/4) compose L(n/2,2)
      //ignore the L for now
     val stage1lowmix: Mix = {
-     val (s0, s1) = (toOE(2), toOE(1))
+     val (s0, s1) = (toOE(1), nquart)
      val inner = IMH(toOE(0), s0, s1)
      val s1_gather: IMH = inner//fuseIM(mix.im.gather(), inner, idata.i)
      val s1_scatter: IMH = inner//IMH(toOE(0), toOE(1), toOE(2))
@@ -273,6 +274,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
 
 
     val directresultlow = loop(d2mix, idata.in, stage1_target, None, { idata => {
+      val mix = d2mix
        val t01 = idata.in.apply(resolveH(mix.im.gather(), toOE(0), idata.i))
        val t02 = idata.in.apply(resolveH(mix.im.gather(), toOE(1), idata.i))
 
@@ -297,35 +299,36 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
        val val2 = val1.update(idx1 + nhalf, (t1 - t2) * ele * scale1)
 
        val2
-     } })*/
+     } })
      //scatter high half
 
      //perform dft(n/2)
 
-
+/*
      val highhalfmix1: Mix = {
        val s2_gather: IMH = IMH(toOE(0), toOE(1), toOE(0))
-       val s2_scatter: IMH = IMH(toOE(0), toOE(1), toOE(0)+nhalf)
-       val nim = GT_IM(s2_scatter, s2_gather)
-       mix.copy(x = highhalf_input, y = stage1_target, n = nhalf, lb = toOE(1), im = nim, tw = None, scalars = idata.scalars)
+       val s2_scatter: IMH = IMH(nhalf, toOE(1), toOE(0))
+       val nim = GT_IM(s2_gather,s2_scatter)
+       mix.copy(x = lowhalf_input, y = stage1_target, n = nhalf, lb = toOE(1), im = nim, tw = None, scalars = idata.scalars)
      }
-     val directresultlow = DFT(highhalfmix1.getStat(), inlinechildren)(highhalfmix1.getDyn())
+     val directresultlow = DFT(highhalfmix1.getStat(), inlinechildren)(highhalfmix1.getDyn())*/
 
 
      val highhalfmix: Mix = {
        val s2_gather: IMH = IMH(toOE(0), toOE(1), toOE(0))
        val s2_scatter: IMH = IMH(toOE(0), toOE(1), toOE(0))
-       val nim = GT_IM(s2_scatter, s2_gather)
-       mix.copy(x = directresultlow, y = stage1_target, n = nhalf, lb = toOE(1), im = nim, tw = None, scalars = idata.scalars)
+       val nim = GT_IM(s2_gather,s2_scatter)
+       mix.copy(x = highhalf_input, y = stage1_target, n = nhalf, lb = toOE(1), im = nim, tw = None, scalars = idata.scalars)
      }
      val directresulthigh = DFT(highhalfmix.getStat(), inlinechildren)(highhalfmix.getDyn())
 
     val stage2mix: Mix = {
      val s2_gather: IMH = IMH(toOE(0), toOE(1), toOE(2))
      val s2_scatter: IMH = fuseIM(mix.im.scatter(), s2_gather, idata.i)
-     val nim = GT_IM(s2_scatter, s2_gather)
-      mix.copy(x = directresulthigh, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
-      //mix.copy(x = idata.in, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
+     //val nim = GT_IM(s2_scatter, s2_gather)
+     val nim = GT_IM(s2_gather, s2_scatter)
+     mix.copy(x = directresulthigh, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
+     // mix.copy(x = idata.in, y = idata.out, n = toOE(2), lb = nhalf, im = nim, tw = None, scalars = idata.scalars)
     }
     val finalres = DFT(stage2mix.getStat(), inlinechildren)(stage2mix.getDyn())
      finalres

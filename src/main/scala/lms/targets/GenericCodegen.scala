@@ -85,6 +85,8 @@ trait GenericCodegen extends Emit[Vector[String]]{
 
 
   def quote(x: Exp[_]) : String = {
+    if (x == null)
+      assert(false, "how does that happen?")
     val tp: TP[_] = id2tp(x.id)
     quote(tp)
   }
