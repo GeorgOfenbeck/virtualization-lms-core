@@ -193,8 +193,13 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
            case _ => assert(false); 23
          }
          val m = 2
+         val k = nh
+         val n = nh * 2
 
          val newindex0 = i/m + nh  * (i%m)
+         val newindexcheck = (i / (n / k) + k * (i % (n / k)))
+         assert(newindex0 == newindexcheck)
+//        println(s"$i => ${(i / (n / k) + k * (i % (n / k)))}")
 
          val t = idata.in(newindex0)
          idata.out.update(i,t)
@@ -378,7 +383,9 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
        case _ => assert(false); 1
      }
      //T3L(n/2,2,k)
-     val diag  = MathUtilities.diagTensor(MathUtilities.dLin((sn/2)/2,2,0), MathUtilities.dLin(2,2,1))
+     val a = MathUtilities.dLin((sn/2)/2,1,0)
+     val b = MathUtilities.dLin(2,2,1)
+     val diag  = MathUtilities.diagTensor(a,b )
      val tx = E(sn)
      val clist_re = diag map ( ele => tx.re(ele.toInt))
      val clist_im = diag map ( ele => tx.im(ele.toInt))
@@ -456,6 +463,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
        val t = E(4)
        val re = t.re(1)
        val im = t.im(1)
+
        val ele = t1.create(unit(re),unit(im))
        val idx0 = resolveH(d2mix.im.scatter(), toOE(0), idata.i)
        val val1 = idata.out.update(idx0 + nhalf, (t1 + t2)  )

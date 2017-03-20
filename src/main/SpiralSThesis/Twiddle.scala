@@ -33,7 +33,7 @@ object Twiddle {
 
     for (i <- 0 until root_list_re.size) {
       val u = Complex(root_list_re(i), root_list_im(i))
-      //val idx = vrep(yi)
+      //val idx = vrep(yi)f
       val tx = x.apply(i)
       x.update(i, tx * u)
     }
