@@ -193,7 +193,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
            case _ => assert(false); 23
          }
          val m = 2
-
+          //double check the NH!
          val newindex0 = i/m + nh  * (i%m)
 
          val t = idata.in(newindex0)
@@ -350,6 +350,48 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      }
 
 
+     val lowhalf_permute: Data = {
+       if (true) {
+         mix.n.ev.fold[Int, ScalarVector](mix.n.a, fa => {
+           ???
+         }, fb => {
+           ScalarVector(new Array[Exp[Double]](fb ))
+         })
+       } else {
+         mix.y.create(mix.n / 2)
+       }
+     }
+
+
+     val lowshuffelmix: Mix = {
+       val (s0, s1) = (toOE(2), toOE(1))
+       val inner = IMH(toOE(0), s0, s1)
+       // val (s0, s1) = (toOE(1), nquart)
+       val s1_gather: IMH = inner//fuseIM(mix.im.gather(), inner, idata.i)
+       val s1_scatter: IMH = IMH(toOE(0), toOE(1), nquart)//inner//IMH(toOE(0), toOE(1), toOE(2))
+       val nim = GT_IM(s1_gather, s1_scatter)
+       mix.copy(x = lowhalf_input, y = lowhalf_permute, n = toOE(1), lb = nhalf, im = nim, scalars = idata.scalars)
+     }
+
+     val lowhalf_shuffled =
+       loop(lowshuffelmix, lowhalf_input, lowhalf_permute, parx, { idata => {
+         val i: Int = idata.i.a match {
+           case x:Int => x
+           case _ => assert(false); 23
+         }
+         val nh: Int = nquart.a match {
+           case x:Int => x
+           case _ => assert(false); 23
+         }
+         val m = 2
+
+         val newindex0 = i/m + nh  * (i%m)
+
+         val t = idata.in(newindex0)
+         idata.out.update(i,t)
+       }
+       })
+
 
 
 
@@ -357,14 +399,15 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
      // I(2) tensor dft(n/4) compose L(n/2,2)
      //ignore the L for now
     val stage1lowmix: Mix = {
+
     val (s0, s1) = (toOE(2), toOE(1))
     val inner = IMH(toOE(0), s0, s1)
     // val (s0, s1) = (toOE(1), nquart)
      val s1_gather: IMH = inner//fuseIM(mix.im.gather(), inner, idata.i)
-     val s1_scatter: IMH = IMH(toOE(0), toOE(1), nquart)//inner//IMH(toOE(0), toOE(1), toOE(2))
+     val s1_scatter: IMH = inner//IMH(toOE(0), toOE(1), nquart)//inner//IMH(toOE(0), toOE(1), toOE(2))
      val nim = GT_IM(s1_gather, s1_scatter)
 
-     mix.copy(x = lowhalf_input, y = lowhalf_target, n = nquart, lb = toOE(2), im = nim, scalars = idata.scalars)
+     mix.copy(x = lowhalf_shuffled, y = lowhalf_target, n = nquart, lb = toOE(2), im = nim, scalars = idata.scalars)
     }
 
 
