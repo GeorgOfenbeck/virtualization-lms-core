@@ -118,7 +118,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
 
 
    val inlinechildren = inlinec(mix.getStat().getn())
-   loop(mix, mix.x, mix.y, parx, { idata => {
+   val loopres = loop(mix, mix.x, mix.y, parx, { idata => {
 
 
      val intarget: Data = {
@@ -497,6 +497,7 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
 
    }
    })
+    loopres
   }
   if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT_SR" + stat.toSig()), Some("DFT_SR" + stat.toName()))(expose, stat.expdata))
  }
@@ -584,11 +585,17 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
       binsearch2pow(mix, mix.n.ev.toRep(mix.n.a), 2, basecase_size.get)),
      DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn))
    } else {
-    mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn),
-      mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(4)),
-        DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn),
-        //DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)))
-        DFT_SplitRadix(stat, inlinec(mix.getStat().getn()))(dyn)))
+    mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(2)), F2(stat, inlinec(mix.getStat().getn()))(dyn), {
+      val isbasecase = mix.n.ev.less(mix.n.a, mix.n.ev.const(basecase_size.get + 1))
+      mix.n.ev._if(isbasecase,
+        mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(4)),
+          DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn),
+          //DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)))
+          DFT_SplitRadix(stat, inlinec(mix.getStat().getn()))(dyn)),
+        DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)
+      )
+    }
+        )
    }
   }
   if (inline) MaybeSFunction(stageme) else MaybeSFunction(doGlobalLambda(stageme, Some("DFT" + stat.toSig()), Some("DFT" + stat.toName()))(expose, stat.expdata))

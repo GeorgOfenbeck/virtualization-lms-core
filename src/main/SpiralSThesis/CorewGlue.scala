@@ -159,8 +159,8 @@ class CorewGlue(testsize: Int, //2^n
 
     f
   }
-  //def codeexport(path: String = "C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala") = {
-  def codeexport(path: String = "F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala") = {
+  def codeexport(path: String = "C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala") = {
+    //def codeexport(path: String = "F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala") = {
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream(path))
     dumpCode(stream2)
     val ingt = iniGTSkeleton(false)
