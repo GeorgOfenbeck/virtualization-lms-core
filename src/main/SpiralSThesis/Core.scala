@@ -7,7 +7,7 @@ import scala.lms.targets.scalalike._
 
 class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, val thread: Boolean = false,
            val base_default: Int = 0, val twid_inline: Boolean = true, val twid_default_precomp: Boolean = true, val inplace: Boolean = false,
-           val inline: Boolean = true, val ignore_config: Boolean = true) extends Header {
+           val inline: Boolean = true, val ignore_config: Boolean = true, val psplitradix: Boolean = true) extends Header {
  self =>
  val emitGraph = new GraphVizCallGraph {
   override val IR: self.type = self
@@ -590,9 +590,16 @@ class Core(val radix_choice: Map[Int, Int], val interleaved: Boolean = false, va
       mix.n.ev._if(isbasecase,
         mix.n.ev._if(mix.n.ev.equiv(mix.n.a, mix.n.ev.const(4)),
           DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn),
-          //DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)))
-          DFT_SplitRadix(stat, inlinec(mix.getStat().getn()))(dyn)),
-        DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)
+          //
+          {
+            if (psplitradix) {
+              println("going for split")
+              DFT_SplitRadix(stat, inlinec(mix.getStat().getn()))(dyn)
+            }
+            else
+              DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)
+          })
+        , DFT_CT(stat, inlinec(mix.getStat().getn()))(dyn)
       )
     }
         )
