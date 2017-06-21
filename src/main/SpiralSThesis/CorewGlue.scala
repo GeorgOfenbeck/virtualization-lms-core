@@ -178,7 +178,7 @@ class CorewGlue(testsize: Int, //2^n
   }
 
 
-  def graphexport(path: String = "F:\\Phd\\git\\code\\SpiralSTarget\\", name: String = "Graph.dot") = {
+  def graphexport(path: String = "C:\\Phd\\git\\code\\SpiralSTarget\\", name: String = "Graph.dot") = {
     this.graphname = true
     val stream2 = new java.io.PrintWriter(new java.io.FileOutputStream(path + name))
     //dumpCode (stream2)

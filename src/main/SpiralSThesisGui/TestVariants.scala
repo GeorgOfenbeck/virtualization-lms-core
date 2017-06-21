@@ -64,7 +64,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           inplace = false,
           inputstride =  true
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "fulldyn.dot")
         //val f = dsl.compile()
         //val perf = f();
@@ -88,7 +88,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           inplace = false,
           inputstride =  true
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "generic_int.dot")
         //val f = dsl.compile()
         //val perf = f();
@@ -110,7 +110,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           validate = true,
           inplace = false
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "generic_int_statinstride.dot")
         //val f = dsl.compile()
         //val perf = f();
@@ -133,7 +133,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           validate = true,
           inplace = false
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "statsize_int_statinstride.dot")
         val f = dsl.compile()
         val perf = f();
@@ -157,7 +157,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           validate = true,
           inplace = false
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "statsize_codelet_int_statinstride.dot")
         val f = dsl.compile()
         val perf = f();
@@ -182,7 +182,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           inplace = false
           //pinline = false
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "basecase_statinstride.dot")
         val f = dsl.compile()
         val perf = f();
@@ -205,7 +205,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           inplace = false
           //pinline = false
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "basecase32_statinstride.dot")
         val f = dsl.compile()
         val perf = f();
@@ -228,7 +228,7 @@ object TestVariants  extends org.scalacheck.Properties("Random Testing"){
           inplace = false
           //pinline = false
         )
-        dsl.codeexport("F:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
+        dsl.codeexport("C:\\Phd\\git\\code\\SpiralSTarget\\src\\main\\Test.scala")
         dsl.graphexport(name = "basecase4_statinstride.dot")
         val f = dsl.compile()
         val perf = f();
