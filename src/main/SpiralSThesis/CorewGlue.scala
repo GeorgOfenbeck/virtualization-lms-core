@@ -18,8 +18,9 @@ class CorewGlue(testsize: Int, //2^n
                 inplace: Boolean = false,
                 pignore_config: Boolean = false,
                 inputstride: Boolean = false,
-                pinline: Boolean = true
-               ) extends Core( radix_choice, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, inline = pinline, pignore_config) {
+                pinline: Boolean = true,
+                splitradix: Boolean = true
+               ) extends Core( radix_choice, interleaved, thread, base_default, twid_inline, twid_default_precomp, inplace, inline = pinline, pignore_config, psplitradix = splitradix) {
 
 
 

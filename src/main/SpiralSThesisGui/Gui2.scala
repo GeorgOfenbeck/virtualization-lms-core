@@ -519,13 +519,13 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
             )
 
             var parsize = 0
-            for (size <- 5 until 20) {
+            for (size <- 3 until 20) {
               println(s"Size: $size")
               val fsize = Math.pow(2, size).toInt
               val pairs = Bla.DivisorPairs(fsize)
               var alwaysparnow = false
 
-              val trypar = if (size < 9) Vector(false) else if (alwaysparnow) Vector(true) else Vector(false,true)
+              val trypar = if (size < 10) Vector(false) else if (alwaysparnow) Vector(true) else Vector(false,true)
               def xms2gflops(d: Double): Double = {
                 val n = Math.pow(2, size)
                 val flops = 5 * n * (Math.log10(n) / Math.log10(2))
@@ -539,13 +539,13 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
                     val dsl = new CorewGlue(
                       testsize = size,
                       radix_choice = curradix.toMap.withDefaultValue(8),
-                      static_size = if (fsize < 512) None else Some(fsize),
+                      static_size = None,//if (fsize < 512) Some(fsize) else None, //None else Some(fsize),
                       interleaved = true,
                       thread = par, //threading
                       base_default = 32,
                       twid_inline = true,
                       twid_default_precomp = true,
-                      validate = true,
+                      validate = false,
                       inplace = false
                       //checkbox_default_config.selected
                     )
@@ -554,6 +554,80 @@ object GuiThesis extends EnumTree with scalax.chart.module.Charting {
 
 
                     if (par)
+                      series2.add(size, xms2gflops(perf))
+                    else
+                      series.add(size, xms2gflops(perf))
+                    println(s" time ${perf} performance ${xms2gflops(perf)} ${rchoice._1} $par")
+                    acc + (perf -> (rchoice._1, par))
+                  })
+                curradix(fsize) = perfs(perfs.keySet.min)._1
+
+                if (perfs(perfs.keySet.min)._2) {
+                  alwaysparnow = true
+                  if (alwaysparnow)parsize = fsize
+                }
+                println(s"selected radix ${curradix(fsize)}")
+                println(curradix)
+              }
+            }
+            println(s"parallelize at $parsize")
+          }
+        })
+        t.start()
+
+      })
+
+
+      contents += new Button(Action("CT vs split") {
+        val t = new Thread(new Runnable {
+          def run() {
+            val series: XYSeries = new XYSeries(s"Split Radix")
+            variantplot.dataset.addSeries(series)
+            val series2: XYSeries = new XYSeries(s"CT")
+            variantplot.dataset.addSeries(series2)
+            var curradix: scala.collection.mutable.Map[Int, Int] = scala.collection.mutable.Map(
+              4 -> 2
+              , 8 -> 4
+              , 16 -> 4
+            )
+
+            var parsize = 0
+            for (size <- 2 until 7) {
+              println(s"Size: $size")
+              val fsize = Math.pow(2, size).toInt
+              val pairs = Bla.DivisorPairs(fsize)
+              var alwaysparnow = false
+
+              val trypar = Vector(false,true)
+              def xms2gflops(d: Double): Double = {
+                val n = Math.pow(2, size)
+                val flops = 5 * n * (Math.log10(n) / Math.log10(2))
+                val y: Double = ((flops / (d)))
+                y
+              }
+              for (par <- trypar) {
+                val perfs = pairs.foldLeft(Map.empty[Double, (Int,Boolean)])(
+                  (acc, rchoice) => {
+                    curradix(fsize) = rchoice._1
+                    val dsl = new CorewGlue(
+                      testsize = size,
+                      radix_choice = curradix.toMap.withDefaultValue(8),
+                      static_size = Some(fsize),
+                      interleaved = true,
+                      thread = false, //threading
+                      base_default = 64,
+                      twid_inline = true,
+                      twid_default_precomp = true,
+                      validate = true,
+                      inplace = false,
+                      splitradix = par
+                      //checkbox_default_config.selected
+                    )
+                    val f = dsl.compile()
+                    val perf = f();
+
+
+                    if (!par)
                       series2.add(size, xms2gflops(perf))
                     else
                       series.add(size, xms2gflops(perf))
