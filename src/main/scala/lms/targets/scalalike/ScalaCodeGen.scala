@@ -392,6 +392,7 @@ trait EmitHeadNoTuples extends ScalaCodegen with TupleHelper{
         }).mkString("\n")
       } else {
         //"val " + quote(x.head) + " : " + remap(x.head.tag.mf) + " = helper\n"
+        if (x.isEmpty) "" else
         "val " + quote(x.head) + " : " + remap(x.head.tag) + " = helper\n"
       }
       val argtuple = tupledeclarehelper(x.map(a => remap(a.tag)),"")
